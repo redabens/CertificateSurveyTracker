@@ -48,8 +48,11 @@ const bcrypt = __importStar(require("bcryptjs"));
 let DatabaseService = class DatabaseService {
     db;
     onModuleInit() {
-        const dbPath = path.resolve(process.cwd(), 'vessels.db');
-        const isNew = !fs.existsSync(dbPath);
+        const isTest = process.env.NODE_ENV === 'test';
+        const dbPath = isTest
+            ? ':memory:'
+            : path.resolve(process.cwd(), 'vessels.db');
+        const isNew = isTest || !fs.existsSync(dbPath);
         this.db = new node_sqlite_1.DatabaseSync(dbPath);
         this.createTables();
         if (isNew || this.isEmptyUsers()) {

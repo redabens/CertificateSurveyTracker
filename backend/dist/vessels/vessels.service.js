@@ -95,7 +95,7 @@ let VesselsService = class VesselsService {
       INSERT INTO vessels (company_id, name, imo_number, flag, asset_type, owner, manager, gross_tonnage, deadweight_tonnage, port_of_registry, call_sign, status)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
-        const info = stmt.run(v.company_id || 2, v.name, v.imo_number, v.flag, v.asset_type, v.owner, v.manager, v.gross_tonnage || 0, v.deadweight_tonnage || 0, v.port_of_registry, v.call_sign, v.status || 'Normal');
+        const info = stmt.run(v.company_id ?? 2, v.name ?? null, v.imo_number ?? null, v.flag ?? null, v.asset_type ?? null, v.owner ?? null, v.manager ?? null, v.gross_tonnage ?? 0, v.deadweight_tonnage ?? 0, v.port_of_registry ?? null, v.call_sign ?? null, v.status ?? 'Normal');
         return info.lastInsertRowid;
     }
     updateStatus(id, status) {

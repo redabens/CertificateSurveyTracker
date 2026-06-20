@@ -53,7 +53,7 @@ export default function LoginPage() {
       <div className="login-card glass">
         <div className="login-brand">
           <span className="logo-icon">🚢</span>
-          <span className="logo-text">Babor<span>Tracker</span></span>
+          <span className="logo-text">CNAN<span>Certifs</span></span>
         </div>
         <h2>{t('login_title')}</h2>
         

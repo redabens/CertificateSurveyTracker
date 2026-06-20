@@ -70,10 +70,17 @@ export default function Dashboard() {
   const loadVessels = useCallback(async () => {
     try {
       const res = await apiFetch('/vessels');
+      if (!res.ok) {
+        throw new Error(`HTTP Error ${res.status}`);
+      }
       const data = await res.json();
-      setVessels(data);
-      if (data.length > 0 && !selectedVesselId) {
-        setSelectedVesselId(data[0].id);
+      if (Array.isArray(data)) {
+        setVessels(data);
+        if (data.length > 0 && !selectedVesselId) {
+          setSelectedVesselId(data[0].id);
+        }
+      } else {
+        console.error('Expected array, got:', data);
       }
     } catch (err) {
       console.error(err);
@@ -95,8 +102,14 @@ export default function Dashboard() {
         apiFetch(`/vessels/${id}/certificates`),
         apiFetch(`/vessels/${id}/actionable-items`)
       ]);
-      setCertificates(await resCerts.json());
-      setActionableItems(await resRecs.json());
+      if (resCerts.ok && resRecs.ok) {
+        const certs = await resCerts.json();
+        const recs = await resRecs.json();
+        if (Array.isArray(certs)) setCertificates(certs);
+        if (Array.isArray(recs)) setActionableItems(recs);
+      } else {
+        console.error('Error fetching vessel details', resCerts.status, resRecs.status);
+      }
     } catch (err) {
       console.error(err);
     }
@@ -112,7 +125,12 @@ export default function Dashboard() {
   const loadEmailLogs = useCallback(async () => {
     try {
       const res = await apiFetch('/email-logs');
-      setEmailLogs(await res.json());
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data)) setEmailLogs(data);
+      } else {
+        console.error('Error fetching email logs', res.status);
+      }
     } catch (err) {
       console.error(err);
     }
@@ -193,21 +211,25 @@ export default function Dashboard() {
     for (const v of vessels) {
       try {
         const res = await apiFetch(`/vessels/${v.id}/certificates`);
-        const certs = await res.json();
-        certs.forEach((c: any) => {
-          const isRed = c.alarm_status.includes('RED') || c.alarm_status.includes('OVERDUE');
-          const isYellow = c.alarm_status.includes('YELLOW');
-          const isGreen = c.alarm_status.includes('GREEN');
-          if (isRed || isYellow || isGreen) {
-            list.push({
-              vessel_name: v.name,
-              cert_name: c.name,
-              due_date: c.due_date || c.expiration_date || 'N/A',
-              alarm_status: c.alarm_status,
-              level: isRed ? 'red' : isYellow ? 'yellow' : 'green'
+        if (res.ok) {
+          const certs = await res.json();
+          if (Array.isArray(certs)) {
+            certs.forEach((c: any) => {
+              const isRed = c.alarm_status.includes('RED') || c.alarm_status.includes('OVERDUE');
+              const isYellow = c.alarm_status.includes('YELLOW');
+              const isGreen = c.alarm_status.includes('GREEN');
+              if (isRed || isYellow || isGreen) {
+                list.push({
+                  vessel_name: v.name,
+                  cert_name: c.name,
+                  due_date: c.due_date || c.expiration_date || 'N/A',
+                  alarm_status: c.alarm_status,
+                  level: isRed ? 'red' : isYellow ? 'yellow' : 'green'
+                });
+              }
             });
           }
-        });
+        }
       } catch (err) {
         console.error(err);
       }

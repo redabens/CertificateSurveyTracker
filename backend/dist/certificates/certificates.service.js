@@ -32,7 +32,7 @@ let CertificatesService = class CertificatesService {
       INSERT INTO certificates (vessel_id, name, category, organization, issuing_date, expiration_date, due_date, window, alarm_status, remarks)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
-        const info = stmt.run(c.vessel_id, c.name, c.category, c.organization, c.issuing_date, c.expiration_date, c.due_date, c.window, c.alarm_status || 'N/A', c.remarks);
+        const info = stmt.run(c.vessel_id ?? null, c.name ?? null, c.category ?? null, c.organization ?? null, c.issuing_date ?? null, c.expiration_date ?? null, c.due_date ?? null, c.window ?? null, c.alarm_status ?? 'N/A', c.remarks ?? null);
         return info.lastInsertRowid;
     }
     update(id, c) {
@@ -42,7 +42,7 @@ let CertificatesService = class CertificatesService {
       SET organization = ?, issuing_date = ?, expiration_date = ?, due_date = ?, window = ?, alarm_status = ?, remarks = ?
       WHERE id = ?
     `)
-            .run(c.organization, c.issuing_date, c.expiration_date, c.due_date, c.window, c.alarm_status || 'N/A', c.remarks, id);
+            .run(c.organization ?? null, c.issuing_date ?? null, c.expiration_date ?? null, c.due_date ?? null, c.window ?? null, c.alarm_status ?? 'N/A', c.remarks ?? null, id);
     }
     updatePdfUrl(id, pdfUrl) {
         this.db

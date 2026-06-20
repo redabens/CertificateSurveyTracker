@@ -32,8 +32,9 @@ let JwtAuthGuard = class JwtAuthGuard {
             request.user = decoded;
             return true;
         }
-        catch {
-            throw new common_1.UnauthorizedException('Session expirée. Veuillez vous reconnecter.');
+        catch (err) {
+            const errMsg = err instanceof Error ? err.message : String(err);
+            throw new common_1.UnauthorizedException(`Session expirée. Veuillez vous reconnecter. Détails: ${errMsg}`);
         }
     }
 };

@@ -82,7 +82,7 @@ let EmailService = EmailService_1 = class EmailService {
             this.logger.warn(`No notification emails set for vessel: ${vessel.name}. Alert skipped.`);
             return;
         }
-        const subject = `[BABOR TRACKER ALERT] ${vessel.name} - Certificate Status Shift to ${alarmLevel}`;
+        const subject = `[ALERTE PORTAIL CERTIFICATS CNAN NORD] ${vessel.name} - Changement de statut: ${alarmLevel}`;
         const textContent = `
       Vessel: ${vessel.name}
       IMO: ${vessel.imo_number}
@@ -95,12 +95,12 @@ let EmailService = EmailService_1 = class EmailService {
       Survey due date: ${cert.due_date || 'N/A'}
       Remarks: ${cert.remarks || 'None'}
 
-      Please check the Babor Tracker platform for details.
+      Veuillez vérifier les détails sur le Portail Certificats CNAN NORD.
     `;
         const htmlContent = `
       <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; color: #1a202c;">
         <div style="background-color: #1a202c; color: #ffffff; padding: 20px; text-align: center;">
-          <h2 style="margin: 0; font-size: 20px;">🚢 Babor Tracker - Alerte Maritime</h2>
+          <h2 style="margin: 0; font-size: 20px;">🚢 Portail Certificats CNAN NORD - Alerte Maritime</h2>
         </div>
         <div style="padding: 24px; line-height: 1.6;">
           <h3 style="color: #dd6b20; margin-top: 0;">Changement de Statut d'Alerte détecté</h3>
@@ -129,7 +129,7 @@ let EmailService = EmailService_1 = class EmailService {
             try {
                 await this.transporter.sendMail({
                     from: process.env.SMTP_FROM ||
-                        '"Babor Tracker Alerts" <alerts@babor.com>',
+                        '"Portail Certificats CNAN NORD" <alerts@cnan-nord.com>',
                     to: emailList,
                     subject,
                     text: textContent,
@@ -191,7 +191,7 @@ let EmailService = EmailService_1 = class EmailService {
             const emails = [settings.email1, settings.email2, settings.email3].filter(Boolean);
             const certs = this.db
                 .prepare('SELECT * FROM certificates WHERE vessel_id = ?')
-                .all();
+                .all(vessel.id);
             for (const cert of certs) {
                 const prevAlarm = cert.alarm_status;
                 const newAlarm = this.calculateAlarmStatus(cert.due_date, cert.expiration_date);
