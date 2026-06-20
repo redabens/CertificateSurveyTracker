@@ -3,45 +3,45 @@
    ========================================================================== */
 
 :root {
-  /* Harmonious Color Palette */
-  --bg-primary: #0a0c10;
-  --bg-secondary: #121620;
-  --bg-card: rgba(20, 24, 35, 0.65);
+  /* CNANCertifs studied startup color palette */
+  --bg-primary: #030712;
+  --bg-secondary: #0b0f19;
+  --bg-card: rgba(17, 24, 39, 0.7);
   --border-color: rgba(255, 255, 255, 0.08);
   
   --text-primary: #f8fafc;
   --text-secondary: #94a3b8;
   --text-muted: #64748b;
   
-  --primary-color: #3b82f6;
-  --primary-gradient: linear-gradient(135deg, #3b82f6, #1d4ed8);
-  --success-gradient: linear-gradient(135deg, #10b981, #047857);
-  --warning-gradient: linear-gradient(135deg, #f59e0b, #b45309);
-  --danger-gradient: linear-gradient(135deg, #ef4444, #b91c1c);
+  --primary-color: #0ea5e9;
+  --primary-gradient: linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%);
+  --success-gradient: linear-gradient(135deg, #10b981, #059669);
+  --warning-gradient: linear-gradient(135deg, #f59e0b, #d97706);
+  --danger-gradient: linear-gradient(135deg, #f43f5e, #be123c);
   
   /* Status Colors */
-  --status-red: #ef4444;
-  --status-red-bg: rgba(239, 68, 68, 0.15);
-  --status-red-text: #f87171;
+  --status-red: #f43f5e;
+  --status-red-bg: rgba(244, 63, 94, 0.12);
+  --status-red-text: #fda4af;
   
   --status-yellow: #f59e0b;
-  --status-yellow-bg: rgba(245, 158, 11, 0.15);
-  --status-yellow-text: #fbbf24;
+  --status-yellow-bg: rgba(245, 158, 11, 0.12);
+  --status-yellow-text: #fde047;
   
   --status-green: #10b981;
-  --status-green-bg: rgba(16, 185, 129, 0.15);
-  --status-green-text: #34d399;
+  --status-green-bg: rgba(16, 185, 129, 0.12);
+  --status-green-text: #6ee7b7;
   
-  --status-normal: #64748b;
-  --status-normal-bg: rgba(100, 116, 139, 0.12);
-  --status-normal-text: #cbd5e1;
+  --status-normal: #0ea5e9;
+  --status-normal-bg: rgba(14, 165, 233, 0.12);
+  --status-normal-text: #7dd3fc;
 
   --sidebar-width: 260px;
   --header-height: 80px;
   
-  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.2);
-  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.3);
-  --shadow-lg: 0 12px 24px rgba(0, 0, 0, 0.4);
+  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.5);
   
   --transition-fast: 0.2s ease;
   --transition-normal: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -52,23 +52,41 @@
 
 /* Light Mode Variables Override */
 body.light-mode {
-  --bg-primary: #f1f5f9;
+  --bg-primary: #f8fafc;
   --bg-secondary: #ffffff;
-  --bg-card: rgba(255, 255, 255, 0.8);
+  --bg-card: rgba(255, 255, 255, 0.85);
   --border-color: rgba(0, 0, 0, 0.08);
   --text-primary: #0f172a;
   --text-secondary: #475569;
-  --text-muted: #94a3b8;
-  --status-red-bg: rgba(239, 68, 68, 0.1);
-  --status-red-text: #dc2626;
-  --status-yellow-bg: rgba(217, 119, 6, 0.1);
-  --status-yellow-text: #b45309;
-  --status-green-bg: rgba(22, 163, 74, 0.1);
-  --status-green-text: #15803d;
-  --status-normal-bg: rgba(71, 85, 105, 0.1);
-  --status-normal-text: #334155;
-  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.05);
-  --shadow-lg: 0 12px 24px rgba(0, 0, 0, 0.08);
+  --text-muted: #64748b;
+  --primary-color: #0284c7;
+  --primary-gradient: linear-gradient(135deg, #0284c7 0%, #1e40af 100%);
+  --status-red-bg: rgba(244, 63, 94, 0.1);
+  --status-red-text: #e11d48;
+  --status-yellow-bg: rgba(245, 158, 11, 0.1);
+  --status-yellow-text: #d97706;
+  --status-green-bg: rgba(16, 185, 129, 0.1);
+  --status-green-text: #059669;
+  --status-normal-bg: rgba(14, 165, 233, 0.1);
+  --status-normal-text: #0369a1;
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.04);
+  --shadow-lg: 0 12px 24px rgba(0, 0, 0, 0.06);
+}
+
+/* Reusable SVG Icon utilities */
+.icon-svg {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  vertical-align: middle;
+}
+.nav-item .icon-svg {
+  color: var(--text-secondary);
+  transition: color var(--transition-fast);
+}
+.nav-item:hover .icon-svg, .nav-item.active .icon-svg {
+  color: var(--primary-color);
 }
 
 /* Reset & Base Styles */

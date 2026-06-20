@@ -59,7 +59,7 @@
   "rec_col_status": "Statut",
   "logs_title": "Historique des Emails & Alertes Envoyés",
   "logs_desc": "Ce journal répertorie tous les e-mails envoyés aux gestionnaires de navires dès que les dates de validité atteignent les seuils Vert, Jaune ou Rouge.",
-  "btn_trigger_check": "⚡ Déclencher Test Alarme E-mail",
+  "btn_trigger_check": "Déclencher Test Alarme E-mail",
   "log_col_vessel": "Navire",
   "log_col_cert": "Certificat / Équipement",
   "log_col_level": "Niveau Alerte",

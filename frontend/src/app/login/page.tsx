@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { useRouter } from 'next/navigation';
+import { LogoIcon } from '../../components/Icons';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -52,7 +53,9 @@ export default function LoginPage() {
     <div className="login-page">
       <div className="login-card glass">
         <div className="login-brand">
-          <span className="logo-icon">🚢</span>
+          <span className="logo-icon icon-svg">
+            <LogoIcon size={36} />
+          </span>
           <span className="logo-text">CNAN<span>Certifs</span></span>
         </div>
         <h2>{t('login_title')}</h2>

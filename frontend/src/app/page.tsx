@@ -5,6 +5,23 @@ import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { useRouter } from 'next/navigation';
 import { Chart } from 'chart.js/auto';
+import {
+  LogoIcon,
+  ShipIcon,
+  DashboardIcon,
+  FleetIcon,
+  TvIcon,
+  LogsIcon,
+  UserIcon,
+  LogoutIcon,
+  ImportIcon,
+  AlertIcon,
+  WarningIcon,
+  CheckIcon,
+  AttachmentIcon,
+  TrashIcon,
+  CloseIcon
+} from '../components/Icons';
 
 type ToastMsg = { id: number; text: string; type: 'success' | 'error' | 'info' };
 
@@ -617,7 +634,9 @@ export default function Dashboard() {
         <div id="view-tv-mode" className="tv-dashboard">
           <div className="tv-header">
             <div className="tv-brand">
-              <span className="tv-logo-icon">🚢</span>
+              <span className="tv-logo-icon icon-svg">
+                <LogoIcon size={32} />
+              </span>
               <span className="tv-logo-text">Portail<span>Certificats</span> <small>CNAN NORD</small></span>
             </div>
             <div className="tv-time-container">
@@ -701,33 +720,37 @@ export default function Dashboard() {
           {/* SIDEBAR */}
           <aside className="sidebar">
             <div className="brand">
-              <span className="logo-icon">🚢</span>
+              <span className="logo-icon icon-svg">
+                <LogoIcon size={32} />
+              </span>
               <span className="logo-text">CNAN<span>Certifs</span></span>
             </div>
             <nav className="nav-menu">
               <a href="#dashboard" className={`nav-item ${activeView === 'dashboard' ? 'active' : ''}`} onClick={() => setActiveView('dashboard')}>
-                <span className="icon">📊</span> <span>{t('nav_dashboard')}</span>
+                <span className="icon-svg"><DashboardIcon /></span> <span>{t('nav_dashboard')}</span>
               </a>
               <a href="#fleet" className={`nav-item ${activeView === 'fleet' ? 'active' : ''}`} onClick={() => setActiveView('fleet')}>
-                <span className="icon">⚓</span> <span>{t('nav_fleet')}</span>
+                <span className="icon-svg"><FleetIcon /></span> <span>{t('nav_fleet')}</span>
               </a>
               <a href="#tv-mode" className="nav-item" onClick={(e) => { e.preventDefault(); enterTvMode(); }}>
-                <span className="icon">📺</span> <span>{t('nav_tv_mode')}</span>
+                <span className="icon-svg"><TvIcon /></span> <span>{t('nav_tv_mode')}</span>
               </a>
               <a href="#logs" className={`nav-item ${activeView === 'logs' ? 'active' : ''}`} onClick={() => setActiveView('logs')}>
-                <span className="icon">✉️</span> <span>{t('nav_logs')}</span>
+                <span className="icon-svg"><LogsIcon /></span> <span>{t('nav_logs')}</span>
               </a>
             </nav>
             <div className="sidebar-footer">
               <div className="user-profile">
-                <div className="avatar">👨‍✈️</div>
+                <div className="avatar icon-svg" style={{ background: 'var(--primary-gradient)', borderRadius: '50%', width: 40, height: 40, color: 'white' }}>
+                  <UserIcon size={20} />
+                </div>
                 <div className="profile-info">
                   <div className="profile-name">{user.full_name}</div>
                   <div className="profile-role" id="currentUserRoleBadge">
                     {user.role === 'Admin' ? 'Administrateur' : user.role === 'Crew' ? 'Équipage (Capitaine)' : user.role === 'Partner' ? 'Partenaire B2B' : 'Auditeur Externe'}
                   </div>
                 </div>
-                <button className="btn-logout" onClick={logout} title="Déconnexion">🚪</button>
+                <button className="btn-logout icon-svg" onClick={logout} title="Déconnexion"><LogoutIcon size={18} /></button>
               </div>
             </div>
           </aside>
@@ -746,7 +769,7 @@ export default function Dashboard() {
                 </div>
                 {user.role === 'Admin' && (
                   <button className="btn btn-primary" onClick={() => setShowImportModal(true)}>
-                    <span className="icon">📥</span> <span>{t('btn_import_excel')}</span>
+                    <span className="icon-svg"><ImportIcon /></span> <span>{t('btn_import_excel')}</span>
                   </button>
                 )}
               </div>
@@ -759,28 +782,28 @@ export default function Dashboard() {
               <section className="app-view active">
                 <div className="stats-grid">
                   <div className="stat-card stat-total">
-                    <div className="stat-icon">🚢</div>
+                    <div className="stat-icon icon-svg" style={{ color: 'var(--primary-color)' }}><ShipIcon size={24} /></div>
                     <div className="stat-details">
                       <h3>{t('widget_active_vessels')}</h3>
                       <div className="stat-number">{vessels.length}</div>
                     </div>
                   </div>
                   <div className="stat-card stat-red">
-                    <div className="stat-icon">🚨</div>
+                    <div className="stat-icon icon-svg" style={{ color: 'var(--status-red)' }}><AlertIcon size={24} /></div>
                     <div className="stat-details">
                       <h3>{t('widget_urgent')}</h3>
                       <div className="stat-number">{vessels.reduce((acc, curr) => acc + curr.counts.red, 0)}</div>
                     </div>
                   </div>
                   <div className="stat-card stat-yellow">
-                    <div className="stat-icon">⚠️</div>
+                    <div className="stat-icon icon-svg" style={{ color: 'var(--status-yellow)' }}><WarningIcon size={24} /></div>
                     <div className="stat-details">
                       <h3>{t('widget_attention')}</h3>
                       <div className="stat-number">{vessels.reduce((acc, curr) => acc + curr.counts.yellow, 0)}</div>
                     </div>
                   </div>
                   <div className="stat-card stat-green">
-                    <div className="stat-icon">✅</div>
+                    <div className="stat-icon icon-svg" style={{ color: 'var(--status-green)' }}><CheckIcon size={24} /></div>
                     <div className="stat-details">
                       <h3>{t('widget_monitored')}</h3>
                       <div className="stat-number">{vessels.reduce((acc, curr) => acc + curr.counts.green, 0)}</div>
@@ -888,7 +911,9 @@ export default function Dashboard() {
                   <div className="fleet-detail-area">
                     {!selectedVessel ? (
                       <div className="empty-state">
-                        <span className="empty-icon">⚓</span>
+                        <span className="empty-icon icon-svg" style={{ opacity: 0.4, color: 'var(--text-muted)' }}>
+                          <FleetIcon size={64} />
+                        </span>
                         <h3>{t('empty_selection')}</h3>
                         <p>{t('empty_selection_desc')}</p>
                       </div>
@@ -1018,7 +1043,9 @@ export default function Dashboard() {
                                             <td>
                                               <strong>{c.name}</strong>
                                               {c.pdf_url && (
-                                                <span className="pdf-icon-btn" onClick={() => openPdfViewer(c.pdf_url, c.name)} title={lang === 'fr' ? 'Voir le PDF' : 'View PDF'} style={{ marginLeft: 6 }}>📎</span>
+                                                <span className="pdf-icon-btn icon-svg" onClick={() => openPdfViewer(c.pdf_url, c.name)} title={lang === 'fr' ? 'Voir le PDF' : 'View PDF'} style={{ marginLeft: 6, display: 'inline-flex', verticalAlign: 'middle' }}>
+                                                  <AttachmentIcon size={14} />
+                                                </span>
                                               )}
                                             </td>
                                             <td>
@@ -1046,7 +1073,9 @@ export default function Dashboard() {
                                               ) : (
                                                 <div style={{ display: 'flex', gap: 4 }}>
                                                   <button className="btn btn-sm btn-outline" onClick={() => handleEditCertOpen(c)}>{lang === 'fr' ? 'Modifier' : 'Edit'}</button>
-                                                  <button className="btn btn-sm btn-danger" onClick={() => handleDeleteCert(c.id)} style={{ padding: '6px 10px' }}>✖</button>
+                                                  <button className="btn btn-sm btn-danger icon-svg" onClick={() => handleDeleteCert(c.id)} style={{ padding: '6px 10px' }} title={lang === 'fr' ? 'Supprimer' : 'Delete'}>
+                                                    <TrashIcon size={14} />
+                                                  </button>
                                                 </div>
                                               )}
                                             </td>
@@ -1203,7 +1232,7 @@ export default function Dashboard() {
           <div className="modal-content glass">
             <div className="modal-header">
               <h2>{t('btn_import_excel')}</h2>
-              <span className="close-btn" onClick={() => setShowImportModal(false)}>&times;</span>
+              <span className="close-btn icon-svg" onClick={() => setShowImportModal(false)}><CloseIcon size={18} /></span>
             </div>
             <form onSubmit={handleImportExcel}>
               <div className="form-group">
@@ -1229,7 +1258,7 @@ export default function Dashboard() {
           <div className="modal-content glass">
             <div className="modal-header">
               <h2>{t('btn_manual_vessel')}</h2>
-              <span className="close-btn" onClick={() => setShowAddVesselModal(false)}>&times;</span>
+              <span className="close-btn icon-svg" onClick={() => setShowAddVesselModal(false)}><CloseIcon size={18} /></span>
             </div>
             <form onSubmit={handleCreateVessel}>
               <div className="form-grid">
@@ -1273,7 +1302,7 @@ export default function Dashboard() {
           <div className="modal-content glass">
             <div className="modal-header">
               <h2>{certForm.id ? t('table_col_actions') : t('btn_add_cert')}</h2>
-              <span className="close-btn" onClick={() => setShowEditCertModal(false)}>&times;</span>
+              <span className="close-btn icon-svg" onClick={() => setShowEditCertModal(false)}><CloseIcon size={18} /></span>
             </div>
             <form onSubmit={handleEditCertSubmit}>
               <div className="form-group">
@@ -1349,7 +1378,7 @@ export default function Dashboard() {
           <div className="modal-content glass">
             <div className="modal-header">
               <h2>{t('btn_add_rec')}</h2>
-              <span className="close-btn" onClick={() => setShowAddActionableModal(false)}>&times;</span>
+              <span className="close-btn icon-svg" onClick={() => setShowAddActionableModal(false)}><CloseIcon size={18} /></span>
             </div>
             <form onSubmit={handleActionableSubmit}>
               <div className="form-grid">
@@ -1389,7 +1418,7 @@ export default function Dashboard() {
           <div className="modal-content glass">
             <div className="modal-header">
               <h2>{t('btn_email_settings')}</h2>
-              <span className="close-btn" onClick={() => setShowSettingsModal(false)}>&times;</span>
+              <span className="close-btn icon-svg" onClick={() => setShowSettingsModal(false)}><CloseIcon size={18} /></span>
             </div>
             <form onSubmit={handleEmailSettingsSubmit}>
               <div className="form-group">
@@ -1419,7 +1448,7 @@ export default function Dashboard() {
           <div className="modal-content glass" style={{ maxWidth: 850 }}>
             <div className="modal-header">
               <h2>{t('pdf_viewer_title')} - {pdfViewerName}</h2>
-              <span className="close-btn" onClick={() => { setShowPdfModal(false); setPdfViewerUrl(''); }}>&times;</span>
+              <span className="close-btn icon-svg" onClick={() => { setShowPdfModal(false); setPdfViewerUrl(''); }}><CloseIcon size={18} /></span>
             </div>
             <div className="pdf-container">
               <iframe src={pdfViewerUrl} width="100%" height="600px" style={{ border: 'none', borderRadius: 'var(--border-radius-md)', background: '#121620' }}></iframe>
@@ -1432,7 +1461,9 @@ export default function Dashboard() {
       <div className="toast-container">
         {toasts.map(t => (
           <div className={`toast toast-${t.type}`} key={t.id}>
-            <span>{t.type === 'success' ? '✓' : t.type === 'error' ? '⚠' : 'ℹ'}</span>
+            <span className="icon-svg">
+              {t.type === 'success' ? <CheckIcon size={16} /> : t.type === 'error' ? <AlertIcon size={16} /> : <WarningIcon size={16} />}
+            </span>
             <div>{t.text}</div>
           </div>
         ))}

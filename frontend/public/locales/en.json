@@ -59,7 +59,7 @@
   "rec_col_status": "Status",
   "logs_title": "Emails & Alerts Dispatch Log",
   "logs_desc": "This log monitors all emails dispatched to vessel managers once validity thresholds enter Green, Yellow, or Red windows.",
-  "btn_trigger_check": "⚡ Trigger Email Alert Check",
+  "btn_trigger_check": "Trigger Email Alert Check",
   "log_col_vessel": "Vessel",
   "log_col_cert": "Certificate / Equipment",
   "log_col_level": "Alert Level",
