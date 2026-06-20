@@ -89,7 +89,7 @@ export default function Dashboard() {
     }
   }, [token, loadVessels, router]);
 
-  const loadVesselDetails = async (id: number) => {
+  const loadVesselDetails = useCallback(async (id: number) => {
     try {
       const [resCerts, resRecs] = await Promise.all([
         apiFetch(`/vessels/${id}/certificates`),
@@ -100,30 +100,29 @@ export default function Dashboard() {
     } catch (err) {
       console.error(err);
     }
-  };
+  }, [apiFetch]);
 
   // Load Vessel Related details
   useEffect(() => {
     if (selectedVesselId) {
       void loadVesselDetails(selectedVesselId);
     }
-  }, [selectedVesselId]);
+  }, [selectedVesselId, loadVesselDetails]);
 
-  // Load logs
-  const loadEmailLogs = async () => {
+  const loadEmailLogs = useCallback(async () => {
     try {
       const res = await apiFetch('/email-logs');
       setEmailLogs(await res.json());
     } catch (err) {
       console.error(err);
     }
-  };
+  }, [apiFetch]);
 
   useEffect(() => {
     if (activeView === 'logs') {
-      loadEmailLogs();
+      void loadEmailLogs();
     }
-  }, [activeView]);
+  }, [activeView, loadEmailLogs]);
 
   // Update Doughnut Chart
   useEffect(() => {
@@ -189,7 +188,7 @@ export default function Dashboard() {
     };
   }, [vessels, activeView, lang]);
 
-  const loadTvCerts = async () => {
+  const loadTvCerts = useCallback(async () => {
     const list: any[] = [];
     for (const v of vessels) {
       try {
@@ -218,7 +217,7 @@ export default function Dashboard() {
       return ord[a.level] - ord[b.level];
     });
     setTvCerts(list);
-  };
+  }, [apiFetch, vessels]);
 
   // TV mode clocks
   useEffect(() => {
@@ -244,7 +243,7 @@ export default function Dashboard() {
         clearInterval(tvFetchInterval);
       };
     }
-  }, [tvMode, vessels, lang]);
+  }, [tvMode, vessels, lang, loadTvCerts]);
 
   // Operations
   const handleImportExcel = async (e: React.FormEvent) => {
