@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { useRouter } from 'next/navigation';
@@ -67,7 +67,7 @@ export default function Dashboard() {
   const chartInstance = useRef<any>(null);
 
   // Load Vessels
-  const loadVessels = async () => {
+  const loadVessels = useCallback(async () => {
     try {
       const res = await apiFetch('/vessels');
       const data = await res.json();
@@ -78,7 +78,7 @@ export default function Dashboard() {
     } catch (err) {
       console.error(err);
     }
-  };
+  }, [apiFetch, selectedVesselId]);
 
   // Check Session
   useEffect(() => {
@@ -87,7 +87,7 @@ export default function Dashboard() {
     } else {
       void loadVessels();
     }
-  }, [token]);
+  }, [token, loadVessels, router]);
 
   const loadVesselDetails = async (id: number) => {
     try {
