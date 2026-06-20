@@ -266,7 +266,7 @@ export default function Dashboard() {
       } else {
         showToast(data.error || 'Erreur d\'importation', 'error');
       }
-    } catch (err) {
+    } catch {
       showToast('Erreur serveur lors de l\'import', 'error');
     }
   };
@@ -288,7 +288,7 @@ export default function Dashboard() {
       } else {
         showToast(data.error, 'error');
       }
-    } catch (err) {
+    } catch {
       showToast('Erreur serveur', 'error');
     }
   };
@@ -306,7 +306,7 @@ export default function Dashboard() {
         setSelectedVesselId(null);
         await loadVessels();
       }
-    } catch (err) {
+    } catch {
       showToast('Erreur serveur', 'error');
     }
   };
@@ -392,7 +392,7 @@ export default function Dashboard() {
       } else {
         showToast(data.error, 'error');
       }
-    } catch (err) {
+    } catch {
       showToast('Erreur serveur', 'error');
     }
   };
@@ -406,7 +406,7 @@ export default function Dashboard() {
         if (selectedVesselId) loadVesselDetails(selectedVesselId);
         loadVessels();
       }
-    } catch (err) {
+    } catch {
       showToast('Erreur', 'error');
     }
   };
@@ -424,7 +424,7 @@ export default function Dashboard() {
         setActionableForm({ imposed_date: '', category: '', report_number: '', due_date: '', description: '' });
         if (selectedVesselId) loadVesselDetails(selectedVesselId);
       }
-    } catch (err) {
+    } catch {
       showToast('Erreur', 'error');
     }
   };
@@ -440,7 +440,7 @@ export default function Dashboard() {
         showToast(lang === 'fr' ? 'Statut mis à jour' : 'Status updated', 'success');
         if (selectedVesselId) loadVesselDetails(selectedVesselId);
       }
-    } catch (err) {
+    } catch {
       showToast('Erreur', 'error');
     }
   };
@@ -456,7 +456,7 @@ export default function Dashboard() {
         email3: data.email3 || ''
       });
       setShowSettingsModal(true);
-    } catch (err) {
+    } catch {
       showToast('Erreur de chargement des paramètres', 'error');
     }
   };
@@ -476,7 +476,7 @@ export default function Dashboard() {
         showToast(lang === 'fr' ? 'Paramètres e-mail enregistrés' : 'Email parameters saved', 'success');
         setShowSettingsModal(false);
       }
-    } catch (err) {
+    } catch {
       showToast('Erreur', 'error');
     }
   };
@@ -492,7 +492,7 @@ export default function Dashboard() {
         showToast(msg, 'success');
         loadEmailLogs();
       }
-    } catch (err) {
+    } catch {
       showToast('Erreur', 'error');
     }
   };
