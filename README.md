@@ -1,6 +1,6 @@
-# Babor Tracker - Platforme de Suivi des Certificats Maritimes (Decoupled Stack)
+# Portail Certificats CNAN NORD - Plateforme de Suivi des Certificats Maritimes (Decoupled Stack)
 
-**Babor Tracker** est une plateforme web moderne et performante de gestion de conformité réglementaire pour une flotte de navires de commerce. Le projet est entièrement restructuré en architecture découplée de production :
+**Portail Certificats CNAN NORD** est une plateforme web moderne et performante de gestion de conformité réglementaire pour une flotte de navires de commerce. Le projet est entièrement restructuré en architecture découplée de production :
 *   **Frontend** : Client Single Page réactif développé avec **Next.js** (React, TypeScript, Vanilla CSS).
 *   **Backend** : API REST robuste développée avec **NestJS** (TypeScript, node:sqlite).
 

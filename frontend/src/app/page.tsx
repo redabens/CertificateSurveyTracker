@@ -596,7 +596,7 @@ export default function Dashboard() {
           <div className="tv-header">
             <div className="tv-brand">
               <span className="tv-logo-icon">🚢</span>
-              <span className="tv-logo-text">Babor<span>Tracker</span> <small>OFFICE DASHBOARD</small></span>
+              <span className="tv-logo-text">Portail<span>Certificats</span> <small>CNAN NORD</small></span>
             </div>
             <div className="tv-time-container">
               <span id="tv-current-time">{tvTime}</span>
@@ -680,7 +680,7 @@ export default function Dashboard() {
           <aside className="sidebar">
             <div className="brand">
               <span className="logo-icon">🚢</span>
-              <span className="logo-text">Babor<span>Tracker</span></span>
+              <span className="logo-text">CNAN<span>Certifs</span></span>
             </div>
             <nav className="nav-menu">
               <a href="#dashboard" className={`nav-item ${activeView === 'dashboard' ? 'active' : ''}`} onClick={() => setActiveView('dashboard')}>

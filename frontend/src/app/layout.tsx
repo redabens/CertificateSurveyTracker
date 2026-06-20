@@ -4,7 +4,7 @@ import { LanguageProvider } from '../context/LanguageContext';
 import { AuthProvider } from '../context/AuthContext';
 
 export const metadata: Metadata = {
-  title: 'Babor Tracker - Gestion des Certificats Maritimes',
+  title: 'Portail Certificats CNAN NORD',
   description: 'Suivi de conformité et alertes automatiques pour flotte de navires',
 };
 
