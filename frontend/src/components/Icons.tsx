@@ -5,7 +5,7 @@ type IconProps = React.SVGProps<SVGSVGElement> & {
 };
 
 // CNANCertifs Startup Identity Logo
-// Encloses a stylized checked mark within a maritime shield over subtle waves
+// A stylized gold emblem featuring a cargo ship/sail combining with a checkmark and sea waves
 export const LogoIcon: React.FC<IconProps> = ({ size = 28, ...props }) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
@@ -14,26 +14,34 @@ export const LogoIcon: React.FC<IconProps> = ({ size = 28, ...props }) => (
     viewBox="0 0 24 24"
     fill="none"
     stroke="currentColor"
-    strokeWidth="2.5"
+    strokeWidth="2"
     strokeLinecap="round"
     strokeLinejoin="round"
     {...props}
   >
-    <path
-      d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"
-      fill="url(#logo-grad)"
-      stroke="url(#logo-stroke-grad)"
-    />
-    <path d="M8 11l3 3 5-5" stroke="#ffffff" strokeWidth="2.5" />
-    <path d="M6 18c2-1 4-1 6 0s4 1 6 0" stroke="url(#logo-stroke-grad)" strokeWidth="1.5" strokeOpacity="0.8" />
+    {/* Outer gold emblem ring */}
+    <circle cx="12" cy="12" r="10" stroke="url(#logo-gold)" strokeWidth="1.5" />
+    
+    {/* Ship hull */}
+    <path d="M 6.5 14 L 17.5 14 L 16 17 L 8 17 Z" fill="url(#logo-gold)" stroke="url(#logo-gold)" strokeWidth="0.5" />
+    
+    {/* Wave line */}
+    <path d="M 4.5 19 C 8 17.5, 16 17.5, 19.5 19" stroke="url(#logo-gold)" strokeWidth="1.2" />
+
+    {/* Fore sail (triangle) */}
+    <path d="M 8.5 13 L 11.5 6.5 L 11.5 13 Z" fill="url(#logo-gold)" fillOpacity="0.45" stroke="url(#logo-gold)" strokeWidth="0.5" />
+
+    {/* Main sail / checkmark */}
+    <path d="M 9.5 12 L 11.5 14 L 16 7.5" stroke="url(#logo-gold-stroke)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+    
     <defs>
-      <linearGradient id="logo-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stopColor="#06b6d4" stopOpacity="0.15" />
-        <stop offset="100%" stopColor="#3b82f6" stopOpacity="0.15" />
+      <linearGradient id="logo-gold" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#dfba5c" />
+        <stop offset="100%" stopColor="#cca43b" />
       </linearGradient>
-      <linearGradient id="logo-stroke-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stopColor="#06b6d4" />
-        <stop offset="100%" stopColor="#3b82f6" />
+      <linearGradient id="logo-gold-stroke" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#f3d078" />
+        <stop offset="100%" stopColor="#cca43b" />
       </linearGradient>
     </defs>
   </svg>
