@@ -196,9 +196,9 @@ export default function Dashboard() {
           labels: lang === 'fr' ? labelsFr : labelsEn,
           datasets: [{
             data: [red, yellow, green, normal],
-            backgroundColor: ['#ef4444', '#f59e0b', '#10b981', '#3b82f6'],
+            backgroundColor: ['#d64f3e', '#e59b3c', '#48a37e', '#cca43b'],
             borderWidth: 1,
-            borderColor: 'rgba(255,255,255,0.08)'
+            borderColor: 'var(--border-color)'
           }]
         },
         options: {
