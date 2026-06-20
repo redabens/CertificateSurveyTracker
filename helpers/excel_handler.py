@@ -217,6 +217,22 @@ def cmd_format(template_path, output_path, data_json_path):
     gray_fill = PatternFill(start_color="EAEAEA", end_color="EAEAEA", fill_type="solid")
     gray_font = Font(color="595959")
 
+    lang = data.get('lang', 'en').lower()
+    if lang == 'fr':
+        lbl_na = "N/A"
+        lbl_overdue = "HORS DELAIS / IMMEDIAT"
+        lbl_red = "ROUGE - <1 MOIS"
+        lbl_yellow = "JAUNE - 1 A 3 MOIS"
+        lbl_green = "VERT - 3 A 6 MOIS"
+        lbl_monitor = "SUIVI >6 MOIS"
+    else:
+        lbl_na = "N/A"
+        lbl_overdue = "OVERDUE / IMMEDIATE"
+        lbl_red = "RED - <1 MONTH"
+        lbl_yellow = "YELLOW - 1 TO 3 MONTHS"
+        lbl_green = "GREEN - 3 TO 6 MONTHS"
+        lbl_monitor = "MONITOR >6 MONTHS"
+
     # Update certificates in Excel sheet
     for cert in certificates:
         row = cert.get('excel_row')
@@ -247,11 +263,11 @@ def cmd_format(template_path, output_path, data_json_path):
         # Overwrite formula in Column G
         # G row formula
         formula = (
-            f'=IF($E{row}="","N/A",'
-            f'IF($E{row}<TODAY(),"OVERDUE / IMMEDIATE",'
-            f'IF($E{row}<=TODAY()+30,"RED - <1 MONTH",'
-            f'IF($E{row}<=TODAY()+90,"YELLOW - 1 TO 3 MONTHS",'
-            f'IF($E{row}<=TODAY()+180,"GREEN - 3 TO 6 MONTHS","MONITOR >6 MONTHS")))))'
+            f'=IF($E{row}="","{lbl_na}",'
+            f'IF($E{row}<TODAY(),"{lbl_overdue}",'
+            f'IF($E{row}<=TODAY()+30,"{lbl_red}",'
+            f'IF($E{row}<=TODAY()+90,"{lbl_yellow}",'
+            f'IF($E{row}<=TODAY()+180,"{lbl_green}","{lbl_monitor}")))))'
         )
         sheet[f'G{row}'] = formula
 

@@ -5,25 +5,62 @@ const path = require('path');
 const fs = require('fs');
 const { exec } = require('child_process');
 const cron = require('node-cron');
+const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
+
 const db = require('./db');
 const { sendCertificateAlert } = require('./helpers/email_service');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const JWT_SECRET = process.env.JWT_SECRET || 'babor_secret_key';
 
 // Enable CORS and JSON parsing
 app.use(cors());
 app.use(express.json());
 
-// Serve static frontend files from 'public' directory
+// Serve static frontend files
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Configure Multer for file uploads
-const upload = multer({ dest: 'uploads/' });
+// Configure Multer for PDF file uploads
+const pdfStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const pdfDir = path.join(__dirname, 'public', 'uploads', 'pdf');
+    if (!fs.existsSync(pdfDir)) {
+      fs.mkdirSync(pdfDir, { recursive: true });
+    }
+    cb(null, pdfDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, 'cert-' + uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
+const uploadPdf = multer({
+  storage: pdfStorage,
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype === 'application/pdf') {
+      cb(null, true);
+    } else {
+      cb(new Error('Seuls les fichiers PDF sont acceptés.'));
+    }
+  }
+});
+
+// Configure Multer for Excel file uploads
+const uploadExcel = multer({ dest: 'uploads/' });
 
 // Ensure uploads folder exists
 if (!fs.existsSync('uploads')) {
   fs.mkdirSync('uploads');
+}
+
+// Ensure public/uploads/pdf exists
+const pdfUploadDir = path.join(__dirname, 'public', 'uploads', 'pdf');
+if (!fs.existsSync(pdfUploadDir)) {
+  fs.mkdirSync(pdfUploadDir, { recursive: true });
 }
 
 // ----------------------------------------------------
@@ -58,7 +95,7 @@ function calculateAlarmStatus(dueDateStr, expirationDateStr) {
 // Helper to run python script
 function runPythonScript(args) {
   return new Promise((resolve, reject) => {
-    const pythonCmd = 'python'; // on Windows, python is standard
+    const pythonCmd = 'python';
     const scriptPath = path.join(__dirname, 'helpers', 'excel_handler.py');
     const cmdLine = `"${pythonCmd}" "${scriptPath}" ${args.map(x => `"${x}"`).join(' ')}`;
     
@@ -77,19 +114,19 @@ function runPythonScript(args) {
 async function performCertificateStatusCheck() {
   console.log('[Scheduler] Running certificate status check...');
   
-  // Get all active vessels
-  const vessels = db.prepare('SELECT id, name FROM vessels').all();
+  // Get all vessels (bypass filtering for admin scheduler task)
+  const vessels = db.vessels.getAll(null, 'Admin', null);
   
   let totalChecked = 0;
   let totalAlertsSent = 0;
 
   for (const vessel of vessels) {
     // Get emails settings
-    const settings = db.prepare('SELECT email1, email2, email3 FROM email_settings WHERE vessel_id = ?').get(vessel.id) || {};
+    const settings = db.emailSettings.getByVessel(vessel.id) || {};
     const emails = [settings.email1, settings.email2, settings.email3].filter(Boolean);
     
     // Get all certificates
-    const certs = db.prepare('SELECT id, name, category, organization, expiration_date, due_date, alarm_status, remarks FROM certificates WHERE vessel_id = ?').all(vessel.id);
+    const certs = db.certificates.getByVessel(vessel.id);
     
     for (const cert of certs) {
       const prevAlarm = cert.alarm_status;
@@ -98,7 +135,7 @@ async function performCertificateStatusCheck() {
 
       if (prevAlarm !== newAlarm) {
         // Update alarm status in DB
-        db.prepare('UPDATE certificates SET alarm_status = ? WHERE id = ?').run(newAlarm, cert.id);
+        db.raw.prepare('UPDATE certificates SET alarm_status = ? WHERE id = ?').run(newAlarm, cert.id);
         
         // Trigger Email alert if transition warrants it
         const updatedCert = { ...cert, alarm_status: newAlarm };
@@ -113,58 +150,113 @@ async function performCertificateStatusCheck() {
 }
 
 // ----------------------------------------------------
-// REST API ENDPOINTS
+// JWT AUTHENTICATION MIDDLEWARE
 // ----------------------------------------------------
+function authenticateToken(req, res, next) {
+  const authHeader = req.headers['authorization'];
+  let token = authHeader && authHeader.split(' ')[1];
+  
+  // Alternative: extract token from query parameters (for direct file downloads/exports)
+  if (!token && req.query.token) {
+    token = req.query.token;
+  }
+  
+  if (!token) return res.status(401).json({ error: 'Accès refusé. Veuillez vous connecter.' });
 
-// User Login Check
+  jwt.verify(token, JWT_SECRET, (err, user) => {
+    if (err) return res.status(403).json({ error: 'Session expirée. Veuillez vous reconnecter.' });
+    req.user = user; // Contains: id, role, companyId
+    next();
+  });
+}
+
+// ----------------------------------------------------
+// AUTHENTICATION ROUTES
+// ----------------------------------------------------
 app.post('/api/login', (req, res) => {
   const { email, password } = req.body;
-  const user = db.prepare('SELECT id, email, full_name, role FROM users WHERE email = ? AND password = ?').get(email, password);
-  if (user) {
-    res.json(user);
-  } else {
-    res.status(401).json({ error: 'Identifiants incorrects' });
+  if (!email || !password) {
+    return res.status(400).json({ error: 'E-mail et mot de passe requis' });
+  }
+
+  const user = db.users.getByEmail(email);
+  if (!user) {
+    return res.status(401).json({ error: 'Identifiants incorrects' });
+  }
+
+  // Check password hash
+  const isValid = bcrypt.compareSync(password, user.password);
+  if (!isValid) {
+    return res.status(401).json({ error: 'Identifiants incorrects' });
+  }
+
+  // Generate Token
+  const token = jwt.sign(
+    { id: user.id, role: user.role, companyId: user.company_id },
+    JWT_SECRET,
+    { expiresIn: '8h' }
+  );
+
+  res.json({
+    token,
+    user: {
+      email: user.email,
+      full_name: user.full_name,
+      role: user.role,
+      vessel_id: user.vessel_id
+    }
+  });
+});
+
+// ----------------------------------------------------
+// VESSELS ROUTES
+// ----------------------------------------------------
+app.get('/api/vessels', authenticateToken, (req, res) => {
+  try {
+    const vessels = db.vessels.getAll(req.user.id, req.user.role, req.user.companyId);
+    
+    const results = vessels.map(v => {
+      // Count certificates by status
+      const certs = db.certificates.getByVessel(v.id);
+      
+      let red = 0, yellow = 0, green = 0, normal = 0;
+      certs.forEach(c => {
+        const status = calculateAlarmStatus(c.due_date, c.expiration_date);
+        if (status.includes('RED') || status.includes('OVERDUE')) red++;
+        else if (status.includes('YELLOW')) yellow++;
+        else if (status.includes('GREEN')) green++;
+        else normal++;
+      });
+
+      // Update overall status of vessel
+      let overall = 'Normal';
+      if (red > 0) overall = 'Imminent';
+      else if (yellow > 0) overall = 'Attention';
+      else if (green > 0) overall = 'Suivi';
+      
+      db.vessels.updateStatus(v.id, overall);
+
+      return {
+        ...v,
+        status: overall,
+        counts: { red, yellow, green, normal, total: certs.length }
+      };
+    });
+    
+    res.json(results);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 
-// GET all vessels with aggregated counts
-app.get('/api/vessels', (req, res) => {
-  const vessels = db.prepare('SELECT * FROM vessels').all();
-  
-  const results = vessels.map(v => {
-    // Count certificates by status
-    const certs = db.prepare('SELECT alarm_status, due_date, expiration_date FROM certificates WHERE vessel_id = ?').all(v.id);
-    
-    let red = 0, yellow = 0, green = 0, normal = 0;
-    certs.forEach(c => {
-      // recalculate dynamically to be 100% accurate
-      const status = calculateAlarmStatus(c.due_date, c.expiration_date);
-      if (status.includes('RED') || status.includes('OVERDUE')) red++;
-      else if (status.includes('YELLOW')) yellow++;
-      else if (status.includes('GREEN')) green++;
-      else normal++;
-    });
-
-    // Update overall status of vessel
-    let overall = 'Normal';
-    if (red > 0) overall = 'Imminent';
-    else if (yellow > 0) overall = 'Attention';
-    else if (green > 0) overall = 'Suivi';
-    
-    db.prepare('UPDATE vessels SET status = ? WHERE id = ?').run(overall, v.id);
-
-    return {
-      ...v,
-      status: overall,
-      counts: { red, yellow, green, normal, total: certs.length }
-    };
-  });
-  
-  res.json(results);
-});
-
 // POST Upload Excel and Import Vessel
-app.post('/api/vessels/import', upload.single('file'), async (req, res) => {
+app.post('/api/vessels/import', authenticateToken, uploadExcel.single('file'), async (req, res) => {
+  // Permission constraint: Only Admin
+  if (req.user.role !== 'Admin') {
+    if (req.file) fs.unlinkSync(req.file.path);
+    return res.status(403).json({ error: 'Action interdite pour votre profil' });
+  }
+
   if (!req.file) {
     return res.status(400).json({ error: 'Veuillez téléverser un fichier Excel' });
   }
@@ -172,7 +264,6 @@ app.post('/api/vessels/import', upload.single('file'), async (req, res) => {
   const tempPath = req.file.path;
   
   try {
-    // Parse using python
     const stdout = await runPythonScript(['parse', tempPath]);
     const parsed = JSON.parse(stdout);
     
@@ -181,105 +272,97 @@ app.post('/api/vessels/import', upload.single('file'), async (req, res) => {
     const actionable = parsed.actionable_items;
     
     // Check if vessel already exists
-    const existing = db.prepare('SELECT id FROM vessels WHERE name = ?').get(vInfo.name);
+    const existing = db.vessels.getByName(vInfo.name);
     if (existing) {
-      // Clean up uploaded file
       fs.unlinkSync(tempPath);
       return res.status(400).json({ error: `Le navire "${vInfo.name}" existe déjà dans le système` });
     }
 
-    // Insert Vessel
-    const insertVessel = db.prepare(`
-      INSERT INTO vessels (name, imo_number, flag, asset_type, owner, manager, gross_tonnage, deadweight_tonnage, port_of_registry, call_sign, status)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-    const runVessel = insertVessel.run(
-      vInfo.name,
-      vInfo.imo_number,
-      vInfo.flag,
-      vInfo.asset_type,
-      vInfo.owner,
-      vInfo.company, // Using the 'company' sheet cell as manager
-      vInfo.gross_tonnage,
-      vInfo.dwt,
-      vInfo.port_of_registry,
-      vInfo.call_sign,
-      vInfo.overall_status
-    );
-    const vesselId = runVessel.lastInsertRowid;
+    // Insert Vessel (assign default company_id = 2 for Verital)
+    const vesselId = db.vessels.insert({
+      company_id: 2,
+      name: vInfo.name,
+      imo_number: vInfo.imo_number,
+      flag: vInfo.flag,
+      asset_type: vInfo.asset_type,
+      owner: vInfo.owner,
+      manager: vInfo.company,
+      gross_tonnage: vInfo.gross_tonnage,
+      deadweight_tonnage: vInfo.dwt,
+      port_of_registry: vInfo.port_of_registry,
+      call_sign: vInfo.call_sign,
+      status: vInfo.overall_status
+    });
     
-    // Insert Email Settings (Default empty)
-    db.prepare('INSERT INTO email_settings (vessel_id, email1, email2, email3) VALUES (?, ?, ?, ?)').run(vesselId, '', '', '');
+    // Insert Email Settings
+    db.emailSettings.update(vesselId, '', '', '');
 
     // Insert Certificates
-    const insertCert = db.prepare(`
-      INSERT INTO certificates (vessel_id, name, category, organization, issuing_date, expiration_date, due_date, window, alarm_status, remarks)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-    
     for (const c of certs) {
-      // Calculate initial alarm status
       const alarm = calculateAlarmStatus(c.due_date, c.expiration_date);
-      insertCert.run(
-        vesselId,
-        c.name,
-        c.category,
-        c.organization,
-        c.issuing_date,
-        c.expiration_date,
-        c.due_date,
-        c.window,
-        alarm,
-        c.remarks
-      );
+      db.certificates.insert({
+        vessel_id: vesselId,
+        name: c.name,
+        category: c.category,
+        organization: c.organization,
+        issuing_date: c.issuing_date,
+        expiration_date: c.expiration_date,
+        due_date: c.due_date,
+        window: c.window,
+        alarm_status: alarm,
+        remarks: c.remarks
+      });
     }
     
     // Insert Actionable Items
-    const insertAction = db.prepare(`
-      INSERT INTO actionable_items (vessel_id, imposed_date, category, report_number, due_date, description, status)
-      VALUES (?, ?, ?, ?, ?, ?, 'Pending')
-    `);
-    
     for (const a of actionable) {
-      insertAction.run(
-        vesselId,
-        a.imposed_date,
-        a.category,
-        a.report_number,
-        a.due_date,
-        a.description
-      );
+      db.actionableItems.insert({
+        vessel_id: vesselId,
+        imposed_date: a.imposed_date,
+        category: a.category,
+        report_number: a.report_number,
+        due_date: a.due_date,
+        description: a.description
+      });
     }
     
-    // Clean up temp file
     fs.unlinkSync(tempPath);
     res.status(201).json({ success: true, vesselId: vesselId, name: vInfo.name });
   } catch (err) {
     console.error('[Import Error]', err);
-    if (fs.existsSync(tempPath)) {
-      fs.unlinkSync(tempPath);
-    }
+    if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
     res.status(500).json({ error: 'Erreur lors du traitement du fichier Excel: ' + err.message });
   }
 });
 
 // POST Manual Vessel Creation
-app.post('/api/vessels/manual', (req, res) => {
+app.post('/api/vessels/manual', authenticateToken, (req, res) => {
+  if (req.user.role !== 'Admin') {
+    return res.status(403).json({ error: 'Action interdite pour votre profil' });
+  }
+
   const { name, imo_number, flag, asset_type, owner, manager, gross_tonnage, deadweight_tonnage, port_of_registry, call_sign } = req.body;
-  
   if (!name) {
     return res.status(400).json({ error: 'Le nom du navire est requis' });
   }
   
   try {
-    const run = db.prepare(`
-      INSERT INTO vessels (name, imo_number, flag, asset_type, owner, manager, gross_tonnage, deadweight_tonnage, port_of_registry, call_sign, status)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Normal')
-    `).run(name, imo_number, flag, asset_type, owner, manager, gross_tonnage, deadweight_tonnage, port_of_registry, call_sign);
+    const vesselId = db.vessels.insert({
+      company_id: 2, // Default to demo company
+      name,
+      imo_number,
+      flag,
+      asset_type,
+      owner,
+      manager,
+      gross_tonnage: parseInt(gross_tonnage) || 0,
+      deadweight_tonnage: parseInt(deadweight_tonnage) || 0,
+      port_of_registry,
+      call_sign,
+      status: 'Normal'
+    });
     
-    const vesselId = run.lastInsertRowid;
-    db.prepare('INSERT INTO email_settings (vessel_id, email1, email2, email3) VALUES (?, ?, ?, ?)').run(vesselId, '', '', '');
-    
+    db.emailSettings.update(vesselId, '', '', '');
     res.status(201).json({ id: vesselId, name });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -287,22 +370,36 @@ app.post('/api/vessels/manual', (req, res) => {
 });
 
 // DELETE a Vessel
-app.delete('/api/vessels/:id', (req, res) => {
+app.delete('/api/vessels/:id', authenticateToken, (req, res) => {
+  if (req.user.role !== 'Admin') {
+    return res.status(403).json({ error: 'Action interdite pour votre profil' });
+  }
+
   const id = req.params.id;
   try {
-    db.prepare('DELETE FROM vessels WHERE id = ?').run(id);
+    db.vessels.delete(id);
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// GET Certificates of a Vessel
-app.get('/api/vessels/:id/certificates', (req, res) => {
+// ----------------------------------------------------
+// CERTIFICATES ROUTES
+// ----------------------------------------------------
+app.get('/api/vessels/:id/certificates', authenticateToken, (req, res) => {
   const vesselId = req.params.id;
+  
+  // Role verification (Crew can only read their vessel)
+  if (req.user.role === 'Crew') {
+    const crewUser = db.raw.prepare('SELECT vessel_id FROM users WHERE id = ?').get(req.user.id);
+    if (!crewUser || crewUser.vessel_id != vesselId) {
+      return res.status(403).json({ error: 'Accès refusé pour ce navire' });
+    }
+  }
+
   try {
-    const certs = db.prepare('SELECT * FROM certificates WHERE vessel_id = ?').all(vesselId);
-    // recalculate dynamically on retrieval to ensure accurate color alerts
+    const certs = db.certificates.getByVessel(vesselId);
     const results = certs.map(c => ({
       ...c,
       alarm_status: calculateAlarmStatus(c.due_date, c.expiration_date)
@@ -314,56 +411,85 @@ app.get('/api/vessels/:id/certificates', (req, res) => {
 });
 
 // POST Create Certificate manually
-app.post('/api/vessels/:id/certificates', (req, res) => {
+app.post('/api/vessels/:id/certificates', authenticateToken, (req, res) => {
   const vesselId = req.params.id;
   const { name, category, organization, issuing_date, expiration_date, due_date, window, remarks } = req.body;
   
+  // Permission verification
+  // Crew can only create 'Servicing' certificates
+  if (req.user.role === 'Crew' && category !== 'Servicing') {
+    return res.status(403).json({ error: 'Seuls les certificats d\'entretien (Servicing) peuvent être gérés par l\'équipage' });
+  }
+  // Partner & Auditor cannot write
+  if (req.user.role === 'Partner' || req.user.role === 'Auditor') {
+    return res.status(403).json({ error: 'Action en lecture seule' });
+  }
+
   if (!name || !category) {
     return res.status(400).json({ error: 'Le nom et la catégorie sont requis' });
   }
   
   try {
     const alarm = calculateAlarmStatus(due_date, expiration_date);
-    const run = db.prepare(`
-      INSERT INTO certificates (vessel_id, name, category, organization, issuing_date, expiration_date, due_date, window, alarm_status, remarks)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(vesselId, name, category, organization, issuing_date, expiration_date, due_date, window, alarm, remarks);
+    const certId = db.certificates.insert({
+      vessel_id: parseInt(vesselId),
+      name,
+      category,
+      organization,
+      issuing_date,
+      expiration_date,
+      due_date,
+      window,
+      alarm_status: alarm,
+      remarks
+    });
     
-    res.status(201).json({ id: run.lastInsertRowid, alarm_status: alarm });
+    res.status(201).json({ id: certId, alarm_status: alarm });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// PUT Update Certificate dates and details
-app.put('/api/certificates/:id', async (req, res) => {
+// PUT Update Certificate
+app.put('/api/certificates/:id', authenticateToken, async (req, res) => {
   const certId = req.params.id;
   const { organization, issuing_date, expiration_date, due_date, window, remarks } = req.body;
   
+  // Partner & Auditor cannot write
+  if (req.user.role === 'Partner' || req.user.role === 'Auditor') {
+    return res.status(403).json({ error: 'Action en lecture seule' });
+  }
+
   try {
-    // Get previous state
-    const prevCert = db.prepare('SELECT * FROM certificates WHERE id = ?').get(certId);
+    const prevCert = db.certificates.getById(certId);
     if (!prevCert) {
       return res.status(404).json({ error: 'Certificat non trouvé' });
+    }
+
+    // Crew can only edit Servicing certificates
+    if (req.user.role === 'Crew' && prevCert.category !== 'Servicing') {
+      return res.status(403).json({ error: 'Seuls les certificats d\'entretien (Servicing) peuvent être modifiés par l\'équipage' });
     }
     
     const newAlarm = calculateAlarmStatus(due_date, expiration_date);
     
-    // Update DB
-    db.prepare(`
-      UPDATE certificates 
-      SET organization = ?, issuing_date = ?, expiration_date = ?, due_date = ?, window = ?, alarm_status = ?, remarks = ?
-      WHERE id = ?
-    `).run(organization, issuing_date, expiration_date, due_date, window, newAlarm, remarks, certId);
+    db.certificates.update(certId, {
+      organization,
+      issuing_date,
+      expiration_date,
+      due_date,
+      window,
+      alarm_status: newAlarm,
+      remarks
+    });
     
-    // Retrieve vessel name and emails
-    const vessel = db.prepare('SELECT id, name FROM vessels WHERE id = ?').get(prevCert.vessel_id);
-    const settings = db.prepare('SELECT email1, email2, email3 FROM email_settings WHERE vessel_id = ?').get(vessel.id) || {};
-    const emails = [settings.email1, settings.email2, settings.email3].filter(Boolean);
-    
-    // Send email alert immediately if status changed
-    const updatedCert = { id: certId, name: prevCert.name, organization, due_date, expiration_date, alarm_status: newAlarm };
+    // Trigger notification if status transitioned
     if (prevCert.alarm_status !== newAlarm) {
+      const vessel = db.vessels.getById(prevCert.vessel_id);
+      const settings = db.emailSettings.getByVessel(vessel.id) || {};
+      const emails = [settings.email1, settings.email2, settings.email3].filter(Boolean);
+      
+      const updatedCert = { id: certId, name: prevCert.name, organization, due_date, expiration_date, alarm_status: newAlarm };
       await sendCertificateAlert(vessel, emails, updatedCert, prevCert.alarm_status);
     }
     
@@ -373,65 +499,121 @@ app.put('/api/certificates/:id', async (req, res) => {
   }
 });
 
+// POST Upload PDF File for Certificate (Epic 4)
+app.post('/api/certificates/:id/upload', authenticateToken, uploadPdf.single('pdf'), async (req, res) => {
+  // Read-only profiles check
+  if (req.user.role === 'Partner' || req.user.role === 'Auditor') {
+    if (req.file) fs.unlinkSync(req.file.path);
+    return res.status(403).json({ error: 'Action interdite pour votre profil' });
+  }
+
+  const certId = req.params.id;
+  if (!req.file) {
+    return res.status(400).json({ error: 'Aucun fichier PDF téléversé' });
+  }
+
+  try {
+    const cert = db.certificates.getById(certId);
+    if (!cert) {
+      fs.unlinkSync(req.file.path);
+      return res.status(404).json({ error: 'Certificat non trouvé' });
+    }
+
+    // Crew check
+    if (req.user.role === 'Crew' && cert.category !== 'Servicing') {
+      fs.unlinkSync(req.file.path);
+      return res.status(403).json({ error: 'L\'équipage ne peut modifier que les PDF d\'entretien' });
+    }
+
+    // Save path in public dir: /uploads/pdf/filename
+    const relativePath = `/uploads/pdf/${req.file.filename}`;
+    db.certificates.updatePdfUrl(certId, relativePath);
+
+    res.json({ success: true, pdf_url: relativePath });
+  } catch (err) {
+    if (req.file) fs.unlinkSync(req.file.path);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // DELETE Certificate
-app.delete('/api/certificates/:id', (req, res) => {
+app.delete('/api/certificates/:id', authenticateToken, (req, res) => {
+  if (req.user.role !== 'Admin') {
+    return res.status(403).json({ error: 'Action interdite pour votre profil' });
+  }
+
   const certId = req.params.id;
   try {
-    db.prepare('DELETE FROM certificates WHERE id = ?').run(certId);
+    db.certificates.delete(certId);
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// GET Actionable items of a Vessel
-app.get('/api/vessels/:id/actionable-items', (req, res) => {
+// ----------------------------------------------------
+// ACTIONABLE ITEMS ROUTES
+// ----------------------------------------------------
+app.get('/api/vessels/:id/actionable-items', authenticateToken, (req, res) => {
   const vesselId = req.params.id;
   try {
-    const items = db.prepare('SELECT * FROM actionable_items WHERE vessel_id = ?').all(vesselId);
+    const items = db.actionableItems.getByVessel(vesselId);
     res.json(items);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// POST Create Actionable Item manually
-app.post('/api/vessels/:id/actionable-items', (req, res) => {
+app.post('/api/vessels/:id/actionable-items', authenticateToken, (req, res) => {
+  if (req.user.role !== 'Admin') {
+    return res.status(403).json({ error: 'Action interdite pour votre profil' });
+  }
+
   const vesselId = req.params.id;
   const { imposed_date, category, report_number, due_date, description } = req.body;
   if (!description) {
     return res.status(400).json({ error: 'La description est requise' });
   }
   try {
-    const run = db.prepare(`
-      INSERT INTO actionable_items (vessel_id, imposed_date, category, report_number, due_date, description, status)
-      VALUES (?, ?, ?, ?, ?, ?, 'Pending')
-    `).run(vesselId, imposed_date, category, report_number, due_date, description);
-    res.status(201).json({ id: run.lastInsertRowid });
+    const itemId = db.actionableItems.insert({
+      vessel_id: parseInt(vesselId),
+      imposed_date,
+      category,
+      report_number,
+      due_date,
+      description
+    });
+    res.status(201).json({ id: itemId });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// PUT Toggle status of actionable item
-app.put('/api/actionable-items/:id/status', (req, res) => {
+app.put('/api/actionable-items/:id/status', authenticateToken, (req, res) => {
+  // Partner & Auditor cannot modify status
+  if (req.user.role === 'Partner' || req.user.role === 'Auditor') {
+    return res.status(403).json({ error: 'Action interdite pour votre profil' });
+  }
+
   const id = req.params.id;
-  const { status } = req.body; // 'Pending' or 'Completed'
+  const { status } = req.body;
   try {
-    db.prepare('UPDATE actionable_items SET status = ? WHERE id = ?').run(status, id);
+    db.actionableItems.updateStatus(id, status);
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// GET settings (emails)
-app.get('/api/vessels/:id/settings', (req, res) => {
+// ----------------------------------------------------
+// EMAIL SETTINGS ROUTES
+// ----------------------------------------------------
+app.get('/api/vessels/:id/settings', authenticateToken, (req, res) => {
   const vesselId = req.params.id;
   try {
-    let settings = db.prepare('SELECT email1, email2, email3 FROM email_settings WHERE vessel_id = ?').get(vesselId);
+    let settings = db.emailSettings.getByVessel(vesselId);
     if (!settings) {
-      db.prepare('INSERT INTO email_settings (vessel_id, email1, email2, email3) VALUES (?, ?, ?, ?)').run(vesselId, '', '', '');
+      db.emailSettings.update(vesselId, '', '', '');
       settings = { email1: '', email2: '', email3: '' };
     }
     res.json(settings);
@@ -440,16 +622,15 @@ app.get('/api/vessels/:id/settings', (req, res) => {
   }
 });
 
-// PUT update settings (emails)
-app.put('/api/vessels/:id/settings', (req, res) => {
+app.put('/api/vessels/:id/settings', authenticateToken, (req, res) => {
+  if (req.user.role !== 'Admin') {
+    return res.status(403).json({ error: 'Action interdite pour votre profil' });
+  }
+
   const vesselId = req.params.id;
   const { email1, email2, email3 } = req.body;
   try {
-    db.prepare(`
-      INSERT INTO email_settings (vessel_id, email1, email2, email3) 
-      VALUES (?, ?, ?, ?)
-      ON CONFLICT(vessel_id) DO UPDATE SET email1=excluded.email1, email2=excluded.email2, email3=excluded.email3
-    `).run(vesselId, email1 || '', email2 || '', email3 || '');
+    db.emailSettings.update(vesselId, email1, email2, email3);
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -457,15 +638,9 @@ app.put('/api/vessels/:id/settings', (req, res) => {
 });
 
 // GET email notification logs
-app.get('/api/email-logs', (req, res) => {
+app.get('/api/email-logs', authenticateToken, (req, res) => {
   try {
-    const logs = db.prepare(`
-      SELECT el.*, v.name as vessel_name 
-      FROM email_logs el 
-      JOIN vessels v ON el.vessel_id = v.id 
-      ORDER BY el.sent_at DESC 
-      LIMIT 100
-    `).all();
+    const logs = db.emailLogs.getAll();
     res.json(logs);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -473,7 +648,7 @@ app.get('/api/email-logs', (req, res) => {
 });
 
 // POST Trigger notifications manually
-app.post('/api/trigger-notifications', async (req, res) => {
+app.post('/api/trigger-notifications', authenticateToken, async (req, res) => {
   try {
     const results = await performCertificateStatusCheck();
     res.json({ success: true, ...results });
@@ -482,27 +657,27 @@ app.post('/api/trigger-notifications', async (req, res) => {
   }
 });
 
-// GET Export Vessel to Styled Excel
-app.get('/api/vessels/:id/export', async (req, res) => {
+// ----------------------------------------------------
+// EXPORTS ROUTES (BILINGUAL SUPPORT - Epic 5)
+// ----------------------------------------------------
+app.get('/api/vessels/:id/export', authenticateToken, async (req, res) => {
   const vesselId = req.params.id;
+  const lang = req.query.lang || 'en'; // Read lang parameter from frontend locale selection
   
   const templatePath = path.join(__dirname, 'MT_TREND_Certificate_Survey_Tracker_Updated_01052026-2.xlsx');
-  
-  // Ensure the base template exists
   if (!fs.existsSync(templatePath)) {
     return res.status(500).json({ error: 'Fichier gabarit de base introuvable. Impossible d\'exporter.' });
   }
   
   try {
-    // 1. Fetch data from DB
-    const vessel = db.prepare('SELECT * FROM vessels WHERE id = ?').get(vesselId);
+    const vessel = db.vessels.getById(vesselId);
     if (!vessel) {
       return res.status(404).json({ error: 'Navire non trouvé' });
     }
     
-    const certificates = db.prepare('SELECT * FROM certificates WHERE vessel_id = ?').all(vesselId);
-    const actionableItems = db.prepare('SELECT * FROM actionable_items WHERE vessel_id = ?').all(vesselId);
-    const settings = db.prepare('SELECT email1, email2, email3 FROM email_settings WHERE vessel_id = ?').get(vesselId) || {};
+    const certificates = db.certificates.getByVessel(vesselId);
+    const actionableItems = db.actionableItems.getByVessel(vesselId);
+    const settings = db.emailSettings.getByVessel(vesselId) || {};
     
     // Map certificates to align alarms
     const mappedCerts = certificates.map(c => ({
@@ -511,6 +686,7 @@ app.get('/api/vessels/:id/export', async (req, res) => {
     }));
 
     const exportData = {
+      lang: lang, // Send active UI language to Python formatter script
       vessel: {
         name: vessel.name,
         imo_number: vessel.imo_number,
@@ -534,21 +710,20 @@ app.get('/api/vessels/:id/export', async (req, res) => {
       actionable_items: actionableItems
     };
 
-    // Save temporary JSON
+    // Save temporary files
     const tempJsonPath = path.join(__dirname, `uploads/export_${vesselId}.json`);
     const tempOutExcelPath = path.join(__dirname, `uploads/export_${vessel.name.replace(/\s+/g, '_')}.xlsx`);
     
     fs.writeFileSync(tempJsonPath, JSON.stringify(exportData, null, 2));
 
-    // 2. Call python formatter
+    // Call python formatter
     await runPythonScript(['format', templatePath, tempOutExcelPath, tempJsonPath]);
     
-    // 3. Send file
+    // Send file
     res.download(tempOutExcelPath, `${vessel.name}_Certificate_Tracker.xlsx`, (err) => {
       // Cleanup files
       if (fs.existsSync(tempJsonPath)) fs.unlinkSync(tempJsonPath);
       if (fs.existsSync(tempOutExcelPath)) fs.unlinkSync(tempOutExcelPath);
-      
       if (err) {
         console.error('[Export Download Error]', err);
       }

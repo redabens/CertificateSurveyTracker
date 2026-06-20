@@ -125,12 +125,14 @@ Babor Tracker - Système Automatique de Veille Réglementaire`;
 
 function logEmailToDb(vesselId, certName, alarmLevel, recipients) {
   try {
-    const insertLog = db.prepare(`
-      INSERT INTO email_logs (vessel_id, certificate_name, alarm_level, sent_to, sent_at)
-      VALUES (?, ?, ?, ?, ?)
-    `);
     const now = new Date().toISOString().replace('T', ' ').substring(0, 19);
-    insertLog.run(vesselId, certName, alarmLevel, recipients, now);
+    db.emailLogs.insert({
+      vessel_id: vesselId,
+      certificate_name: certName,
+      alarm_level: alarmLevel,
+      sent_to: recipients,
+      sent_at: now
+    });
   } catch (err) {
     console.error(`[Email Service] Failed to log email to DB:`, err);
   }

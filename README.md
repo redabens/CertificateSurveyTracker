@@ -34,22 +34,39 @@ Les alarmes se calculent en temps réel par rapport à la date de visite ou de v
 *   **Défilement automatique** : Carrousel vertical automatique des alertes et inspections imminentes pour une veille passive efficace.
 *   **Mise à jour automatique** : Rafraîchissement régulier des données toutes les 30 secondes et widget heure/date locale en temps réel.
 
-### 6. Simulation des Rôles (B2B Collaboratif)
-Un sélecteur de rôle en en-tête permet de simuler et de tester le comportement de la plateforme selon le profil :
-*   **Administrateur (Bureaux)** : Droits complets d'écriture, de suppression, de paramétrage e-mail, d'import et d'export.
-*   **Équipage (À Bord)** : Droits limités. Peut consulter la flotte et mettre à jour uniquement les certificats d'entretien annuel des équipements de sécurité de bord (*Servicing*).
-*   **Partenaire B2B / Auditeur** : Lecture seule pour auditer la conformité d'un navire et lancer des exports de rapports Excel.
+### 6. Rôles et Enforcements de Sécurité (JWT & RBAC)
+La plateforme intègre un véritable contrôle d'accès basé sur les rôles (RBAC) renforcé par jetons JWT :
+*   **Administrateur (Bureaux - CNAN / Verital)** : Droits complets d'écriture, de suppression, de paramétrage e-mail, d'import Excel et d'export pour toute la flotte.
+*   **Équipage (À Bord - Capitaine)** : Droits restreints au navire assigné. Peut consulter la fiche technique et modifier/téléverser des PDF uniquement pour les certificats d'entretien annuel des équipements de sécurité de bord (*Servicing*).
+*   **Partenaire B2B / Auditeur** : Mode consultation en lecture seule sur les navires autorisés pour auditer la conformité et télécharger des rapports Excel d'audit.
 
 ---
 
 ## 🛠️ Architecture Technique
 
-La plateforme est construite en architecture découplée, optimisée pour la portabilité locale sans installation lourde :
+La plateforme est construite en architecture découplée, prête pour la production :
 
-1.  **Backend (Node.js & Express)** : Fournit l'API REST, assure la gestion de fichiers (téléversements avec *multer*), l'envoi de courriels (*nodemailer*) et la planification automatique (*node-cron*).
-2.  **Base de Données Relationnelle (SQLite)** : Utilise le module natif et ultra-rapide **`node:sqlite`** (disponible dans Node 22+). Pas de compilation binaire requise lors de l'installation, évitant les erreurs d'environnement sous Windows. Fichier de base de données local : `vessels.db`.
-3.  **Parser/Formatter Excel (Python & Openpyxl)** : Script utilitaire exécuté par le backend pour lire les fichiers Excel téléversés et générer les rapports formatés avec styles, polices et formules de calcul complexes pour les audits.
-4.  **Frontend (HTML5, Vanilla CSS & Vanilla JS)** : Design Premium minimaliste (Thème Sombre "Dark Navy" / Effet de flou Glassmorphism) optimisé pour des performances d'affichage maximales et sans dépendance lourde de build (Webpack/Vite).
+1.  **Authentication & Sécurité (Epic 1)** :
+    *   Mots de passe hachés avec `bcryptjs` en base de données.
+    *   Authentification sans état (stateless) via jetons signés avec `jsonwebtoken` (JWT) avec expiration de 8 heures.
+    *   Middleware d'authentification `authenticateToken` protégeant les routes d'API, filtrant les requêtes selon le rôle et isolant les données B2B.
+
+2.  **Base de Données Relationnelle de Production (Epic 2)** :
+    *   Utilise le module natif et ultra-rapide **`node:sqlite`** (disponible dans Node 22+). Pas de compilation binaire requise lors de l'installation, évitant les erreurs d'environnement sous Windows.
+    *   Architecture en couches isolée (Repository Pattern dans `db.js`) pour séparer les requêtes SQL du reste de l'application. Facilement adaptable à PostgreSQL ou MySQL.
+    *   Schémas relationnels stricts : `users`, `companies`, `vessels`, `certificates`, `actionable_items`, `email_settings` et `email_logs`.
+
+3.  **Notifications & SMTP Professionnel (Epic 3)** :
+    *   Service SMTP utilisant `nodemailer` avec support de variables d'environnement dynamiques et mode de secours/simulé automatique.
+    *   Calcul en temps réel des décalages de statuts (Vert, Jaune, Rouge). En cas de changement, un e-mail est expédié aux adresses associées et enregistré dans le journal système `email_logs`.
+
+4.  **Gestion des Pièces Jointes & PDF (Epic 4)** :
+    *   Téléversement de documents officiels PDF associés aux certificats (limite de 10 Mo, vérification stricte du type MIME via `multer`).
+    *   Stockage local sécurisé et prévisualisation directe au sein de l'application via une fenêtre modale intégrant un iframe.
+
+5.  **Multi-langue & Internationalisation (Epic 5)** :
+    *   Moteur i18n léger côté client chargeant dynamiquement les fichiers dictionnaires `fr.json` et `en.json` sans dépendances externes.
+    *   Génération d'exports Excel bilingues. Le backend transmet le code de langue actif (`fr` ou `en`) au script Python de formatage (`excel_handler.py`), qui adapte dynamiquement les libellés et les formules d'alarmes.
 
 ---
 
@@ -64,13 +81,17 @@ La plateforme est construite en architecture découplée, optimisée pour la por
 
 ### Procédure d'installation
 1.  Ouvrez un terminal dans le répertoire racine du projet.
-2.  Installez les dépendances Node.js :
+2.  Installez les dépendances Node.js (dont `bcryptjs` et `jsonwebtoken`) :
     ```bash
     npm install
     ```
 
 ### Lancement de l'application
-Démarrez le serveur local en mode développement (avec redémarrage automatique en cas de modification de code) :
+Démarrez le serveur local :
+```bash
+npm start
+```
+Ou en mode développement (avec redémarrage automatique en cas de modification de code) :
 ```bash
 npm run dev
 ```
@@ -82,9 +103,9 @@ L'application est accessible dans votre navigateur à l'adresse suivante :
 
 ## 🔑 Identifiants d'accès démo (Rôles)
 
-Sélectionnez simplement les rôles dans le menu déroulant de l'en-tête de l'application pour tester les différents profils. Si vous souhaitez tester un formulaire de connexion, voici les comptes configurés en base de données :
+Connectez-vous sur l'écran d'accueil avec les identifiants pré-configurés en base de données pour tester les différents profils :
 
 *   **Administrateur** : `admin@babor.com` / `admin123`
-*   **Capitaine (Équipage)** : `captain@babor.com` / `captain123`
-*   **Partenaire B2B** : `partner@babor.com` / `partner123`
-*   **Auditeur Externe** : `auditor@babor.com` / `auditor123`
+*   **Capitaine (Équipage)** : `captain@babor.com` / `captain123` (Accès restreint au navire assigné, édition Servicing uniquement)
+*   **Partenaire B2B** : `partner@babor.com` / `partner123` (Lecture seule)
+*   **Auditeur Externe** : `auditor@babor.com` / `auditor123` (Lecture seule)

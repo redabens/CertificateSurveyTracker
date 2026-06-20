@@ -9,9 +9,13 @@ let state = {
   certificates: [],
   actionableItems: [],
   emailLogs: [],
-  currentRole: 'Admin', // Default demo role
+  token: localStorage.getItem('babor_token') || null,
+  user: JSON.parse(localStorage.getItem('babor_user')) || null,
+  lang: localStorage.getItem('babor_lang') || 'fr',
   complianceChart: null
 };
+
+let translations = {};
 
 // Current Date for reference (local mock date from system metadata)
 const RUNTIME_DATE = "2026-06-20";
@@ -19,16 +23,268 @@ const RUNTIME_DATE = "2026-06-20";
 // ----------------------------------------------------
 // INITIALIZATION
 // ----------------------------------------------------
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   setupSPA();
-  setupRoleSelector();
   setupEventListeners();
-  loadVessels();
-  loadEmailLogs();
+  
+  // Load translations
+  await loadTranslations(state.lang);
+  
+  // Check authorization and load screen
+  checkAuth();
   
   // Start TV Time Ticker
   setInterval(updateTvTime, 1000);
 });
+
+// ----------------------------------------------------
+// API FETCH WRAPPER
+// ----------------------------------------------------
+async function apiFetch(url, options = {}) {
+  options.headers = options.headers || {};
+  if (state.token) {
+    options.headers['Authorization'] = 'Bearer ' + state.token;
+  }
+  
+  const res = await fetch(url, options);
+  
+  if (res.status === 401 || res.status === 403) {
+    handleLogout();
+    throw new Error('Session expirée');
+  }
+  
+  return res;
+}
+
+// ----------------------------------------------------
+// AUTHENTICATION & SESSION MANAGEMENT
+// ----------------------------------------------------
+function checkAuth() {
+  const loginPage = document.getElementById('loginPage');
+  const mainAppGrid = document.getElementById('mainAppGrid');
+  
+  if (!state.token || !state.user) {
+    if (loginPage) loginPage.style.display = 'flex';
+    if (mainAppGrid) mainAppGrid.style.display = 'none';
+  } else {
+    if (loginPage) loginPage.style.display = 'none';
+    if (mainAppGrid) mainAppGrid.style.display = 'grid';
+    
+    updateUserProfileUI();
+    applyRolePermissions();
+    
+    // Initial data loading
+    loadVessels();
+    loadEmailLogs();
+  }
+}
+
+async function handleLoginSubmit(e) {
+  e.preventDefault();
+  const email = document.getElementById('loginEmail').value;
+  const password = document.getElementById('loginPassword').value;
+  
+  try {
+    const res = await fetch('/api/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password })
+    });
+    
+    const data = await res.json();
+    if (res.ok) {
+      state.token = data.token;
+      state.user = data.user;
+      
+      localStorage.setItem('babor_token', data.token);
+      localStorage.setItem('babor_user', JSON.stringify(data.user));
+      
+      document.getElementById('formLogin').reset();
+      
+      showToast(state.lang === 'fr' ? 'Connexion réussie !' : 'Login successful!', 'success');
+      checkAuth();
+    } else {
+      showToast(data.error || 'Identifiants incorrects', 'error');
+    }
+  } catch (err) {
+    console.error(err);
+    showToast('Erreur serveur lors de la connexion', 'error');
+  }
+}
+
+function handleLogout() {
+  state.token = null;
+  state.user = null;
+  state.vessels = [];
+  state.certificates = [];
+  state.actionableItems = [];
+  state.emailLogs = [];
+  state.selectedVesselId = null;
+  
+  localStorage.removeItem('babor_token');
+  localStorage.removeItem('babor_user');
+  
+  checkAuth();
+  showToast(state.lang === 'fr' ? 'Déconnexion effectuée' : 'Logged out successfully', 'info');
+}
+
+function updateUserProfileUI() {
+  const currentUserName = document.getElementById('currentUserName');
+  const currentUserRoleBadge = document.getElementById('currentUserRoleBadge');
+  
+  if (state.user) {
+    if (currentUserName) currentUserName.textContent = state.user.full_name || state.user.email;
+    if (currentUserRoleBadge) {
+      const roleLabels = {
+        'Admin': 'Administrateur',
+        'Crew': 'Équipage (Capitaine)',
+        'Partner': 'Partenaire B2B',
+        'Auditor': 'Auditeur Externe'
+      };
+      const roleLabelsEn = {
+        'Admin': 'Administrator',
+        'Crew': 'Crew (Captain)',
+        'Partner': 'B2B Partner',
+        'Auditor': 'External Auditor'
+      };
+      
+      const labels = state.lang === 'fr' ? roleLabels : roleLabelsEn;
+      currentUserRoleBadge.textContent = labels[state.user.role] || state.user.role;
+    }
+  }
+}
+
+function applyRolePermissions() {
+  if (!state.user) return;
+  const role = state.user.role;
+  
+  const btnImportExcel = document.getElementById('btnImportExcel');
+  const btnNewVesselManual = document.getElementById('btnNewVesselManual');
+  const btnAddCertManual = document.getElementById('btnAddCertManual');
+  const btnAddActionableManual = document.getElementById('btnAddActionableManual');
+  const btnDeleteVessel = document.getElementById('btnDeleteVessel');
+  const btnVesselSettings = document.getElementById('btnVesselSettings');
+  const btnManualTriggerCheck = document.getElementById('btnManualTriggerCheck');
+  
+  if (role === 'Admin') {
+    if (btnImportExcel) btnImportExcel.style.display = 'inline-flex';
+    if (btnNewVesselManual) btnNewVesselManual.style.display = 'inline-block';
+    if (btnAddCertManual) btnAddCertManual.style.display = 'inline-block';
+    if (btnAddActionableManual) btnAddActionableManual.style.display = 'inline-block';
+    if (btnDeleteVessel) btnDeleteVessel.style.display = 'inline-block';
+    if (btnVesselSettings) btnVesselSettings.style.display = 'inline-block';
+    if (btnManualTriggerCheck) btnManualTriggerCheck.style.display = 'inline-block';
+  } else if (role === 'Crew') {
+    if (btnImportExcel) btnImportExcel.style.display = 'none';
+    if (btnNewVesselManual) btnNewVesselManual.style.display = 'none';
+    if (btnAddCertManual) btnAddCertManual.style.display = 'inline-block';
+    if (btnAddActionableManual) btnAddActionableManual.style.display = 'none';
+    if (btnDeleteVessel) btnDeleteVessel.style.display = 'none';
+    if (btnVesselSettings) btnVesselSettings.style.display = 'none';
+    if (btnManualTriggerCheck) btnManualTriggerCheck.style.display = 'none';
+  } else {
+    if (btnImportExcel) btnImportExcel.style.display = 'none';
+    if (btnNewVesselManual) btnNewVesselManual.style.display = 'none';
+    if (btnAddCertManual) btnAddCertManual.style.display = 'none';
+    if (btnAddActionableManual) btnAddActionableManual.style.display = 'none';
+    if (btnDeleteVessel) btnDeleteVessel.style.display = 'none';
+    if (btnVesselSettings) btnVesselSettings.style.display = 'none';
+    if (btnManualTriggerCheck) btnManualTriggerCheck.style.display = 'none';
+  }
+  
+  if (state.selectedVesselId) {
+    renderCertificates();
+    renderActionableItems();
+  }
+}
+
+// ----------------------------------------------------
+// BILINGUAL TRANSLATION ENGINE (i18n)
+// ----------------------------------------------------
+async function loadTranslations(lang) {
+  state.lang = lang;
+  localStorage.setItem('babor_lang', lang);
+  
+  const btnFr = document.getElementById('btnLangFr');
+  const btnEn = document.getElementById('btnLangEn');
+  if (btnFr && btnEn) {
+    if (lang === 'fr') {
+      btnFr.classList.add('active');
+      btnEn.classList.remove('active');
+    } else {
+      btnEn.classList.add('active');
+      btnFr.classList.remove('active');
+    }
+  }
+
+  try {
+    const res = await fetch(`/locales/${lang}.json`);
+    translations = await res.json();
+    
+    // Apply translations
+    document.querySelectorAll('[data-i18n]').forEach(el => {
+      const key = el.dataset.i18n;
+      if (translations[key]) {
+        el.textContent = translations[key];
+      }
+    });
+
+    document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+      const key = el.dataset.i18nPlaceholder;
+      if (translations[key]) {
+        el.placeholder = translations[key];
+      }
+    });
+
+    const titles = {
+      'fr': {
+        '#dashboard': 'Tableau de bord de la flotte',
+        '#fleet': 'Gestion de la Flotte',
+        '#logs': 'Historique des Rappels & Logs'
+      },
+      'en': {
+        '#dashboard': 'Fleet Dashboard',
+        '#fleet': 'Fleet Management',
+        '#logs': 'Reminders & Logs History'
+      }
+    };
+    
+    const hash = window.location.hash || '#dashboard';
+    const pageTitleEl = document.getElementById('pageTitle');
+    if (pageTitleEl && titles[lang] && titles[lang][hash]) {
+      pageTitleEl.textContent = titles[lang][hash];
+    }
+    
+    updateUserProfileUI();
+    
+    if (state.vessels.length > 0) {
+      updateDashboardWidgets();
+      renderDashboardVessels();
+      renderFleetSidebar();
+      if (state.selectedVesselId) {
+        // Refresh detail view
+        const vessel = state.vessels.find(v => v.id == state.selectedVesselId);
+        if (vessel) {
+          document.getElementById('vesselDetailName').textContent = vessel.name;
+          document.getElementById('vesselDetailImo').textContent = vessel.imo_number || 'N/A';
+          document.getElementById('vesselDetailFlag').textContent = vessel.flag || 'N/A';
+          document.getElementById('vesselDetailType').textContent = vessel.asset_type || 'N/A';
+          
+          document.getElementById('specOwner').textContent = vessel.owner || '-';
+          document.getElementById('specManager').textContent = vessel.manager || '-';
+          document.getElementById('specPort').textContent = vessel.port_of_registry || '-';
+          document.getElementById('specCallSign').textContent = vessel.call_sign || '-';
+          document.getElementById('specGT').textContent = vessel.gross_tonnage ? vessel.gross_tonnage.toLocaleString() : '-';
+          document.getElementById('specDWT').textContent = vessel.deadweight_tonnage ? vessel.deadweight_tonnage.toLocaleString() : '-';
+        }
+        renderCertificates();
+        renderActionableItems();
+      }
+    }
+  } catch (err) {
+    console.error('Error loading translations:', err);
+  }
+}
 
 // ----------------------------------------------------
 // SPA ROUTING
@@ -43,7 +299,6 @@ function setupSPA() {
       return;
     }
 
-    // Standard views navigation
     views.forEach(v => v.classList.remove('active'));
     navItems.forEach(item => item.classList.remove('active'));
 
@@ -55,110 +310,46 @@ function setupSPA() {
     if (targetView) targetView.classList.add('active');
     if (targetNavItem) targetNavItem.classList.add('active');
 
-    // Update Header Title
     const titles = {
-      '#dashboard': 'Tableau de bord de la flotte',
-      '#fleet': 'Gestion de la Flotte',
-      '#logs': 'Historique des Rappels & Logs'
+      'fr': {
+        '#dashboard': 'Tableau de bord de la flotte',
+        '#fleet': 'Gestion de la Flotte',
+        '#logs': 'Historique des Rappels & Logs'
+      },
+      'en': {
+        '#dashboard': 'Fleet Dashboard',
+        '#fleet': 'Fleet Management',
+        '#logs': 'Reminders & Logs History'
+      }
     };
-    document.getElementById('pageTitle').textContent = titles[targetHash] || 'Babor Tracker';
     
-    // Trigger specific views logic
-    if (targetHash === '#dashboard') {
-      loadVessels();
-    } else if (targetHash === '#logs') {
-      loadEmailLogs();
+    const pageTitleEl = document.getElementById('pageTitle');
+    if (pageTitleEl && titles[state.lang] && titles[state.lang][targetHash]) {
+      pageTitleEl.textContent = titles[state.lang][targetHash];
+    }
+    
+    if (state.token && state.user) {
+      if (targetHash === '#dashboard') {
+        loadVessels();
+      } else if (targetHash === '#logs') {
+        loadEmailLogs();
+      }
     }
   }
 
-  // Handle Hash Changes
   window.addEventListener('hashchange', () => {
     navigateTo(window.location.hash);
   });
 
-  // Load Initial Hash
   navigateTo(window.location.hash);
 }
 
 // ----------------------------------------------------
-// ROLE MANAGER (DEMO PERMISSIONS)
-// ----------------------------------------------------
-function setupRoleSelector() {
-  const selector = document.getElementById('roleSelector');
-  selector.addEventListener('change', (e) => {
-    state.currentRole = e.target.value;
-    
-    // Update Profile Display
-    const roleBadges = {
-      'Admin': 'Administrateur',
-      'Crew': 'Équipage (Capitaine)',
-      'Partner': 'Partenaire B2B',
-      'Auditor': 'Auditeur Externe'
-    };
-    
-    document.getElementById('currentUserName').textContent = 
-      state.currentRole === 'Admin' ? 'Mehdi' : 
-      state.currentRole === 'Crew' ? 'Cdt. Babor' : 
-      state.currentRole === 'Partner' ? 'Partenaire B2B' : 'Inspecteur LR';
-      
-    document.getElementById('currentUserRoleBadge').textContent = roleBadges[state.currentRole];
-    
-    applyRolePermissions();
-    showToast(`Rôle changé vers: ${roleBadges[state.currentRole]}`, 'info');
-  });
-  
-  applyRolePermissions();
-}
-
-function applyRolePermissions() {
-  const role = state.currentRole;
-  
-  // Admin button permissions
-  const btnImportExcel = document.getElementById('btnImportExcel');
-  const btnNewVesselManual = document.getElementById('btnNewVesselManual');
-  const btnAddCertManual = document.getElementById('btnAddCertManual');
-  const btnAddActionableManual = document.getElementById('btnAddActionableManual');
-  const btnDeleteVessel = document.getElementById('btnDeleteVessel');
-  const btnVesselSettings = document.getElementById('btnVesselSettings');
-  
-  if (role === 'Admin') {
-    btnImportExcel.style.display = 'inline-flex';
-    btnNewVesselManual.style.display = 'inline-block';
-    if (btnAddCertManual) btnAddCertManual.style.display = 'inline-block';
-    if (btnAddActionableManual) btnAddActionableManual.style.display = 'inline-block';
-    if (btnDeleteVessel) btnDeleteVessel.style.display = 'inline-block';
-    if (btnVesselSettings) btnVesselSettings.style.display = 'inline-block';
-  } else if (role === 'Crew') {
-    btnImportExcel.style.display = 'none';
-    btnNewVesselManual.style.display = 'none';
-    // Crew can add/edit servicing certs
-    if (btnAddCertManual) btnAddCertManual.style.display = 'inline-block';
-    if (btnAddActionableManual) btnAddActionableManual.style.display = 'none';
-    if (btnDeleteVessel) btnDeleteVessel.style.display = 'none';
-    if (btnVesselSettings) btnVesselSettings.style.display = 'none';
-  } else {
-    // Partner & Auditor are view only
-    btnImportExcel.style.display = 'none';
-    btnNewVesselManual.style.display = 'none';
-    if (btnAddCertManual) btnAddCertManual.style.display = 'none';
-    if (btnAddActionableManual) btnAddActionableManual.style.display = 'none';
-    if (btnDeleteVessel) btnDeleteVessel.style.display = 'none';
-    if (btnVesselSettings) btnVesselSettings.style.display = 'none';
-  }
-  
-  // Refresh the active table to update row actions (Edit/Delete buttons)
-  if (state.selectedVesselId) {
-    renderCertificates();
-    renderActionableItems();
-  }
-}
-
-// ----------------------------------------------------
-// API REQUESTS & DATA LOADING
+// DATA LOADING
 // ----------------------------------------------------
 async function loadVessels() {
   try {
-    const res = await fetch('/api/vessels');
+    const res = await apiFetch('/api/vessels');
     const data = await res.json();
     state.vessels = data;
     
@@ -166,39 +357,35 @@ async function loadVessels() {
     renderDashboardVessels();
     renderFleetSidebar();
     
-    // Auto-select first vessel if none selected
     if (state.vessels.length > 0 && !state.selectedVesselId) {
       selectVessel(state.vessels[0].id);
     }
   } catch (err) {
     console.error('Error loading vessels:', err);
-    showToast('Erreur de connexion avec le serveur', 'error');
   }
 }
 
 async function selectVessel(id) {
   state.selectedVesselId = id;
   
-  // Update sidebar active class
   document.querySelectorAll('.fleet-vessel-item').forEach(item => {
     if (item.dataset.id == id) item.classList.add('active');
     else item.classList.remove('active');
   });
   
-  // Load vessel data
   const vessel = state.vessels.find(v => v.id == id);
   if (!vessel) return;
   
-  document.getElementById('noVesselSelected').style.display = 'none';
-  document.getElementById('vesselDetailContainer').style.display = 'block';
+  const emptyState = document.getElementById('noVesselSelected');
+  const detailContainer = document.getElementById('vesselDetailContainer');
+  if (emptyState) emptyState.style.display = 'none';
+  if (detailContainer) detailContainer.style.display = 'block';
   
-  // Fill Header Info
   document.getElementById('vesselDetailName').textContent = vessel.name;
   document.getElementById('vesselDetailImo').textContent = vessel.imo_number || 'N/A';
   document.getElementById('vesselDetailFlag').textContent = vessel.flag || 'N/A';
   document.getElementById('vesselDetailType').textContent = vessel.asset_type || 'N/A';
   
-  // Fill Specifications
   document.getElementById('specOwner').textContent = vessel.owner || '-';
   document.getElementById('specManager').textContent = vessel.manager || '-';
   document.getElementById('specPort').textContent = vessel.port_of_registry || '-';
@@ -206,7 +393,6 @@ async function selectVessel(id) {
   document.getElementById('specGT').textContent = vessel.gross_tonnage ? vessel.gross_tonnage.toLocaleString() : '-';
   document.getElementById('specDWT').textContent = vessel.deadweight_tonnage ? vessel.deadweight_tonnage.toLocaleString() : '-';
   
-  // Fetch Certs & Actionable Items
   await Promise.all([
     loadCertificates(id),
     loadActionableItems(id)
@@ -215,7 +401,7 @@ async function selectVessel(id) {
 
 async function loadCertificates(vesselId) {
   try {
-    const res = await fetch(`/api/vessels/${vesselId}/certificates`);
+    const res = await apiFetch(`/api/vessels/${vesselId}/certificates`);
     state.certificates = await res.json();
     renderCertificates();
   } catch (err) {
@@ -225,17 +411,17 @@ async function loadCertificates(vesselId) {
 
 async function loadActionableItems(vesselId) {
   try {
-    const res = await fetch(`/api/vessels/${vesselId}/actionable-items`);
+    const res = await apiFetch(`/api/vessels/${vesselId}/actionable-items`);
     state.actionableItems = await res.json();
     renderActionableItems();
   } catch (err) {
-    console.error('Error loading actionable items:', err);
+    console.error('Error loading recommendations:', err);
   }
 }
 
 async function loadEmailLogs() {
   try {
-    const res = await fetch('/api/email-logs');
+    const res = await apiFetch('/api/email-logs');
     state.emailLogs = await res.json();
     renderEmailLogs();
   } catch (err) {
@@ -244,7 +430,7 @@ async function loadEmailLogs() {
 }
 
 // ----------------------------------------------------
-// RENDERING FUNCTIONS
+// RENDERING INTERFACES
 // ----------------------------------------------------
 function updateDashboardWidgets() {
   let totalRed = 0, totalYellow = 0, totalGreen = 0;
@@ -264,9 +450,10 @@ function updateDashboardWidgets() {
 }
 
 function renderComplianceChart(red, yellow, green) {
-  const ctx = document.getElementById('fleetComplianceChart').getContext('2d');
+  const canvas = document.getElementById('fleetComplianceChart');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
   
-  // Calculate normal/OK certificates
   let normal = 0;
   state.vessels.forEach(v => {
     normal += v.counts.normal || 0;
@@ -279,11 +466,10 @@ function renderComplianceChart(red, yellow, green) {
   }
 
   if (total === 0) {
-    // Empty state chart
     state.complianceChart = new Chart(ctx, {
       type: 'doughnut',
       data: {
-        labels: ['Aucune donnée'],
+        labels: [state.lang === 'fr' ? 'Aucune donnée' : 'No Data'],
         datasets: [{
           data: [1],
           backgroundColor: ['#27272a'],
@@ -299,10 +485,13 @@ function renderComplianceChart(red, yellow, green) {
     return;
   }
   
+  const labelsFr = ['Urgent / Expire (<30j)', 'Attention (30j-90j)', 'Suivi (90j-180j)', 'Conforme (>180j)'];
+  const labelsEn = ['Urgent / Expired (<30d)', 'Warning (30d-90d)', 'Monitored (90d-180d)', 'Compliant (>180d)'];
+
   state.complianceChart = new Chart(ctx, {
     type: 'doughnut',
     data: {
-      labels: ['Urgent / Expire (<30j)', 'Attention (30j-90j)', 'Suivi (90j-180j)', 'Conforme (>180j)'],
+      labels: state.lang === 'fr' ? labelsFr : labelsEn,
       datasets: [{
         data: [red, yellow, green, normal],
         backgroundColor: ['#ef4444', '#f59e0b', '#10b981', '#3b82f6'],
@@ -329,35 +518,55 @@ function renderComplianceChart(red, yellow, green) {
 
 function renderDashboardVessels() {
   const container = document.getElementById('dashboardVesselsGrid');
+  if (!container) return;
   container.innerHTML = '';
   
   if (state.vessels.length === 0) {
-    container.innerHTML = `<p class="placeholder-text">Aucun navire configuré. Cliquez sur "Importer Navire" pour commencer.</p>`;
+    container.innerHTML = `<p class="placeholder-text">${
+      state.lang === 'fr' ? 'Aucun navire configuré. Contactez l\'administrateur.' : 'No vessels configured. Contact your admin.'
+    }</p>`;
     return;
   }
   
   state.vessels.forEach(v => {
     const card = document.createElement('div');
     card.className = `vessel-card status-${v.status}`;
+    
+    // Status translation display
+    let statusText = v.status;
+    if (state.lang === 'fr') {
+      if (v.status === 'Imminent') statusText = 'Imminent';
+      else if (v.status === 'Attention') statusText = 'Attention';
+      else if (v.status === 'Suivi') statusText = 'Suivi';
+      else statusText = 'Normal';
+    } else {
+      if (v.status === 'Imminent') statusText = 'Urgent';
+      else if (v.status === 'Attention') statusText = 'Warning';
+      else if (v.status === 'Suivi') statusText = 'Monitored';
+      else statusText = 'Normal';
+    }
+
+    const badgeClass = v.status === 'Imminent' ? 'badge-red' : v.status === 'Attention' ? 'badge-yellow' : v.status === 'Suivi' ? 'badge-green' : 'badge-normal';
+
     card.innerHTML = `
       <div class="vessel-card-header">
         <div>
           <h3>${v.name}</h3>
           <span class="vessel-card-imo">IMO ${v.imo_number || 'N/A'}</span>
         </div>
-        <span class="badge ${v.status === 'Imminent' ? 'badge-red' : v.status === 'Attention' ? 'badge-yellow' : v.status === 'Suivi' ? 'badge-green' : 'badge-normal'}">${v.status}</span>
+        <span class="badge ${badgeClass}">${statusText}</span>
       </div>
       <div class="vessel-card-stats">
         <div class="vessel-stat-col">
-          Urgents
+          ${state.lang === 'fr' ? 'Urgents' : 'Urgents'}
           <span class="text-red">${v.counts.red}</span>
         </div>
         <div class="vessel-stat-col">
-          Alertes
+          ${state.lang === 'fr' ? 'Alertes' : 'Warnings'}
           <span class="text-yellow">${v.counts.yellow}</span>
         </div>
         <div class="vessel-stat-col">
-          Suivis
+          ${state.lang === 'fr' ? 'Suivis' : 'Monitored'}
           <span class="text-green">${v.counts.green}</span>
         </div>
         <div class="vessel-stat-col">
@@ -367,7 +576,6 @@ function renderDashboardVessels() {
       </div>
     `;
     
-    // Click opens in Fleet Detail
     card.addEventListener('click', () => {
       window.location.hash = '#fleet';
       selectVessel(v.id);
@@ -376,52 +584,40 @@ function renderDashboardVessels() {
     container.appendChild(card);
   });
 
-  // Populate urgent dashboard list
   populateCriticalAlertsList();
 }
 
 function populateCriticalAlertsList() {
   const list = document.getElementById('criticalCertsList');
+  if (!list) return;
   list.innerHTML = '';
   
-  let criticalItems = [];
-  
-  // Loop through all vessels and find red/yellow certificates
-  state.vessels.forEach(v => {
-    // Fetch critical details. We request them dynamically or map from state.
-    // To make it easy, we can list urgent certificates for each vessel if loaded.
-  });
-  
-  // Since we haven't loaded certificates for all vessels locally in one go,
-  // we will trigger a background fetch or query of critical items from the REST API,
-  // or simply build the list from certificates we have or compute them.
-  // For the demo dashboard list, let's call a query or compile from loaded data.
-  // Let's write a quick API request in server.js or fetch it from vessels state counts.
-  // Let's make a request or compile.
-  
-  // Let's compile what's currently in state.certificates if selected. Or show a list.
-  // Better yet, we can query an endpoint or build it dynamically:
-  const criticalCerts = [];
-  
-  // We will build a list from the current vessels
   let html = "";
-  
   state.vessels.forEach(v => {
     if (v.status === 'Imminent' || v.status === 'Attention') {
+      const msgFr = `${v.name} nécessite des actions de conformité urgentes`;
+      const msgEn = `${v.name} requires urgent compliance actions`;
+      const urgLabelFr = `${v.counts.red} Urgents | ${v.counts.yellow} Alertes`;
+      const urgLabelEn = `${v.counts.red} Urgents | ${v.counts.yellow} Warnings`;
+
       html += `
-        <div class="critical-list-item" onclick="window.location.hash='#fleet'; selectVessel(${v.id});">
+        <div class="critical-list-item" style="cursor:pointer;" onclick="window.location.hash='#fleet'; selectVessel(${v.id});">
           <div class="item-left">
             <span class="item-title">${v.name}</span>
-            <span class="item-sub">Le navire nécessite des actions de conformité urgentes</span>
+            <span class="item-sub">${state.lang === 'fr' ? msgFr : msgEn}</span>
           </div>
-          <span class="badge ${v.status === 'Imminent' ? 'badge-red' : 'badge-yellow'}">${v.counts.red} Urgents | ${v.counts.yellow} Alertes</span>
+          <span class="badge ${v.status === 'Imminent' ? 'badge-red' : 'badge-yellow'}">${
+            state.lang === 'fr' ? urgLabelFr : urgLabelEn
+          }</span>
         </div>
       `;
     }
   });
   
   if (html === "") {
-    list.innerHTML = `<p class="placeholder-text">Aucun navire n'a d'alertes en cours. Tout est en règle !</p>`;
+    list.innerHTML = `<p class="placeholder-text">${
+      state.lang === 'fr' ? 'Aucune alerte urgente en cours. Tout est en règle !' : 'No urgent alerts. Everything is in order!'
+    }</p>`;
   } else {
     list.innerHTML = html;
   }
@@ -429,6 +625,7 @@ function populateCriticalAlertsList() {
 
 function renderFleetSidebar() {
   const container = document.getElementById('fleetVesselsList');
+  if (!container) return;
   container.innerHTML = '';
   
   state.vessels.forEach(v => {
@@ -446,6 +643,7 @@ function renderFleetSidebar() {
 
 function renderCertificates() {
   const tbody = document.getElementById('certsTableBody');
+  if (!tbody) return;
   tbody.innerHTML = '';
   
   const searchVal = document.getElementById('certSearchInput').value.toLowerCase();
@@ -453,11 +651,9 @@ function renderCertificates() {
   const statusFilter = document.getElementById('certStatusFilter').value;
   
   const filtered = state.certificates.filter(c => {
-    // Search
     if (searchVal && !c.name.toLowerCase().includes(searchVal)) return false;
-    // Category
     if (catFilter !== 'ALL' && c.category !== catFilter) return false;
-    // Status
+    
     if (statusFilter !== 'ALL') {
       const isRed = c.alarm_status.includes('RED') || c.alarm_status.includes('OVERDUE');
       const isYellow = c.alarm_status.includes('YELLOW');
@@ -473,10 +669,18 @@ function renderCertificates() {
   });
   
   if (filtered.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="9" class="placeholder-text">Aucun certificat correspondant trouvé.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="9" class="placeholder-text">${
+      state.lang === 'fr' ? 'Aucun certificat correspondant trouvé.' : 'No matching certificates found.'
+    }</td></tr>`;
     return;
   }
   
+  const catLabels = {
+    'Class': state.lang === 'fr' ? 'Classe (LR/Statutaire)' : 'Class (LR/Statutory)',
+    'Flag': state.lang === 'fr' ? 'Pavillon' : 'Flag',
+    'Servicing': state.lang === 'fr' ? 'Entretien Annuel' : 'Annual Servicing'
+  };
+
   filtered.forEach(c => {
     const isRed = c.alarm_status.includes('RED') || c.alarm_status.includes('OVERDUE');
     const isYellow = c.alarm_status.includes('YELLOW');
@@ -484,47 +688,54 @@ function renderCertificates() {
     
     const badgeClass = isRed ? 'badge-red' : isYellow ? 'badge-yellow' : isGreen ? 'badge-green' : 'badge-normal';
     
-    // Format Category display
-    const catLabels = {
-      'Class': 'Classe (LR/Statutaire)',
-      'Flag': 'Pavillon',
-      'Servicing': 'Entretien Annuel'
-    };
-    
-    const tr = document.createElement('tr');
-    
-    // Action buttons based on Role permissions
+    let alarmDisplay = c.alarm_status;
+    if (state.lang === 'fr') {
+      if (c.alarm_status.includes('RED')) alarmDisplay = 'ROUGE - <1 MOIS';
+      else if (c.alarm_status.includes('YELLOW')) alarmDisplay = 'JAUNE - 1 A 3 MOIS';
+      else if (c.alarm_status.includes('GREEN')) alarmDisplay = 'VERT - 3 A 6 MOIS';
+      else if (c.alarm_status.includes('MONITOR')) alarmDisplay = 'SUIVI >6 MOIS';
+      else if (c.alarm_status.includes('OVERDUE')) alarmDisplay = 'EXPIRÉ / IMMINENT';
+    } else {
+      if (c.alarm_status.includes('RED')) alarmDisplay = 'RED - <1 MONTH';
+      else if (c.alarm_status.includes('YELLOW')) alarmDisplay = 'YELLOW - 1 TO 3 MONTHS';
+      else if (c.alarm_status.includes('GREEN')) alarmDisplay = 'GREEN - 3 TO 6 MONTHS';
+      else if (c.alarm_status.includes('MONITOR')) alarmDisplay = 'MONITOR >6 MONTHS';
+      else if (c.alarm_status.includes('OVERDUE')) alarmDisplay = 'OVERDUE / IMMEDIATE';
+    }
+
     let actionButtons = '';
-    const isReadOnly = (state.currentRole === 'Partner' || state.currentRole === 'Auditor');
-    const isCrew = state.currentRole === 'Crew';
+    const isReadOnly = !state.user || (state.user.role === 'Partner' || state.user.role === 'Auditor');
+    const isCrew = state.user && state.user.role === 'Crew';
     
     if (isReadOnly) {
-      actionButtons = `<span class="text-muted">Lecture seule</span>`;
+      actionButtons = `<span class="text-muted">${state.lang === 'fr' ? 'Lecture seule' : 'Read-only'}</span>`;
     } else if (isCrew) {
-      // Crew can only edit Servicing certificates
       if (c.category === 'Servicing') {
         actionButtons = `
-          <button class="btn btn-sm btn-outline btn-edit-cert" data-id="${c.id}">Mettre à jour</button>
+          <button class="btn btn-sm btn-outline btn-edit-cert" data-id="${c.id}">${state.lang === 'fr' ? 'Mettre à jour' : 'Update'}</button>
         `;
       } else {
-        actionButtons = `<span class="text-muted">Restreint</span>`;
+        actionButtons = `<span class="text-muted">${state.lang === 'fr' ? 'Restreint' : 'Restricted'}</span>`;
       }
     } else {
-      // Admin has full control
       actionButtons = `
-        <button class="btn btn-sm btn-outline btn-edit-cert" data-id="${c.id}">Modifier</button>
+        <button class="btn btn-sm btn-outline btn-edit-cert" data-id="${c.id}">${state.lang === 'fr' ? 'Modifier' : 'Edit'}</button>
         <button class="btn btn-sm btn-danger btn-delete-cert" data-id="${c.id}" style="padding: 6px 10px; margin-left: 5px;">✖</button>
       `;
     }
     
+    const tr = document.createElement('tr');
     tr.innerHTML = `
-      <td><strong>${c.name}</strong></td>
+      <td>
+        <strong>${c.name}</strong>
+        ${c.pdf_url ? `<span class="pdf-icon-btn btn-view-pdf" data-url="${c.pdf_url}" data-name="${c.name}" title="${state.lang === 'fr' ? 'Voir le PDF' : 'View PDF'}" style="margin-left: 6px; cursor: pointer;">📎</span>` : ''}
+      </td>
       <td>${catLabels[c.category] || c.category}</td>
       <td>${c.organization || '-'}</td>
       <td>${c.issuing_date || '-'}</td>
       <td>${c.expiration_date || '-'}</td>
       <td>${c.due_date || '-'}</td>
-      <td><span class="badge ${badgeClass}">${c.alarm_status}</span></td>
+      <td><span class="badge ${badgeClass}">${alarmDisplay}</span></td>
       <td><small class="text-secondary">${c.remarks || ''}</small></td>
       <td>${actionButtons}</td>
     `;
@@ -532,37 +743,54 @@ function renderCertificates() {
     tbody.appendChild(tr);
   });
   
-  // Attach listeners to newly rendered action buttons
+  // Attach listeners
   document.querySelectorAll('.btn-edit-cert').forEach(btn => {
     btn.addEventListener('click', (e) => openEditCertModal(e.target.dataset.id));
   });
   document.querySelectorAll('.btn-delete-cert').forEach(btn => {
     btn.addEventListener('click', (e) => deleteCertificate(e.target.dataset.id));
   });
+  document.querySelectorAll('.btn-view-pdf').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const url = e.currentTarget.dataset.url;
+      const name = e.currentTarget.dataset.name;
+      openPdfViewer(url, name);
+    });
+  });
 }
 
 function renderActionableItems() {
   const tbody = document.getElementById('actionableTableBody');
+  if (!tbody) return;
   tbody.innerHTML = '';
   
   if (state.actionableItems.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="7" class="placeholder-text">Aucune recommandation pour ce navire.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7" class="placeholder-text">${
+      state.lang === 'fr' ? 'Aucune recommandation pour ce navire.' : 'No recommendations for this vessel.'
+    }</td></tr>`;
     return;
   }
   
   state.actionableItems.forEach(a => {
     const isCompleted = a.status === 'Completed';
-    const isReadOnly = (state.currentRole === 'Partner' || state.currentRole === 'Auditor' || state.currentRole === 'Crew');
+    const isReadOnly = !state.user || (state.user.role === 'Partner' || state.user.role === 'Auditor' || state.user.role === 'Crew');
     
     let toggleBtn = '';
     if (!isReadOnly) {
       toggleBtn = `
         <button class="btn btn-sm ${isCompleted ? 'btn-outline' : 'btn-success'} btn-toggle-act" data-id="${a.id}" data-status="${a.status}">
-          Marquer comme ${isCompleted ? 'En attente' : 'Terminé'}
+          ${isCompleted 
+            ? (state.lang === 'fr' ? 'Marquer En attente' : 'Mark Pending')
+            : (state.lang === 'fr' ? 'Marquer Terminé' : 'Mark Completed')
+          }
         </button>
       `;
     } else {
-      toggleBtn = `<span class="badge ${isCompleted ? 'badge-green' : 'badge-yellow'}">${isCompleted ? 'Fait' : 'En attente'}</span>`;
+      const label = isCompleted 
+        ? (state.lang === 'fr' ? 'Terminé ✓' : 'Done ✓') 
+        : (state.lang === 'fr' ? 'En attente' : 'Pending');
+      toggleBtn = `<span class="badge ${isCompleted ? 'badge-green' : 'badge-yellow'}">${label}</span>`;
     }
 
     const tr = document.createElement('tr');
@@ -571,7 +799,7 @@ function renderActionableItems() {
       <td>${a.imposed_date || '-'}</td>
       <td>${a.category || '-'}</td>
       <td>${a.report_number || '-'}</td>
-      <td><strong>${a.due_date || 'Non spécifiée'}</strong></td>
+      <td><strong>${a.due_date || (state.lang === 'fr' ? 'Non spécifiée' : 'Not specified')}</strong></td>
       <td><div style="max-width: 400px; white-space: normal; font-size: 12px;">${a.description}</div></td>
       <td>${toggleBtn}</td>
     `;
@@ -579,7 +807,6 @@ function renderActionableItems() {
     tbody.appendChild(tr);
   });
   
-  // Attach listeners to toggle buttons
   document.querySelectorAll('.btn-toggle-act').forEach(btn => {
     btn.addEventListener('click', (e) => {
       const id = e.target.dataset.id;
@@ -592,15 +819,18 @@ function renderActionableItems() {
 
 function renderEmailLogs() {
   const tbody = document.getElementById('emailLogsTableBody');
+  if (!tbody) return;
   tbody.innerHTML = '';
   
   if (state.emailLogs.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="6" class="placeholder-text">Aucune alarme e-mail n'a été envoyée pour le moment.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6" class="placeholder-text">${
+      state.lang === 'fr' ? 'Aucune alarme e-mail envoyée.' : 'No email alerts sent yet.'
+    }</td></tr>`;
     return;
   }
   
   state.emailLogs.forEach(l => {
-    const isFailure = l.sent_to.includes('Echec');
+    const isFailure = l.sent_to.includes('Echec') || l.sent_to.includes('Error');
     const badgeClass = l.alarm_level.includes('RED') ? 'badge-red' : l.alarm_level.includes('YELLOW') ? 'badge-yellow' : 'badge-green';
     
     const tr = document.createElement('tr');
@@ -612,7 +842,7 @@ function renderEmailLogs() {
       <td>${l.sent_at}</td>
       <td>
         <span class="badge ${isFailure ? 'badge-red' : 'badge-green'}">
-          ${isFailure ? 'ÉCHEC' : 'ENVOYÉ ✓'}
+          ${isFailure ? (state.lang === 'fr' ? 'ÉCHEC' : 'FAILED') : (state.lang === 'fr' ? 'ENVOYÉ ✓' : 'SENT ✓')}
         </span>
       </td>
     `;
@@ -621,10 +851,9 @@ function renderEmailLogs() {
 }
 
 // ----------------------------------------------------
-// DIALOGS & FORM SUBMISSIONS
+// EVENT LISTENERS & MODALS SETUP
 // ----------------------------------------------------
 function setupEventListeners() {
-  // Modal toggle handlers
   const importModal = document.getElementById('modalImportExcel');
   const manualVesselModal = document.getElementById('modalAddVesselManual');
   const editCertModal = document.getElementById('modalEditCert');
@@ -636,14 +865,17 @@ function setupEventListeners() {
   document.getElementById('btnNewVesselManual').addEventListener('click', () => manualVesselModal.classList.add('active'));
   
   document.getElementById('btnAddCertManual').addEventListener('click', () => {
-    // Reset Edit Modal for creation
     document.getElementById('editCertId').value = '';
-    document.getElementById('editCertModalTitle').textContent = 'Créer un Certificat';
+    document.getElementById('editCertModalTitle').textContent = state.lang === 'fr' ? 'Créer un Certificat' : 'Create Certificate';
     document.getElementById('formEditCert').reset();
     
-    // Disable inputs based on permissions (if Captain, lock to Servicing)
+    const certPdfCurrent = document.getElementById('certPdfCurrent');
+    if (certPdfCurrent) certPdfCurrent.textContent = '';
+    const pdfField = document.getElementById('certPdfField');
+    if (pdfField) pdfField.value = '';
+    
     const categorySelector = document.getElementById('editCertCategory');
-    if (state.currentRole === 'Crew') {
+    if (state.user && state.user.role === 'Crew') {
       categorySelector.value = 'Servicing';
       categorySelector.disabled = true;
     } else {
@@ -660,7 +892,7 @@ function setupEventListeners() {
 
   document.getElementById('btnVesselSettings').addEventListener('click', () => openEmailSettingsModal());
 
-  // Close modals buttons
+  // Close modals
   document.getElementById('closeImportModal').addEventListener('click', () => importModal.classList.remove('active'));
   document.getElementById('closeManualVesselModal').addEventListener('click', () => manualVesselModal.classList.remove('active'));
   document.getElementById('closeEditCertModal').addEventListener('click', () => editCertModal.classList.remove('active'));
@@ -673,45 +905,57 @@ function setupEventListeners() {
   document.getElementById('btnCancelActionable').addEventListener('click', () => actionableModal.classList.remove('active'));
   document.getElementById('btnCancelSettings').addEventListener('click', () => settingsModal.classList.remove('active'));
 
-  // File Field styling
+  // Drop zone text
   const fileField = document.getElementById('importFileField');
   fileField.addEventListener('change', (e) => {
-    const filename = e.target.files[0]?.name || 'Aucun fichier sélectionné';
+    const filename = e.target.files[0]?.name || (state.lang === 'fr' ? 'Aucun fichier sélectionné' : 'No file selected');
     document.getElementById('importFileNameDisplay').textContent = filename;
   });
 
-  // Table filters listeners
+  // Table filters
   document.getElementById('certSearchInput').addEventListener('input', renderCertificates);
   document.getElementById('certCategoryFilter').addEventListener('change', renderCertificates);
   document.getElementById('certStatusFilter').addEventListener('change', renderCertificates);
 
-  // Form Submissions
+  // Forms submit
+  document.getElementById('formLogin').addEventListener('submit', handleLoginSubmit);
   document.getElementById('formImportExcel').addEventListener('submit', handleExcelImport);
   document.getElementById('formAddVesselManual').addEventListener('submit', handleManualVesselAdd);
   document.getElementById('formEditCert').addEventListener('submit', handleEditCertSubmit);
   document.getElementById('formAddActionable').addEventListener('submit', handleActionableSubmit);
   document.getElementById('formEmailSettings').addEventListener('submit', handleSettingsSubmit);
 
-  // Manual cron trigger check
+  // General trigger & operations
   document.getElementById('btnManualTriggerCheck').addEventListener('click', triggerManualEmailCheck);
-  
-  // Delete Vessel
   document.getElementById('btnDeleteVessel').addEventListener('click', deleteCurrentVessel);
-  
-  // Export Excel
   document.getElementById('btnExportExcelVessel').addEventListener('click', exportVesselExcel);
   
-  // TV Mode togglers
+  // Logout
+  document.getElementById('btnLogout').addEventListener('click', handleLogout);
+
+  // Language selectors
+  document.getElementById('btnLangFr').addEventListener('click', () => loadTranslations('fr'));
+  document.getElementById('btnLangEn').addEventListener('click', () => loadTranslations('en'));
+
+  // Close PDF Modal
+  document.getElementById('closePdfModal').addEventListener('click', () => {
+    const modal = document.getElementById('modalPdfViewer');
+    const iframe = document.getElementById('pdfFrame');
+    if (modal) modal.classList.remove('active');
+    if (iframe) iframe.src = '';
+  });
+
+  // TV mode exit
   document.getElementById('btnExitTvMode').addEventListener('click', exitTvMode);
-  
-  // Sidebar TV item click
   document.getElementById('nav-tv-mode').addEventListener('click', (e) => {
     e.preventDefault();
     enterTvMode();
   });
 }
 
-// REST API call actions
+// ----------------------------------------------------
+// ACTIONS & FORM HANDLERS
+// ----------------------------------------------------
 async function handleExcelImport(e) {
   e.preventDefault();
   const fileField = document.getElementById('importFileField');
@@ -722,20 +966,26 @@ async function handleExcelImport(e) {
   
   const submitBtn = document.getElementById('btnSubmitImport');
   submitBtn.disabled = true;
-  submitBtn.textContent = "Importation en cours...";
+  submitBtn.textContent = state.lang === 'fr' ? 'Importation...' : 'Importing...';
   
   try {
     const res = await fetch('/api/vessels/import', {
       method: 'POST',
+      headers: {
+        'Authorization': 'Bearer ' + state.token
+      },
       body: formData
     });
     
     const result = await res.json();
     if (res.ok) {
-      showToast(`Navire "${result.name}" importé avec succès !`, 'success');
+      showToast(
+        state.lang === 'fr' ? `Navire "${result.name}" importé !` : `Vessel "${result.name}" imported!`, 
+        'success'
+      );
       document.getElementById('modalImportExcel').classList.remove('active');
       document.getElementById('formImportExcel').reset();
-      document.getElementById('importFileNameDisplay').textContent = 'Aucun fichier sélectionné';
+      document.getElementById('importFileNameDisplay').textContent = state.lang === 'fr' ? 'Aucun fichier sélectionné' : 'No file selected';
       
       await loadVessels();
       selectVessel(result.vesselId);
@@ -744,10 +994,10 @@ async function handleExcelImport(e) {
     }
   } catch (err) {
     console.error(err);
-    showToast('Erreur serveur lors du téléversement', 'error');
+    showToast('Erreur serveur lors de l\'import', 'error');
   } finally {
     submitBtn.disabled = false;
-    submitBtn.textContent = "Lancer l'importation";
+    submitBtn.textContent = state.lang === 'fr' ? "Lancer l'importation" : 'Start Import';
   }
 }
 
@@ -761,7 +1011,7 @@ async function handleManualVesselAdd(e) {
   const manager = document.getElementById('manualVesselManager').value;
   
   try {
-    const res = await fetch('/api/vessels/manual', {
+    const res = await apiFetch('/api/vessels/manual', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name, imo_number, flag, asset_type, owner, manager })
@@ -769,7 +1019,7 @@ async function handleManualVesselAdd(e) {
     
     const result = await res.json();
     if (res.ok) {
-      showToast('Navire créé avec succès', 'success');
+      showToast(state.lang === 'fr' ? 'Navire créé avec succès' : 'Vessel created successfully', 'success');
       document.getElementById('modalAddVesselManual').classList.remove('active');
       document.getElementById('formAddVesselManual').reset();
       
@@ -788,7 +1038,7 @@ async function openEditCertModal(certId) {
   if (!cert) return;
   
   document.getElementById('editCertId').value = cert.id;
-  document.getElementById('editCertModalTitle').textContent = 'Modifier Certificat';
+  document.getElementById('editCertModalTitle').textContent = state.lang === 'fr' ? 'Modifier Certificat' : 'Edit Certificate';
   
   document.getElementById('editCertName').value = cert.name;
   document.getElementById('editCertCategory').value = cert.category;
@@ -799,10 +1049,28 @@ async function openEditCertModal(certId) {
   document.getElementById('editCertWindow').value = cert.window || '';
   document.getElementById('editCertRemarks').value = cert.remarks || '';
   
-  // Permissions logic for Crew role in modal
+  const pdfField = document.getElementById('certPdfField');
+  if (pdfField) pdfField.value = '';
+  
+  const certPdfCurrent = document.getElementById('certPdfCurrent');
+  if (certPdfCurrent) {
+    if (cert.pdf_url) {
+      certPdfCurrent.innerHTML = state.lang === 'fr' 
+        ? `📎 <a href="#" class="btn-view-pdf" data-url="${cert.pdf_url}" data-name="${cert.name}" style="color:var(--primary-color); text-decoration:underline;">Voir le PDF actuel</a>`
+        : `📎 <a href="#" class="btn-view-pdf" data-url="${cert.pdf_url}" data-name="${cert.name}" style="color:var(--primary-color); text-decoration:underline;">View current PDF</a>`;
+      
+      certPdfCurrent.querySelector('.btn-view-pdf').addEventListener('click', (e) => {
+        e.preventDefault();
+        openPdfViewer(cert.pdf_url, cert.name);
+      });
+    } else {
+      certPdfCurrent.textContent = state.lang === 'fr' ? 'Aucun PDF téléversé' : 'No PDF uploaded';
+    }
+  }
+
   const catSelector = document.getElementById('editCertCategory');
   const nameInput = document.getElementById('editCertName');
-  if (state.currentRole === 'Crew') {
+  if (state.user && state.user.role === 'Crew') {
     nameInput.disabled = true;
     catSelector.disabled = true;
   } else {
@@ -832,24 +1100,53 @@ async function handleEditCertSubmit(e) {
     let method = 'PUT';
     
     if (!certId) {
-      // Creation manual mode
       url = `/api/vessels/${state.selectedVesselId}/certificates`;
       method = 'POST';
       payload.name = name;
       payload.category = category;
     }
     
-    const res = await fetch(url, {
+    const res = await apiFetch(url, {
       method: method,
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });
     
     if (res.ok) {
-      showToast(certId ? 'Certificat mis à jour avec succès' : 'Certificat créé avec succès', 'success');
-      document.getElementById('modalEditCert').classList.remove('active');
+      const resultData = await res.json();
+      const savedCertId = certId || resultData.id;
       
-      // Reload current vessel details
+      // Handle PDF upload if selected
+      const pdfField = document.getElementById('certPdfField');
+      if (pdfField && pdfField.files.length > 0) {
+        const formData = new FormData();
+        formData.append('pdf', pdfField.files[0]);
+        
+        const uploadRes = await fetch(`/api/certificates/${savedCertId}/upload`, {
+          method: 'POST',
+          headers: {
+            'Authorization': 'Bearer ' + state.token
+          },
+          body: formData
+        });
+        
+        if (!uploadRes.ok) {
+          const uploadErr = await uploadRes.json();
+          showToast(`Erreur PDF : ${uploadErr.error || 'Erreur inconnue'}`, 'error');
+        } else {
+          showToast(state.lang === 'fr' ? 'PDF téléversé avec succès !' : 'PDF uploaded successfully!', 'success');
+        }
+      }
+      
+      showToast(certId 
+        ? (state.lang === 'fr' ? 'Certificat mis à jour' : 'Certificate updated')
+        : (state.lang === 'fr' ? 'Certificat créé' : 'Certificate created'), 
+        'success'
+      );
+      
+      document.getElementById('modalEditCert').classList.remove('active');
+      document.getElementById('formEditCert').reset();
+      
       await loadVessels();
       await selectVessel(state.selectedVesselId);
     } else {
@@ -862,11 +1159,15 @@ async function handleEditCertSubmit(e) {
 }
 
 async function deleteCertificate(certId) {
-  if (!confirm('Êtes-vous sûr de vouloir supprimer ce certificat ?')) return;
+  const confirmMsg = state.lang === 'fr' 
+    ? 'Êtes-vous sûr de vouloir supprimer ce certificat ?' 
+    : 'Are you sure you want to delete this certificate?';
+    
+  if (!confirm(confirmMsg)) return;
   try {
-    const res = await fetch(`/api/certificates/${certId}`, { method: 'DELETE' });
+    const res = await apiFetch(`/api/certificates/${certId}`, { method: 'DELETE' });
     if (res.ok) {
-      showToast('Certificat supprimé', 'success');
+      showToast(state.lang === 'fr' ? 'Certificat supprimé' : 'Certificate deleted', 'success');
       await loadVessels();
       await selectVessel(state.selectedVesselId);
     }
@@ -884,14 +1185,14 @@ async function handleActionableSubmit(e) {
   const description = document.getElementById('actDescription').value;
   
   try {
-    const res = await fetch(`/api/vessels/${state.selectedVesselId}/actionable-items`, {
+    const res = await apiFetch(`/api/vessels/${state.selectedVesselId}/actionable-items`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ imposed_date, category, report_number, due_date, description })
     });
     
     if (res.ok) {
-      showToast('Recommandation ajoutée', 'success');
+      showToast(state.lang === 'fr' ? 'Recommandation ajoutée' : 'Recommendation added', 'success');
       document.getElementById('modalAddActionable').classList.remove('active');
       await loadActionableItems(state.selectedVesselId);
     }
@@ -902,13 +1203,16 @@ async function handleActionableSubmit(e) {
 
 async function toggleActionableStatus(id, newStatus) {
   try {
-    const res = await fetch(`/api/actionable-items/${id}/status`, {
+    const res = await apiFetch(`/api/actionable-items/${id}/status`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status: newStatus })
     });
     if (res.ok) {
-      showToast(newStatus === 'Completed' ? 'Marqué comme terminé ✓' : 'Marqué comme en attente', 'success');
+      const msg = newStatus === 'Completed'
+        ? (state.lang === 'fr' ? 'Marqué comme terminé ✓' : 'Marked as completed ✓')
+        : (state.lang === 'fr' ? 'Marqué comme en attente' : 'Marked as pending');
+      showToast(msg, 'success');
       await loadActionableItems(state.selectedVesselId);
     }
   } catch (err) {
@@ -918,7 +1222,7 @@ async function toggleActionableStatus(id, newStatus) {
 
 async function openEmailSettingsModal() {
   try {
-    const res = await fetch(`/api/vessels/${state.selectedVesselId}/settings`);
+    const res = await apiFetch(`/api/vessels/${state.selectedVesselId}/settings`);
     const settings = await res.json();
     
     document.getElementById('settingsVesselId').value = state.selectedVesselId;
@@ -940,14 +1244,14 @@ async function handleSettingsSubmit(e) {
   const email3 = document.getElementById('settingsEmail3').value;
   
   try {
-    const res = await fetch(`/api/vessels/${vesselId}/settings`, {
+    const res = await apiFetch(`/api/vessels/${vesselId}/settings`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email1, email2, email3 })
     });
     
     if (res.ok) {
-      showToast('Adresses e-mail de rappel enregistrées', 'success');
+      showToast(state.lang === 'fr' ? 'Adresses e-mail enregistrées' : 'Email settings updated', 'success');
       document.getElementById('modalEmailSettings').classList.remove('active');
     }
   } catch (err) {
@@ -958,30 +1262,37 @@ async function handleSettingsSubmit(e) {
 async function triggerManualEmailCheck() {
   const btn = document.getElementById('btnManualTriggerCheck');
   btn.disabled = true;
-  btn.textContent = "Vérification en cours...";
+  btn.textContent = state.lang === 'fr' ? 'Vérification...' : 'Checking...';
   
   try {
-    const res = await fetch('/api/trigger-notifications', { method: 'POST' });
+    const res = await apiFetch('/api/trigger-notifications', { method: 'POST' });
     const result = await res.json();
     if (res.ok) {
-      showToast(`Vérification effectuée. ${result.checked} certificats vérifiés, ${result.alerts} e-mails d'alerte envoyés.`, 'success');
+      const msg = state.lang === 'fr'
+        ? `Vérification effectuée. ${result.checked} certificats analysés, ${result.alerts} alertes e-mail.`
+        : `Check complete. ${result.checked} certificates analyzed, ${result.alerts} email alerts generated.`;
+      showToast(msg, 'success');
       await loadEmailLogs();
     }
   } catch (err) {
-    showToast('Erreur lors du déclenchement du script d\'alertes', 'error');
+    showToast('Erreur lors du déclenchement du script', 'error');
   } finally {
     btn.disabled = false;
-    btn.textContent = "⚡ Déclencher Test Alarme E-mail";
+    btn.textContent = state.lang === 'fr' ? '⚡ Déclencher Test Alarme E-mail' : '⚡ Trigger Email Alert Check';
   }
 }
 
 async function deleteCurrentVessel() {
-  if (!confirm('Êtes-vous absolument sûr de vouloir supprimer ce navire et toutes ses données associées ? Cette action est irréversible.')) return;
+  const confirmMsg = state.lang === 'fr'
+    ? 'Êtes-vous absolument sûr de vouloir supprimer ce navire et toutes ses données associées ? Cette action est irréversible.'
+    : 'Are you absolutely sure you want to delete this vessel and all its associated data? This action is irreversible.';
+
+  if (!confirm(confirmMsg)) return;
   
   try {
-    const res = await fetch(`/api/vessels/${state.selectedVesselId}`, { method: 'DELETE' });
+    const res = await apiFetch(`/api/vessels/${state.selectedVesselId}`, { method: 'DELETE' });
     if (res.ok) {
-      showToast('Navire supprimé avec succès', 'success');
+      showToast(state.lang === 'fr' ? 'Navire supprimé avec succès' : 'Vessel deleted successfully', 'success');
       state.selectedVesselId = null;
       await loadVessels();
     }
@@ -992,9 +1303,26 @@ async function deleteCurrentVessel() {
 
 function exportVesselExcel() {
   if (!state.selectedVesselId) return;
-  // Trigger file download directly by opening url in browser
-  window.open(`/api/vessels/${state.selectedVesselId}/export`);
-  showToast('Téléchargement du rapport Excel formaté lancé...', 'success');
+  const url = `/api/vessels/${state.selectedVesselId}/export?token=${encodeURIComponent(state.token)}&lang=${state.lang}`;
+  window.open(url);
+  showToast(
+    state.lang === 'fr' ? 'Téléchargement du rapport Excel formaté lancé...' : 'Formatted Excel report download started...', 
+    'success'
+  );
+}
+
+function openPdfViewer(url, name) {
+  const modal = document.getElementById('modalPdfViewer');
+  const iframe = document.getElementById('pdfFrame');
+  const title = document.getElementById('pdfViewerTitle');
+  
+  if (modal && iframe) {
+    iframe.src = url;
+    if (title) {
+      title.textContent = `${translations['pdf_viewer_title'] || 'Prévisualisation'} - ${name}`;
+    }
+    modal.classList.add('active');
+  }
 }
 
 // ----------------------------------------------------
@@ -1002,6 +1330,7 @@ function exportVesselExcel() {
 // ----------------------------------------------------
 function showToast(message, type = 'info') {
   const container = document.getElementById('toastContainer');
+  if (!container) return;
   const toast = document.createElement('div');
   toast.className = `toast toast-${type}`;
   
@@ -1013,14 +1342,13 @@ function showToast(message, type = 'info') {
   
   container.appendChild(toast);
   
-  // Fade out and remove
   setTimeout(() => {
     toast.style.animation = 'toastFadeOut 0.3s ease forwards';
     toast.addEventListener('animationend', () => toast.remove());
   }, 4000);
 }
 
-// CSS injection for toast fade out animation
+// CSS injection for toast animation
 const style = document.createElement('style');
 style.textContent = `
   @keyframes toastFadeOut {
@@ -1031,23 +1359,19 @@ style.textContent = `
 document.head.appendChild(style);
 
 // ----------------------------------------------------
-// OFFICE TV DASHBOARD FUNCTIONALITY
+// OFFICE TV DASHBOARD
 // ----------------------------------------------------
 let tvInterval = null;
 
 function enterTvMode() {
-  // Hide normal grid app, show fullscreen TV container
   document.getElementById('mainAppGrid').style.display = 'none';
   document.getElementById('view-tv-mode').style.display = 'flex';
   
-  // Start fullscreen requested if supported
   const docEl = document.documentElement;
   if (docEl.requestFullscreen) docEl.requestFullscreen().catch(() => {});
   
-  // Initial TV render & data reload
   renderTvDashboard();
   
-  // Auto refresh every 30 seconds
   tvInterval = setInterval(async () => {
     await loadVessels();
     renderTvDashboard();
@@ -1067,7 +1391,6 @@ function exitTvMode() {
     tvInterval = null;
   }
   
-  // Return hash to dashboard
   window.location.hash = '#dashboard';
 }
 
@@ -1077,16 +1400,13 @@ function updateTvTime() {
   if (!timeEl || !dateEl) return;
   
   const now = new Date();
-  
-  // Time format
   const hours = String(now.getHours()).padStart(2, '0');
   const minutes = String(now.getMinutes()).padStart(2, '0');
   const seconds = String(now.getSeconds()).padStart(2, '0');
   timeEl.textContent = `${hours}:${minutes}:${seconds}`;
   
-  // Date Format French
   const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
-  dateEl.textContent = now.toLocaleDateString('fr-FR', options);
+  dateEl.textContent = now.toLocaleDateString(state.lang === 'fr' ? 'fr-FR' : 'en-US', options);
 }
 
 async function renderTvDashboard() {
@@ -1100,12 +1420,10 @@ async function renderTvDashboard() {
   let totalRed = 0, totalYellow = 0;
   let allCriticalCerts = [];
   
-  // Fetch lists for all vessels to show in scrolling widget
   for (const v of state.vessels) {
     totalRed += v.counts.red || 0;
     totalYellow += v.counts.yellow || 0;
     
-    // Add vessel row to sidebar
     const row = document.createElement('div');
     row.className = 'tv-vessel-row';
     row.innerHTML = `
@@ -1119,9 +1437,8 @@ async function renderTvDashboard() {
     `;
     listEl.appendChild(row);
     
-    // Fetch certificate list for this vessel to compile urgent ones
     try {
-      const res = await fetch(`/api/vessels/${v.id}/certificates`);
+      const res = await apiFetch(`/api/vessels/${v.id}/certificates`);
       const certs = await res.json();
       
       certs.forEach(c => {
@@ -1144,45 +1461,58 @@ async function renderTvDashboard() {
     }
   }
   
-  // Update Big counts
   document.getElementById('tv-count-red').textContent = totalRed;
   document.getElementById('tv-count-yellow').textContent = totalYellow;
   
-  // Calculate compliance rate
   const totalCertsCount = state.vessels.reduce((acc, curr) => acc + curr.counts.total, 0);
   const compliantCount = state.vessels.reduce((acc, curr) => acc + curr.counts.normal + curr.counts.green, 0);
   const rate = totalCertsCount > 0 ? Math.round((compliantCount / totalCertsCount) * 100) : 100;
   document.getElementById('tv-compliance-rate').textContent = `${rate}%`;
   
-  // Sort critical items by urgency (Red, then Yellow, then Green)
   allCriticalCerts.sort((a, b) => {
     const order = { 'red': 1, 'yellow': 2, 'green': 3 };
     return order[a.level] - order[b.level];
   });
   
-  // Render scrolling list
   if (allCriticalCerts.length === 0) {
-    scrollEl.innerHTML = `<p class="placeholder-text" style="color:rgba(255,255,255,0.4)">Aucune alerte active dans la flotte. Statut conforme.</p>`;
+    scrollEl.innerHTML = `<p class="placeholder-text" style="color:rgba(255,255,255,0.4)">${
+      state.lang === 'fr' ? 'Aucune alerte active dans la flotte. Statut conforme.' : 'No active alerts in fleet. Compliant status.'
+    }</p>`;
     return;
   }
   
   allCriticalCerts.forEach(item => {
     const div = document.createElement('div');
     div.className = `tv-alert-item tv-alert-${item.level}`;
+    
+    let alarmDisplay = item.alarm_status;
+    if (state.lang === 'fr') {
+      if (item.alarm_status.includes('RED')) alarmDisplay = 'ROUGE - <1 MOIS';
+      else if (item.alarm_status.includes('YELLOW')) alarmDisplay = 'JAUNE - 1 A 3 MOIS';
+      else if (item.alarm_status.includes('GREEN')) alarmDisplay = 'VERT - 3 A 6 MOIS';
+      else if (item.alarm_status.includes('MONITOR')) alarmDisplay = 'SUIVI >6 MOIS';
+      else if (item.alarm_status.includes('OVERDUE')) alarmDisplay = 'EXPIRÉ / IMMINENT';
+    } else {
+      if (item.alarm_status.includes('RED')) alarmDisplay = 'RED - <1 MONTH';
+      else if (item.alarm_status.includes('YELLOW')) alarmDisplay = 'YELLOW - 1 TO 3 MONTHS';
+      else if (item.alarm_status.includes('GREEN')) alarmDisplay = 'GREEN - 3 TO 6 MONTHS';
+      else if (item.alarm_status.includes('MONITOR')) alarmDisplay = 'MONITOR >6 MONTHS';
+      else if (item.alarm_status.includes('OVERDUE')) alarmDisplay = 'OVERDUE / IMMEDIATE';
+    }
+
     div.innerHTML = `
       <div class="tv-alert-item-left">
         <span class="tv-alert-vessel">${item.vessel_name}</span>
         <span class="tv-alert-name">${item.cert_name}</span>
-        <span class="tv-alert-due">Échéance: ${item.due_date}</span>
+        <span class="tv-alert-due">${state.lang === 'fr' ? 'Échéance' : 'Due'}: ${item.due_date}</span>
       </div>
       <span class="tv-alert-status ${item.level === 'red' ? 'text-red' : item.level === 'yellow' ? 'text-yellow' : 'text-green'}">
-        ${item.alarm_status}
+        ${alarmDisplay}
       </span>
     `;
     scrollEl.appendChild(div);
   });
   
-  // Simple CSS animation loop or automated scroll behavior
   startTvScrollAnimation();
 }
 
@@ -1195,7 +1525,6 @@ function startTvScrollAnimation() {
   const delay = 50;
   
   let scrollId = setInterval(() => {
-    // If user left TV mode, stop
     if (document.getElementById('view-tv-mode').style.display === 'none') {
       clearInterval(scrollId);
       return;
@@ -1203,7 +1532,6 @@ function startTvScrollAnimation() {
     
     container.scrollTop += scrollStep;
     if (container.scrollTop >= (container.scrollHeight - container.clientHeight)) {
-      // Loop back smoothly
       setTimeout(() => {
         container.scrollTop = 0;
       }, 2000);
