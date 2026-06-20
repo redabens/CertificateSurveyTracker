@@ -3,74 +3,75 @@
    ========================================================================== */
 
 :root {
-  /* CNANCertifs studied startup color palette */
-  --bg-primary: #030712;
-  --bg-secondary: #0b0f19;
-  --bg-card: rgba(17, 24, 39, 0.7);
-  --border-color: rgba(255, 255, 255, 0.08);
+  /* CNANCertifs flat, clean corporate design system */
+  --bg-primary: #090d16;
+  --bg-secondary: #111827;
+  --bg-card: #1f2937;
+  --border-color: #2d3748;
   
-  --text-primary: #f8fafc;
-  --text-secondary: #94a3b8;
-  --text-muted: #64748b;
+  --text-primary: #f9fafb;
+  --text-secondary: #9ca3af;
+  --text-muted: #6b7280;
   
-  --primary-color: #0ea5e9;
-  --primary-gradient: linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%);
-  --success-gradient: linear-gradient(135deg, #10b981, #059669);
-  --warning-gradient: linear-gradient(135deg, #f59e0b, #d97706);
-  --danger-gradient: linear-gradient(135deg, #f43f5e, #be123c);
+  --primary-color: #2563eb;
+  --primary-gradient: linear-gradient(180deg, #3b82f6 0%, #2563eb 100%);
+  --success-gradient: linear-gradient(180deg, #10b981 0%, #059669 100%);
+  --warning-gradient: linear-gradient(180deg, #f59e0b 0%, #d97706 100%);
+  --danger-gradient: linear-gradient(180deg, #ef4444 0%, #dc2626 100%);
   
   /* Status Colors */
   --status-red: #f43f5e;
-  --status-red-bg: rgba(244, 63, 94, 0.12);
+  --status-red-bg: rgba(244, 63, 94, 0.15);
   --status-red-text: #fda4af;
   
   --status-yellow: #f59e0b;
-  --status-yellow-bg: rgba(245, 158, 11, 0.12);
+  --status-yellow-bg: rgba(245, 158, 11, 0.15);
   --status-yellow-text: #fde047;
   
   --status-green: #10b981;
-  --status-green-bg: rgba(16, 185, 129, 0.12);
+  --status-green-bg: rgba(16, 185, 129, 0.15);
   --status-green-text: #6ee7b7;
   
-  --status-normal: #0ea5e9;
-  --status-normal-bg: rgba(14, 165, 233, 0.12);
-  --status-normal-text: #7dd3fc;
+  --status-normal: #2563eb;
+  --status-normal-bg: rgba(37, 99, 235, 0.15);
+  --status-normal-text: #93c5fd;
 
   --sidebar-width: 260px;
   --header-height: 80px;
   
-  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.4);
-  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.5);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
   
-  --transition-fast: 0.2s ease;
-  --transition-normal: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  --border-radius-sm: 6px;
-  --border-radius-md: 12px;
-  --border-radius-lg: 18px;
+  --transition-fast: 0.15s ease;
+  --transition-normal: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  --border-radius-sm: 4px;
+  --border-radius-md: 6px;
+  --border-radius-lg: 8px;
 }
 
 /* Light Mode Variables Override */
 body.light-mode {
-  --bg-primary: #f8fafc;
+  --bg-primary: #f9fafb;
   --bg-secondary: #ffffff;
-  --bg-card: rgba(255, 255, 255, 0.85);
-  --border-color: rgba(0, 0, 0, 0.08);
-  --text-primary: #0f172a;
-  --text-secondary: #475569;
-  --text-muted: #64748b;
-  --primary-color: #0284c7;
-  --primary-gradient: linear-gradient(135deg, #0284c7 0%, #1e40af 100%);
-  --status-red-bg: rgba(244, 63, 94, 0.1);
-  --status-red-text: #e11d48;
+  --bg-card: #ffffff;
+  --border-color: #e5e7eb;
+  --text-primary: #111827;
+  --text-secondary: #4b5563;
+  --text-muted: #9ca3af;
+  --primary-color: #1d4ed8;
+  --primary-gradient: linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%);
+  --status-red-bg: rgba(239, 68, 68, 0.1);
+  --status-red-text: #dc2626;
   --status-yellow-bg: rgba(245, 158, 11, 0.1);
-  --status-yellow-text: #d97706;
+  --status-yellow-text: #b45309;
   --status-green-bg: rgba(16, 185, 129, 0.1);
   --status-green-text: #059669;
-  --status-normal-bg: rgba(14, 165, 233, 0.1);
-  --status-normal-text: #0369a1;
-  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.04);
-  --shadow-lg: 0 12px 24px rgba(0, 0, 0, 0.06);
+  --status-normal-bg: rgba(29, 78, 216, 0.1);
+  --status-normal-text: #1d4ed8;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.05);
 }
 
 /* Reusable SVG Icon utilities */
@@ -106,8 +107,9 @@ body {
 }
 
 h1, h2, h3, h4, .logo-text {
-  font-family: 'Outfit', sans-serif;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   font-weight: 600;
+  letter-spacing: -0.02em;
 }
 
 /* Scrollbar styling */
@@ -302,11 +304,11 @@ h1, h2, h3, h4, .logo-text {
 .btn-primary {
   background: var(--primary-gradient);
   color: white;
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+  box-shadow: var(--shadow-sm);
 }
 .btn-primary:hover {
-  filter: brightness(1.1);
-  box-shadow: 0 6px 16px rgba(59, 130, 246, 0.4);
+  filter: brightness(1.08);
+  box-shadow: var(--shadow-sm);
 }
 
 .btn-success {
@@ -371,9 +373,11 @@ h1, h2, h3, h4, .logo-text {
   box-shadow: var(--shadow-md);
 }
 
-.card.glass {
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+.glass {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
 .flex-column {
@@ -398,19 +402,14 @@ h1, h2, h3, h4, .logo-text {
   align-items: center;
   gap: 16px;
   box-shadow: var(--shadow-sm);
-  transition: transform var(--transition-fast);
-}
-
-.stat-card:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-md);
 }
 
 .stat-icon {
-  font-size: 32px;
-  background: rgba(255, 255, 255, 0.04);
-  padding: 12px;
-  border-radius: var(--border-radius-md);
+  font-size: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
 }
 
 .stat-details h3 {
@@ -428,11 +427,11 @@ h1, h2, h3, h4, .logo-text {
   margin-top: 4px;
 }
 
-/* Status colors borders */
-.stat-total { border-left: 4px solid var(--primary-color); }
-.stat-red { border-left: 4px solid var(--status-red); }
-.stat-yellow { border-left: 4px solid var(--status-yellow); }
-.stat-green { border-left: 4px solid var(--status-green); }
+/* Status colors borders - simplified to flat cards */
+.stat-total { border-top: 2px solid var(--primary-color); }
+.stat-red { border-top: 2px solid var(--status-red); }
+.stat-yellow { border-top: 2px solid var(--status-yellow); }
+.stat-green { border-top: 2px solid var(--status-green); }
 
 /* CHARTS & LISTS GRID */
 .dashboard-charts-grid {
@@ -488,17 +487,18 @@ h1, h2, h3, h4, .logo-text {
 }
 
 .badge {
-  padding: 4px 10px;
-  border-radius: 20px;
+  padding: 4px 8px;
+  border-radius: var(--border-radius-sm);
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 500;
   text-transform: uppercase;
+  letter-spacing: 0.02em;
 }
 
-.badge-red { background: var(--status-red-bg); color: var(--status-red-text); border: 1px solid rgba(239, 68, 68, 0.3); }
-.badge-yellow { background: var(--status-yellow-bg); color: var(--status-yellow-text); border: 1px solid rgba(245, 158, 11, 0.3); }
-.badge-green { background: var(--status-green-bg); color: var(--status-green-text); border: 1px solid rgba(16, 185, 129, 0.3); }
-.badge-normal { background: var(--status-normal-bg); color: var(--status-normal-text); border: 1px solid rgba(100, 116, 139, 0.3); }
+.badge-red { background: var(--status-red-bg); color: var(--status-red-text); }
+.badge-yellow { background: var(--status-yellow-bg); color: var(--status-yellow-text); }
+.badge-green { background: var(--status-green-bg); color: var(--status-green-text); }
+.badge-normal { background: var(--status-normal-bg); color: var(--status-normal-text); }
 
 /* FLEET VIEW GRID & CARDS */
 .section-header {
@@ -826,6 +826,8 @@ h1, h2, h3, h4, .logo-text {
 }
 
 .modal-content {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
   width: 100%;
   max-width: 600px;
   max-height: 90vh;
@@ -834,6 +836,7 @@ h1, h2, h3, h4, .logo-text {
   padding: 28px;
   position: relative;
   animation: modalSlideUp 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: var(--shadow-lg);
 }
 
 @keyframes modalSlideUp {

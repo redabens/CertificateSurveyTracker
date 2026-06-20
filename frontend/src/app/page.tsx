@@ -741,8 +741,8 @@ export default function Dashboard() {
             </nav>
             <div className="sidebar-footer">
               <div className="user-profile">
-                <div className="avatar icon-svg" style={{ background: 'var(--primary-gradient)', borderRadius: '50%', width: 40, height: 40, color: 'white' }}>
-                  <UserIcon size={20} />
+                <div className="avatar icon-svg" style={{ background: 'rgba(156, 163, 175, 0.1)', borderRadius: 'var(--border-radius-md)', width: 36, height: 36, color: 'var(--text-secondary)' }}>
+                  <UserIcon size={18} />
                 </div>
                 <div className="profile-info">
                   <div className="profile-name">{user.full_name}</div>
