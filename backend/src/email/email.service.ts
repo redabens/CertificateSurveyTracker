@@ -179,7 +179,7 @@ export class EmailService {
 
       const certs = this.db
         .prepare('SELECT * FROM certificates WHERE vessel_id = ?')
-        .all() as any[];
+        .all(vessel.id) as any[];
 
       for (const cert of certs) {
         const prevAlarm = cert.alarm_status;

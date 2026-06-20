@@ -9,9 +9,11 @@ export class DatabaseService implements OnModuleInit {
   public db: DatabaseSync;
 
   onModuleInit() {
-    // Locate the database at the root of the backend folder or project root
-    const dbPath = path.resolve(process.cwd(), 'vessels.db');
-    const isNew = !fs.existsSync(dbPath);
+    const isTest = process.env.NODE_ENV === 'test';
+    const dbPath = isTest
+      ? ':memory:'
+      : path.resolve(process.cwd(), 'vessels.db');
+    const isNew = isTest || !fs.existsSync(dbPath);
     this.db = new DatabaseSync(dbPath);
     this.createTables();
     if (isNew || this.isEmptyUsers()) {

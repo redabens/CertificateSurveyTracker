@@ -1,0 +1,60 @@
+import { Test, TestingModule } from '@nestjs/testing';
+import { AuthService } from './auth.service';
+import { DatabaseService } from '../database/database.service';
+import { JwtService } from '@nestjs/jwt';
+import { UnauthorizedException } from '@nestjs/common';
+
+describe('AuthService', () => {
+  let service: AuthService;
+  let dbService: DatabaseService;
+
+  beforeEach(async () => {
+    process.env.NODE_ENV = 'test';
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        AuthService,
+        DatabaseService,
+        {
+          provide: JwtService,
+          useValue: {
+            sign: jest.fn().mockReturnValue('mock-jwt-token'),
+          },
+        },
+      ],
+    }).compile();
+
+    service = module.get<AuthService>(AuthService);
+    dbService = module.get<DatabaseService>(DatabaseService);
+    dbService.onModuleInit(); // initialize seed data in-memory
+  });
+
+  afterEach(() => {
+    delete process.env.NODE_ENV;
+  });
+
+  it('should be defined', () => {
+    expect(service).toBeDefined();
+  });
+
+  it('should authenticate user with valid credentials', async () => {
+    // admin@babor.com is seeded with password admin123
+    const result = await service.login('admin@babor.com', 'admin123');
+    expect(result).toBeDefined();
+    expect(result.token).toBe('mock-jwt-token');
+    expect(result.user.email).toBe('admin@babor.com');
+    expect(result.user.role).toBe('Admin');
+  });
+
+  it('should throw UnauthorizedException for non-existing user', async () => {
+    await expect(
+      service.login('nonexist@babor.com', 'somepass'),
+    ).rejects.toThrow(UnauthorizedException);
+  });
+
+  it('should throw UnauthorizedException for invalid password', async () => {
+    await expect(service.login('admin@babor.com', 'wrongpass')).rejects.toThrow(
+      UnauthorizedException,
+    );
+  });
+});

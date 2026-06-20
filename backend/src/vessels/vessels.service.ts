@@ -54,18 +54,18 @@ export class VesselsService {
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     const info = stmt.run(
-      v.company_id || 2,
-      v.name,
-      v.imo_number,
-      v.flag,
-      v.asset_type,
-      v.owner,
-      v.manager,
-      v.gross_tonnage || 0,
-      v.deadweight_tonnage || 0,
-      v.port_of_registry,
-      v.call_sign,
-      v.status || 'Normal',
+      v.company_id ?? 2,
+      v.name ?? null,
+      v.imo_number ?? null,
+      v.flag ?? null,
+      v.asset_type ?? null,
+      v.owner ?? null,
+      v.manager ?? null,
+      v.gross_tonnage ?? 0,
+      v.deadweight_tonnage ?? 0,
+      v.port_of_registry ?? null,
+      v.call_sign ?? null,
+      v.status ?? 'Normal',
     ) as any;
     return info.lastInsertRowid;
   }

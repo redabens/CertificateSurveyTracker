@@ -23,16 +23,16 @@ export class CertificatesService {
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     const info = stmt.run(
-      c.vessel_id,
-      c.name,
-      c.category,
-      c.organization,
-      c.issuing_date,
-      c.expiration_date,
-      c.due_date,
-      c.window,
-      c.alarm_status || 'N/A',
-      c.remarks,
+      c.vessel_id ?? null,
+      c.name ?? null,
+      c.category ?? null,
+      c.organization ?? null,
+      c.issuing_date ?? null,
+      c.expiration_date ?? null,
+      c.due_date ?? null,
+      c.window ?? null,
+      c.alarm_status ?? 'N/A',
+      c.remarks ?? null,
     ) as any;
     return info.lastInsertRowid;
   }
@@ -47,13 +47,13 @@ export class CertificatesService {
     `,
       )
       .run(
-        c.organization,
-        c.issuing_date,
-        c.expiration_date,
-        c.due_date,
-        c.window,
-        c.alarm_status || 'N/A',
-        c.remarks,
+        c.organization ?? null,
+        c.issuing_date ?? null,
+        c.expiration_date ?? null,
+        c.due_date ?? null,
+        c.window ?? null,
+        c.alarm_status ?? 'N/A',
+        c.remarks ?? null,
         id,
       );
   }
