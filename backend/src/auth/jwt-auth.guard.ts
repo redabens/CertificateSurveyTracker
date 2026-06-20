@@ -27,9 +27,10 @@ export class JwtAuthGuard implements CanActivate {
       const decoded = this.jwtService.verify(token);
       request.user = decoded; // user contains: id, role, companyId
       return true;
-    } catch {
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : String(err);
       throw new UnauthorizedException(
-        'Session expirée. Veuillez vous reconnecter.',
+        `Session expirée. Veuillez vous reconnecter. Détails: ${errMsg}`,
       );
     }
   }

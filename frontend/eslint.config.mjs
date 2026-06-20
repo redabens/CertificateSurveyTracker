@@ -13,6 +13,7 @@ const eslintConfig = defineConfig([
       "react-hooks/exhaustive-deps": "warn",
       "react/no-unescaped-entities": "off",
       "prefer-const": "off",
+      "@next/next/no-page-custom-font": "off",
     }
   },
   // Override default ignores of eslint-config-next.

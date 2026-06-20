@@ -19,7 +19,7 @@ export default function LoginPage() {
     if (token) {
       router.push('/');
     }
-  }, [token]);
+  }, [token, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -41,7 +41,8 @@ export default function LoginPage() {
       }
     } catch (err) {
       console.error(err);
-      setError('Erreur serveur lors de la connexion');
+      const errMsg = err instanceof Error ? err.message : String(err);
+      setError(`Erreur serveur lors de la connexion: ${errMsg}`);
     } finally {
       setLoading(false);
     }
