@@ -40,7 +40,7 @@ let ActionableController = class ActionableController {
             category: body.category,
             report_number: body.report_number,
             due_date: body.due_date,
-            description: body.description
+            description: body.description,
         });
         return { id };
     }

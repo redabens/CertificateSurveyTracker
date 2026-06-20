@@ -27,17 +27,26 @@ export class EmailService {
       this.logger.log(`SMTP configured for: ${host}:${port}`);
     } else {
       this.transporter = null;
-      this.logger.warn('SMTP host/credentials not configured. Falling back to MOCK email logs.');
+      this.logger.warn(
+        'SMTP host/credentials not configured. Falling back to MOCK email logs.',
+      );
     }
   }
 
-  async sendCertificateAlert(vessel: any, emails: string[], cert: any, prevAlarm: string) {
+  async sendCertificateAlert(
+    vessel: any,
+    emails: string[],
+    cert: any,
+    prevAlarm: string,
+  ) {
     const today = new Date().toISOString().substring(0, 10);
     const alarmLevel = cert.alarm_status;
     const emailList = emails.join(', ');
 
     if (!emailList) {
-      this.logger.warn(`No notification emails set for vessel: ${vessel.name}. Alert skipped.`);
+      this.logger.warn(
+        `No notification emails set for vessel: ${vessel.name}. Alert skipped.`,
+      );
       return;
     }
 
@@ -85,48 +94,58 @@ export class EmailService {
       </div>
     `;
 
-    let success = false;
     let sentToDisplay = emailList;
 
     if (this.transporter) {
       try {
         await this.transporter.sendMail({
-          from: process.env.SMTP_FROM || '"Babor Tracker Alerts" <alerts@babor.com>',
+          from:
+            process.env.SMTP_FROM ||
+            '"Babor Tracker Alerts" <alerts@babor.com>',
           to: emailList,
           subject,
           text: textContent,
           html: htmlContent,
         });
-        success = true;
         this.logger.log(`Email alert sent successfully to: ${emailList}`);
       } catch (err) {
-        this.logger.error(`Failed to send email to ${emailList}: ${err.message}`);
+        this.logger.error(
+          `Failed to send email to ${emailList}: ${err.message}`,
+        );
         sentToDisplay = `Echec: ${err.message}`;
       }
     } else {
-      success = true;
       sentToDisplay = `Mock Sent: ${emailList}`;
-      this.logger.log(`[MOCK EMAIL] Dispatching alert for ${cert.name} (Vessel: ${vessel.name}) to ${emailList}`);
+      this.logger.log(
+        `[MOCK EMAIL] Dispatching alert for ${cert.name} (Vessel: ${vessel.name}) to ${emailList}`,
+      );
     }
 
-    this.db.prepare(`
+    this.db
+      .prepare(
+        `
       INSERT INTO email_logs (vessel_name, certificate_name, alarm_level, sent_to, sent_at)
       VALUES (?, ?, ?, ?, ?)
-    `).run(vessel.name, cert.name, alarmLevel, sentToDisplay, today);
+    `,
+      )
+      .run(vessel.name, cert.name, alarmLevel, sentToDisplay, today);
   }
 
-  public calculateAlarmStatus(dueDateStr: string, expirationDateStr: string): string {
+  public calculateAlarmStatus(
+    dueDateStr: string,
+    expirationDateStr: string,
+  ): string {
     const targetDateStr = dueDateStr || expirationDateStr;
     if (!targetDateStr) return 'N/A';
-    
+
     const today = new Date();
-    today.setHours(0,0,0,0);
+    today.setHours(0, 0, 0, 0);
     const target = new Date(targetDateStr);
-    target.setHours(0,0,0,0);
-    
+    target.setHours(0, 0, 0, 0);
+
     const diffTime = target.getTime() - today.getTime();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    
+
     if (diffDays < 0) {
       return 'OVERDUE / IMMEDIATE';
     } else if (diffDays <= 30) {
@@ -141,33 +160,54 @@ export class EmailService {
   }
 
   async performCertificateStatusCheck() {
-    this.logger.log('Starting daily certificate compliance and alarm status check...');
+    this.logger.log(
+      'Starting daily certificate compliance and alarm status check...',
+    );
     const vessels = this.db.prepare('SELECT * FROM vessels').all() as any[];
-    
+
     let totalChecked = 0;
     let totalAlertsSent = 0;
 
     for (const vessel of vessels) {
-      const settings = this.db.prepare('SELECT * FROM email_settings WHERE vessel_id = ?').get(vessel.id) as any || {};
-      const emails = [settings.email1, settings.email2, settings.email3].filter(Boolean);
-      
-      const certs = this.db.prepare('SELECT * FROM certificates WHERE vessel_id = ?').all() as any[];
-      
+      const settings =
+        (this.db
+          .prepare('SELECT * FROM email_settings WHERE vessel_id = ?')
+          .get(vessel.id) as any) || {};
+      const emails = [settings.email1, settings.email2, settings.email3].filter(
+        Boolean,
+      );
+
+      const certs = this.db
+        .prepare('SELECT * FROM certificates WHERE vessel_id = ?')
+        .all() as any[];
+
       for (const cert of certs) {
         const prevAlarm = cert.alarm_status;
-        const newAlarm = this.calculateAlarmStatus(cert.due_date, cert.expiration_date);
+        const newAlarm = this.calculateAlarmStatus(
+          cert.due_date,
+          cert.expiration_date,
+        );
         totalChecked++;
 
         if (prevAlarm !== newAlarm) {
-          this.db.prepare('UPDATE certificates SET alarm_status = ? WHERE id = ?').run(newAlarm, cert.id);
+          this.db
+            .prepare('UPDATE certificates SET alarm_status = ? WHERE id = ?')
+            .run(newAlarm, cert.id);
           const updatedCert = { ...cert, alarm_status: newAlarm };
-          await this.sendCertificateAlert(vessel, emails, updatedCert, prevAlarm);
+          await this.sendCertificateAlert(
+            vessel,
+            emails,
+            updatedCert,
+            prevAlarm,
+          );
           totalAlertsSent++;
         }
       }
     }
-    
-    this.logger.log(`Compliance check completed. Checked: ${totalChecked}, Alerts sent: ${totalAlertsSent}`);
+
+    this.logger.log(
+      `Compliance check completed. Checked: ${totalChecked}, Alerts sent: ${totalAlertsSent}`,
+    );
     return { checked: totalChecked, alerts: totalAlertsSent };
   }
 }

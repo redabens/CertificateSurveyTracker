@@ -6,7 +6,9 @@ export class ActionableService {
   constructor(private readonly db: DatabaseService) {}
 
   getByVessel(vesselId: number): any[] {
-    return this.db.prepare('SELECT * FROM actionable_items WHERE vessel_id = ?').all(vesselId) as any[];
+    return this.db
+      .prepare('SELECT * FROM actionable_items WHERE vessel_id = ?')
+      .all(vesselId) as any[];
   }
 
   insert(a: any): number {
@@ -20,12 +22,14 @@ export class ActionableService {
       a.category,
       a.report_number,
       a.due_date,
-      a.description
+      a.description,
     ) as any;
     return info.lastInsertRowid;
   }
 
   updateStatus(id: number, status: string) {
-    this.db.prepare('UPDATE actionable_items SET status = ? WHERE id = ?').run(status, id);
+    this.db
+      .prepare('UPDATE actionable_items SET status = ? WHERE id = ?')
+      .run(status, id);
   }
 }

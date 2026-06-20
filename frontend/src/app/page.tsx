@@ -66,15 +66,6 @@ export default function Dashboard() {
   const chartRef = useRef<HTMLCanvasElement | null>(null);
   const chartInstance = useRef<any>(null);
 
-  // Check Session
-  useEffect(() => {
-    if (!token) {
-      router.push('/login');
-    } else {
-      loadVessels();
-    }
-  }, [token]);
-
   // Load Vessels
   const loadVessels = async () => {
     try {
@@ -89,12 +80,14 @@ export default function Dashboard() {
     }
   };
 
-  // Load Vessel Related details
+  // Check Session
   useEffect(() => {
-    if (selectedVesselId) {
-      loadVesselDetails(selectedVesselId);
+    if (!token) {
+      router.push('/login');
+    } else {
+      void loadVessels();
     }
-  }, [selectedVesselId]);
+  }, [token]);
 
   const loadVesselDetails = async (id: number) => {
     try {
@@ -108,6 +101,13 @@ export default function Dashboard() {
       console.error(err);
     }
   };
+
+  // Load Vessel Related details
+  useEffect(() => {
+    if (selectedVesselId) {
+      void loadVesselDetails(selectedVesselId);
+    }
+  }, [selectedVesselId]);
 
   // Load logs
   const loadEmailLogs = async () => {
@@ -189,32 +189,8 @@ export default function Dashboard() {
     };
   }, [vessels, activeView, lang]);
 
-  // TV mode clocks
-  useEffect(() => {
-    if (tvMode) {
-      const update = () => {
-        const now = new Date();
-        const hrs = String(now.getHours()).padStart(2, '0');
-        const mins = String(now.getMinutes()).padStart(2, '0');
-        const secs = String(now.getSeconds()).padStart(2, '0');
-        setTvTime(`${hrs}:${mins}:${secs}`);
-
-        const opts = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' } as any;
-        setTvDate(now.toLocaleDateString(lang === 'fr' ? 'fr-FR' : 'en-US', opts));
-      };
-      update();
-      const interval = setInterval(update, 1000);
-      loadTvCerts();
-      const tvFetchInterval = setInterval(loadTvCerts, 30000);
-      return () => {
-        clearInterval(interval);
-        clearInterval(tvFetchInterval);
-      };
-    }
-  }, [tvMode, vessels, lang]);
-
   const loadTvCerts = async () => {
-    let list: any[] = [];
+    const list: any[] = [];
     for (const v of vessels) {
       try {
         const res = await apiFetch(`/vessels/${v.id}/certificates`);
@@ -243,6 +219,32 @@ export default function Dashboard() {
     });
     setTvCerts(list);
   };
+
+  // TV mode clocks
+  useEffect(() => {
+    if (tvMode) {
+      const update = () => {
+        const now = new Date();
+        const hrs = String(now.getHours()).padStart(2, '0');
+        const mins = String(now.getMinutes()).padStart(2, '0');
+        const secs = String(now.getSeconds()).padStart(2, '0');
+        setTvTime(`${hrs}:${mins}:${secs}`);
+
+        const opts = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' } as any;
+        setTvDate(now.toLocaleDateString(lang === 'fr' ? 'fr-FR' : 'en-US', opts));
+      };
+      update();
+      const interval = setInterval(update, 1000);
+      void loadTvCerts();
+      const tvFetchInterval = setInterval(() => {
+        void loadTvCerts();
+      }, 30000);
+      return () => {
+        clearInterval(interval);
+        clearInterval(tvFetchInterval);
+      };
+    }
+  }, [tvMode, vessels, lang]);
 
   // Operations
   const handleImportExcel = async (e: React.FormEvent) => {
@@ -1203,7 +1205,7 @@ export default function Dashboard() {
                   <input type="text" className="input-field" placeholder="Ex. Algérie" value={vesselForm.flag} onChange={(e) => setVesselForm({ ...vesselForm, flag: e.target.value })} />
                 </div>
                 <div className="form-group">
-                  <label>Type d'Asset</label>
+                  <label>Type d&apos;Asset</label>
                   <input type="text" className="input-field" placeholder="Ex. Products Tanker" value={vesselForm.asset_type} onChange={(e) => setVesselForm({ ...vesselForm, asset_type: e.target.value })} />
                 </div>
                 <div className="form-group">
@@ -1243,7 +1245,7 @@ export default function Dashboard() {
                   <select className="select-field" required disabled={user?.role === 'Crew'} value={certForm.category} onChange={(e) => setCertForm({ ...certForm, category: e.target.value })}>
                     <option value="Class">Certificats de Classe / Statutaires</option>
                     <option value="Flag">Certificats de Pavillon</option>
-                    <option value="Servicing">Certificats d'Entretien (Équipement)</option>
+                    <option value="Servicing">Certificats d&apos;Entretien (Équipement)</option>
                   </select>
                 </div>
                 <div className="form-group">

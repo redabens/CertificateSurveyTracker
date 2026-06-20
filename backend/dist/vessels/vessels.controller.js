@@ -73,11 +73,13 @@ let VesselsController = class VesselsController {
         this.vesselsService = vesselsService;
     }
     async getAll(req) {
-        const vessels = this.vesselsService.getAll(req.user.id, req.user.role, req.user.companyId);
-        return vessels.map(v => {
-            const certs = this.vesselsService['db'].prepare('SELECT * FROM certificates WHERE vessel_id = ?').all(v.id);
+        const vessels = this.vesselsService.getAll(req.user.id, req.user.role);
+        return vessels.map((v) => {
+            const certs = this.vesselsService['db']
+                .prepare('SELECT * FROM certificates WHERE vessel_id = ?')
+                .all(v.id);
             let red = 0, yellow = 0, green = 0, normal = 0;
-            certs.forEach(c => {
+            certs.forEach((c) => {
                 const alarm = calculateAlarmStatus(c.due_date, c.expiration_date);
                 if (alarm.includes('RED') || alarm.includes('OVERDUE'))
                     red++;
@@ -99,7 +101,7 @@ let VesselsController = class VesselsController {
             return {
                 ...v,
                 status: overall,
-                counts: { red, yellow, green, normal, total: certs.length }
+                counts: { red, yellow, green, normal, total: certs.length },
             };
         });
     }
@@ -111,7 +113,9 @@ let VesselsController = class VesselsController {
             throw new common_1.BadRequestException('Le nom du navire est requis');
         }
         const id = this.vesselsService.insert(body);
-        this.vesselsService['db'].prepare('INSERT OR IGNORE INTO email_settings (vessel_id, email1, email2, email3) VALUES (?, ?, ?, ?)').run(id, '', '', '');
+        this.vesselsService['db']
+            .prepare('INSERT OR IGNORE INTO email_settings (vessel_id, email1, email2, email3) VALUES (?, ?, ?, ?)')
+            .run(id, '', '', '');
         return { id, name: body.name };
     }
     async delete(req, id) {
@@ -131,7 +135,10 @@ let VesselsController = class VesselsController {
             throw new common_1.BadRequestException('Veuillez téléverser un fichier Excel');
         }
         try {
-            const stdout = await this.vesselsService.runPythonScript(['parse', file.path]);
+            const stdout = await this.vesselsService.runPythonScript([
+                'parse',
+                file.path,
+            ]);
             const parsed = JSON.parse(stdout);
             const vInfo = parsed.vessel;
             const certs = parsed.certificates;
@@ -153,9 +160,11 @@ let VesselsController = class VesselsController {
                 deadweight_tonnage: vInfo.dwt,
                 port_of_registry: vInfo.port_of_registry,
                 call_sign: vInfo.call_sign,
-                status: vInfo.overall_status
+                status: vInfo.overall_status,
             });
-            this.vesselsService['db'].prepare('INSERT OR IGNORE INTO email_settings (vessel_id, email1, email2, email3) VALUES (?, ?, ?, ?)').run(vesselId, '', '', '');
+            this.vesselsService['db']
+                .prepare('INSERT OR IGNORE INTO email_settings (vessel_id, email1, email2, email3) VALUES (?, ?, ?, ?)')
+                .run(vesselId, '', '', '');
             const insertCert = this.vesselsService['db'].prepare(`
         INSERT INTO certificates (vessel_id, name, category, organization, issuing_date, expiration_date, due_date, window, alarm_status, remarks)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -194,9 +203,13 @@ let VesselsController = class VesselsController {
         });
     }
     async getSettings(vesselId) {
-        let settings = this.vesselsService['db'].prepare('SELECT * FROM email_settings WHERE vessel_id = ?').get(parseInt(vesselId));
+        let settings = this.vesselsService['db']
+            .prepare('SELECT * FROM email_settings WHERE vessel_id = ?')
+            .get(parseInt(vesselId));
         if (!settings) {
-            this.vesselsService['db'].prepare('INSERT OR IGNORE INTO email_settings (vessel_id, email1, email2, email3) VALUES (?, ?, ?, ?)').run(parseInt(vesselId), '', '', '');
+            this.vesselsService['db']
+                .prepare('INSERT OR IGNORE INTO email_settings (vessel_id, email1, email2, email3) VALUES (?, ?, ?, ?)')
+                .run(parseInt(vesselId), '', '', '');
             settings = { email1: '', email2: '', email3: '' };
         }
         return settings;
@@ -205,10 +218,12 @@ let VesselsController = class VesselsController {
         if (req.user.role !== 'Admin') {
             throw new common_1.ForbiddenException('Action interdite pour votre profil');
         }
-        this.vesselsService['db'].prepare(`
+        this.vesselsService['db']
+            .prepare(`
       INSERT OR REPLACE INTO email_settings (vessel_id, email1, email2, email3)
       VALUES (?, ?, ?, ?)
-    `).run(parseInt(vesselId), body.email1 || '', body.email2 || '', body.email3 || '');
+    `)
+            .run(parseInt(vesselId), body.email1 || '', body.email2 || '', body.email3 || '');
         return { success: true };
     }
 };
@@ -243,8 +258,8 @@ __decorate([
             destination: './uploads',
             filename: (req, file, cb) => {
                 cb(null, `import-${Date.now()}-${file.originalname}`);
-            }
-        })
+            },
+        }),
     })),
     __param(0, (0, common_1.Req)()),
     __param(1, (0, common_1.UploadedFile)()),

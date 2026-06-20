@@ -18,10 +18,14 @@ let CertificatesService = class CertificatesService {
         this.db = db;
     }
     getByVessel(vesselId) {
-        return this.db.prepare('SELECT * FROM certificates WHERE vessel_id = ?').all(vesselId);
+        return this.db
+            .prepare('SELECT * FROM certificates WHERE vessel_id = ?')
+            .all(vesselId);
     }
     getById(id) {
-        return this.db.prepare('SELECT * FROM certificates WHERE id = ?').get(id);
+        return this.db
+            .prepare('SELECT * FROM certificates WHERE id = ?')
+            .get(id);
     }
     insert(c) {
         const stmt = this.db.prepare(`
@@ -32,14 +36,18 @@ let CertificatesService = class CertificatesService {
         return info.lastInsertRowid;
     }
     update(id, c) {
-        this.db.prepare(`
+        this.db
+            .prepare(`
       UPDATE certificates
       SET organization = ?, issuing_date = ?, expiration_date = ?, due_date = ?, window = ?, alarm_status = ?, remarks = ?
       WHERE id = ?
-    `).run(c.organization, c.issuing_date, c.expiration_date, c.due_date, c.window, c.alarm_status || 'N/A', c.remarks, id);
+    `)
+            .run(c.organization, c.issuing_date, c.expiration_date, c.due_date, c.window, c.alarm_status || 'N/A', c.remarks, id);
     }
     updatePdfUrl(id, pdfUrl) {
-        this.db.prepare('UPDATE certificates SET pdf_url = ? WHERE id = ?').run(pdfUrl, id);
+        this.db
+            .prepare('UPDATE certificates SET pdf_url = ? WHERE id = ?')
+            .run(pdfUrl, id);
     }
     delete(id) {
         this.db.prepare('DELETE FROM certificates WHERE id = ?').run(id);

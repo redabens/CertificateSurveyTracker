@@ -14,12 +14,6 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [lang, setLangState] = useState<string>('fr');
   const [translations, setTranslations] = useState<Record<string, string>>({});
 
-  useEffect(() => {
-    const saved = localStorage.getItem('babor_lang') || 'fr';
-    setLangState(saved);
-    loadLocales(saved);
-  }, []);
-
   const loadLocales = async (l: string) => {
     try {
       const res = await fetch(`/locales/${l}.json`);
@@ -31,6 +25,15 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       console.error('Failed to load translations:', err);
     }
   };
+
+  useEffect(() => {
+    const saved = localStorage.getItem('babor_lang') || 'fr';
+    const timer = setTimeout(() => {
+      setLangState(saved);
+      void loadLocales(saved);
+    }, 0);
+    return () => clearTimeout(timer);
+  }, []);
 
   const setLang = (l: string) => {
     setLangState(l);

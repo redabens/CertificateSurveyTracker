@@ -32,7 +32,7 @@ let JwtAuthGuard = class JwtAuthGuard {
             request.user = decoded;
             return true;
         }
-        catch (err) {
+        catch {
             throw new common_1.UnauthorizedException('Session expirée. Veuillez vous reconnecter.');
         }
     }

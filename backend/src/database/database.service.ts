@@ -141,7 +141,9 @@ export class DatabaseService implements OnModuleInit {
     this.db.exec('DELETE FROM vessels');
 
     // 1. Seed Companies
-    const insertCompany = this.db.prepare('INSERT INTO companies (name, role) VALUES (?, ?)');
+    const insertCompany = this.db.prepare(
+      'INSERT INTO companies (name, role) VALUES (?, ?)',
+    );
     insertCompany.run('CNAN NORD', 'Admin'); // ID = 1
     insertCompany.run('Verital Marine Services', 'Partner'); // ID = 2
     insertCompany.run('Lloyds Register Algiers', 'Auditor'); // ID = 3
@@ -151,7 +153,7 @@ export class DatabaseService implements OnModuleInit {
       INSERT INTO vessels (company_id, name, imo_number, flag, asset_type, owner, manager, gross_tonnage, deadweight_tonnage, port_of_registry, call_sign, status)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
-    
+
     // Seed Babor Algérien (ID = 1)
     insertVessel.run(
       1,
@@ -165,16 +167,20 @@ export class DatabaseService implements OnModuleInit {
       25000,
       'Alger',
       '7TBC',
-      'Normal'
+      'Normal',
     );
 
     // Seed email settings for vessel 1
-    this.db.prepare('INSERT INTO email_settings (vessel_id, email1, email2, email3) VALUES (?, ?, ?, ?)').run(
-      1,
-      'captain@babor.com',
-      'manager@babor.com',
-      'notifications@babor.com'
-    );
+    this.db
+      .prepare(
+        'INSERT INTO email_settings (vessel_id, email1, email2, email3) VALUES (?, ?, ?, ?)',
+      )
+      .run(
+        1,
+        'captain@babor.com',
+        'manager@babor.com',
+        'notifications@babor.com',
+      );
 
     // 3. Seed Users with bcrypt
     const insertUser = this.db.prepare(`
@@ -190,15 +196,36 @@ export class DatabaseService implements OnModuleInit {
 
     // Admin: Complete fleet manager (CNAN)
     insertUser.run('admin@babor.com', adminHash, 'Mehdi', 'Admin', 1, null);
-    
+
     // Crew: Captain of vessel 1
-    insertUser.run('captain@babor.com', captainHash, 'Cdt. Babor', 'Crew', 1, 1);
-    
+    insertUser.run(
+      'captain@babor.com',
+      captainHash,
+      'Cdt. Babor',
+      'Crew',
+      1,
+      1,
+    );
+
     // Partner: Verital Marine Services (can view fleet of CNAN)
-    insertUser.run('partner@babor.com', partnerHash, 'Verital Marine Partner', 'Partner', 2, null);
-    
+    insertUser.run(
+      'partner@babor.com',
+      partnerHash,
+      'Verital Marine Partner',
+      'Partner',
+      2,
+      null,
+    );
+
     // Auditor: Lloyd's Register Algiers (Auditor)
-    insertUser.run('auditor@babor.com', auditorHash, 'Inspecteur LR', 'Auditor', 3, null);
+    insertUser.run(
+      'auditor@babor.com',
+      auditorHash,
+      'Inspecteur LR',
+      'Auditor',
+      3,
+      null,
+    );
 
     console.log('[Database] Seed complete.');
   }

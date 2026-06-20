@@ -18,7 +18,9 @@ let ActionableService = class ActionableService {
         this.db = db;
     }
     getByVessel(vesselId) {
-        return this.db.prepare('SELECT * FROM actionable_items WHERE vessel_id = ?').all(vesselId);
+        return this.db
+            .prepare('SELECT * FROM actionable_items WHERE vessel_id = ?')
+            .all(vesselId);
     }
     insert(a) {
         const stmt = this.db.prepare(`
@@ -29,7 +31,9 @@ let ActionableService = class ActionableService {
         return info.lastInsertRowid;
     }
     updateStatus(id, status) {
-        this.db.prepare('UPDATE actionable_items SET status = ? WHERE id = ?').run(status, id);
+        this.db
+            .prepare('UPDATE actionable_items SET status = ? WHERE id = ?')
+            .run(status, id);
     }
 };
 exports.ActionableService = ActionableService;

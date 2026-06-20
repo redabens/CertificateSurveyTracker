@@ -1,4 +1,9 @@
-import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  CanActivate,
+  ExecutionContext,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 
 @Injectable()
@@ -22,8 +27,10 @@ export class JwtAuthGuard implements CanActivate {
       const decoded = this.jwtService.verify(token);
       request.user = decoded; // user contains: id, role, companyId
       return true;
-    } catch (err) {
-      throw new UnauthorizedException('Session expirée. Veuillez vous reconnecter.');
+    } catch {
+      throw new UnauthorizedException(
+        'Session expirée. Veuillez vous reconnecter.',
+      );
     }
   }
 }

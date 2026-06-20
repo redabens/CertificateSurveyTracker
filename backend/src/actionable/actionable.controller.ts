@@ -1,4 +1,15 @@
-import { Controller, Get, Post, Put, Param, Body, UseGuards, Req, ForbiddenException, BadRequestException } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Param,
+  Body,
+  UseGuards,
+  Req,
+  ForbiddenException,
+  BadRequestException,
+} from '@nestjs/common';
 import { ActionableService } from './actionable.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
@@ -16,7 +27,11 @@ export class ActionableController {
   }
 
   @Post('vessels/:vesselId/actionable-items')
-  async create(@Req() req: any, @Param('vesselId') vesselId: string, @Body() body: any) {
+  async create(
+    @Req() req: any,
+    @Param('vesselId') vesselId: string,
+    @Body() body: any,
+  ) {
     if (req.user.role !== 'Admin') {
       throw new ForbiddenException('Action interdite pour votre profil');
     }
@@ -29,13 +44,17 @@ export class ActionableController {
       category: body.category,
       report_number: body.report_number,
       due_date: body.due_date,
-      description: body.description
+      description: body.description,
     });
     return { id };
   }
 
   @Put('actionable-items/:id/status')
-  async updateStatus(@Req() req: any, @Param('id') id: string, @Body() body: any) {
+  async updateStatus(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Body() body: any,
+  ) {
     if (req.user.role === 'Partner' || req.user.role === 'Auditor') {
       throw new ForbiddenException('Action interdite pour votre profil');
     }

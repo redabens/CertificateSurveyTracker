@@ -1,22 +1,67 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { AppController } from './app.controller';
-import { AppService } from './app.service';
+import { EmailService } from './email/email.service';
+import { DatabaseService } from './database/database.service';
+import { JwtService } from '@nestjs/jwt';
 
 describe('AppController', () => {
   let appController: AppController;
+  let emailService: EmailService;
+  let databaseService: DatabaseService;
 
   beforeEach(async () => {
-    const app: TestingModule = await Test.createTestingModule({
+    const module: TestingModule = await Test.createTestingModule({
       controllers: [AppController],
-      providers: [AppService],
+      providers: [
+        {
+          provide: EmailService,
+          useValue: {
+            performCertificateStatusCheck: jest
+              .fn()
+              .mockResolvedValue({ success: true, count: 0 }),
+          },
+        },
+        {
+          provide: DatabaseService,
+          useValue: {
+            prepare: jest.fn().mockReturnValue({
+              all: jest.fn().mockReturnValue([]),
+            }),
+          },
+        },
+        {
+          provide: JwtService,
+          useValue: {
+            verify: jest.fn(),
+          },
+        },
+      ],
     }).compile();
 
-    appController = app.get<AppController>(AppController);
+    appController = module.get<AppController>(AppController);
+    emailService = module.get<EmailService>(EmailService);
+    databaseService = module.get<DatabaseService>(DatabaseService);
   });
 
-  describe('root', () => {
-    it('should return "Hello World!"', () => {
-      expect(appController.getHello()).toBe('Hello World!');
+  it('should be defined', () => {
+    expect(appController).toBeDefined();
+  });
+
+  describe('triggerNotifications', () => {
+    it('should call performCertificateStatusCheck', async () => {
+      const result = await appController.triggerNotifications();
+      expect(emailService.performCertificateStatusCheck).toHaveBeenCalled();
+      expect(result).toEqual({ success: true, count: 0 });
+    });
+  });
+
+  describe('getEmailLogs', () => {
+    it('should query and return email logs', async () => {
+      const result = await appController.getEmailLogs();
+      expect(databaseService.prepare).toHaveBeenCalledWith(
+        'SELECT * FROM email_logs ORDER BY id DESC',
+      );
+      expect(result).toEqual([]);
     });
   });
 });

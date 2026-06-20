@@ -168,7 +168,9 @@ let DatabaseService = class DatabaseService {
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
         insertVessel.run(1, 'BABOR ALGERIEN', '9477177', 'Algeria', 'Products Tanker', 'CNAN', 'Verital Marine Services', 15000, 25000, 'Alger', '7TBC', 'Normal');
-        this.db.prepare('INSERT INTO email_settings (vessel_id, email1, email2, email3) VALUES (?, ?, ?, ?)').run(1, 'captain@babor.com', 'manager@babor.com', 'notifications@babor.com');
+        this.db
+            .prepare('INSERT INTO email_settings (vessel_id, email1, email2, email3) VALUES (?, ?, ?, ?)')
+            .run(1, 'captain@babor.com', 'manager@babor.com', 'notifications@babor.com');
         const insertUser = this.db.prepare(`
       INSERT INTO users (email, password, full_name, role, company_id, vessel_id)
       VALUES (?, ?, ?, ?, ?, ?)

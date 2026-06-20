@@ -14,7 +14,9 @@ export class EmailScheduler {
     try {
       await this.emailService.performCertificateStatusCheck();
     } catch (err) {
-      this.logger.error('Failed to run daily certificate compliance check: ' + err.message);
+      this.logger.error(
+        'Failed to run daily certificate compliance check: ' + err.message,
+      );
     }
   }
 }

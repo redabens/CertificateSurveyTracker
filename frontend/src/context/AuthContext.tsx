@@ -29,8 +29,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const savedToken = localStorage.getItem('babor_token');
     const savedUser = localStorage.getItem('babor_user');
     if (savedToken && savedUser) {
-      setToken(savedToken);
-      setUser(JSON.parse(savedUser));
+      const timer = setTimeout(() => {
+        setToken(savedToken);
+        setUser(JSON.parse(savedUser) as UserType);
+      }, 0);
+      return () => clearTimeout(timer);
     }
   }, []);
 
@@ -51,16 +54,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const apiFetch = async (url: string, options: RequestInit = {}): Promise<Response> => {
-    options.headers = options.headers || {};
+    const headers = (options.headers || {}) as Record<string, string>;
+    options.headers = headers;
     // Base URL points to the NestJS backend
     const backendUrl = `http://localhost:3000${url.startsWith('/') ? '' : '/'}${url}`;
     
     const savedToken = token || localStorage.getItem('babor_token');
     if (savedToken) {
-      (options.headers as any)['Authorization'] = `Bearer ${savedToken}`;
+      headers['Authorization'] = `Bearer ${savedToken}`;
     }
-    if (!(options.body instanceof FormData) && !(options.headers as any)['Content-Type']) {
-      (options.headers as any)['Content-Type'] = 'application/json';
+    if (!(options.body instanceof FormData) && !headers['Content-Type']) {
+      headers['Content-Type'] = 'application/json';
     }
 
     const res = await fetch(backendUrl, options);

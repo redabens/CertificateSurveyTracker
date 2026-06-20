@@ -57,5 +57,5 @@ async function bootstrap() {
     await app.listen(port);
     console.log(`[NestJS] Maritime Backend listening on: http://localhost:${port}/api`);
 }
-bootstrap();
+void bootstrap();
 //# sourceMappingURL=main.js.map

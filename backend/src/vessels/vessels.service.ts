@@ -8,16 +8,24 @@ import * as fs from 'fs';
 export class VesselsService {
   constructor(private readonly db: DatabaseService) {}
 
-  getAll(userId: number, role: string, companyId: number): any[] {
+  getAll(userId: number, role: string): any[] {
     if (role === 'Admin') {
       return this.db.prepare('SELECT * FROM vessels').all() as any[];
     } else if (role === 'Crew') {
-      const user = this.db.prepare('SELECT vessel_id FROM users WHERE id = ?').get(userId) as any;
+      const user = this.db
+        .prepare('SELECT vessel_id FROM users WHERE id = ?')
+        .get(userId) as any;
       if (!user || !user.vessel_id) return [];
-      return this.db.prepare('SELECT * FROM vessels WHERE id = ?').all(user.vessel_id) as any[];
+      return this.db
+        .prepare('SELECT * FROM vessels WHERE id = ?')
+        .all(user.vessel_id) as any[];
     } else if (role === 'Partner') {
       // Partner sees vessels matching their technical manager or CNAN fleet
-      return this.db.prepare('SELECT * FROM vessels WHERE company_id = 1 OR manager = "Verital Marine Services"').all() as any[];
+      return this.db
+        .prepare(
+          'SELECT * FROM vessels WHERE company_id = 1 OR manager = "Verital Marine Services"',
+        )
+        .all() as any[];
     } else {
       // Auditor can see all vessels
       return this.db.prepare('SELECT * FROM vessels').all() as any[];
@@ -25,7 +33,9 @@ export class VesselsService {
   }
 
   getById(id: number) {
-    const vessel = this.db.prepare('SELECT * FROM vessels WHERE id = ?').get(id) as any;
+    const vessel = this.db
+      .prepare('SELECT * FROM vessels WHERE id = ?')
+      .get(id) as any;
     if (!vessel) {
       throw new NotFoundException('Navire non trouvé');
     }
@@ -33,7 +43,9 @@ export class VesselsService {
   }
 
   getByName(name: string) {
-    return this.db.prepare('SELECT * FROM vessels WHERE name = ?').get(name) as any;
+    return this.db
+      .prepare('SELECT * FROM vessels WHERE name = ?')
+      .get(name) as any;
   }
 
   insert(v: any): number {
@@ -53,13 +65,15 @@ export class VesselsService {
       v.deadweight_tonnage || 0,
       v.port_of_registry,
       v.call_sign,
-      v.status || 'Normal'
+      v.status || 'Normal',
     ) as any;
     return info.lastInsertRowid;
   }
 
   updateStatus(id: number, status: string) {
-    this.db.prepare('UPDATE vessels SET status = ? WHERE id = ?').run(status, id);
+    this.db
+      .prepare('UPDATE vessels SET status = ? WHERE id = ?')
+      .run(status, id);
   }
 
   delete(id: number) {
@@ -72,9 +86,13 @@ export class VesselsService {
     return new Promise((resolve, reject) => {
       const pythonCmd = 'python';
       // Path is resolved relative to the main project directory or python script destination
-      const scriptPath = path.resolve(process.cwd(), 'helpers', 'excel_handler.py');
-      const cmdLine = `"${pythonCmd}" "${scriptPath}" ${args.map(x => `"${x}"`).join(' ')}`;
-      
+      const scriptPath = path.resolve(
+        process.cwd(),
+        'helpers',
+        'excel_handler.py',
+      );
+      const cmdLine = `"${pythonCmd}" "${scriptPath}" ${args.map((x) => `"${x}"`).join(' ')}`;
+
       exec(cmdLine, (error, stdout, stderr) => {
         if (error) {
           console.error(`[VesselsService] python error:`, stderr);
@@ -85,19 +103,32 @@ export class VesselsService {
     });
   }
 
-  async generateExcelExport(vesselId: number, lang: string): Promise<{ excelPath: string, jsonPath: string, fileName: string }> {
+  async generateExcelExport(
+    vesselId: number,
+    lang: string,
+  ): Promise<{ excelPath: string; jsonPath: string; fileName: string }> {
     const vessel = this.getById(vesselId);
-    
+
     // Fetch related database data
-    const certificates = this.db.prepare('SELECT * FROM certificates WHERE vessel_id = ?').all() as any[];
-    const actionableItems = this.db.prepare('SELECT * FROM actionable_items WHERE vessel_id = ?').all() as any[];
-    const settings = this.db.prepare('SELECT * FROM email_settings WHERE vessel_id = ?').get(vesselId) as any || {};
-    
+    const certificates = this.db
+      .prepare('SELECT * FROM certificates WHERE vessel_id = ?')
+      .all() as any[];
+    const actionableItems = this.db
+      .prepare('SELECT * FROM actionable_items WHERE vessel_id = ?')
+      .all() as any[];
+    const settings =
+      (this.db
+        .prepare('SELECT * FROM email_settings WHERE vessel_id = ?')
+        .get(vesselId) as any) || {};
+
     // Helper to calculate alarm status dynamically for export
     const calculateAlarm = (dueDateStr: string, expDateStr: string) => {
       const target = dueDateStr || expDateStr;
       if (!target) return 'N/A';
-      const diff = Math.ceil((new Date(target).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+      const diff = Math.ceil(
+        (new Date(target).getTime() - new Date().getTime()) /
+          (1000 * 60 * 60 * 24),
+      );
       if (diff < 0) return 'OVERDUE / IMMEDIATE';
       if (diff <= 30) return 'RED - <1 MONTH';
       if (diff <= 90) return 'YELLOW - 1 TO 3 MONTHS';
@@ -105,9 +136,9 @@ export class VesselsService {
       return 'MONITOR >6 MONTHS';
     };
 
-    const mappedCerts = certificates.map(c => ({
+    const mappedCerts = certificates.map((c) => ({
       ...c,
-      alarm_status: calculateAlarm(c.due_date, c.expiration_date)
+      alarm_status: calculateAlarm(c.due_date, c.expiration_date),
     }));
 
     const exportData = {
@@ -126,16 +157,21 @@ export class VesselsService {
         owner: vessel.owner,
         gross_tonnage: vessel.gross_tonnage,
         port_of_registry: vessel.port_of_registry,
-        call_sign: vessel.call_sign
+        call_sign: vessel.call_sign,
       },
-      emails: [settings.email1, settings.email2, settings.email3].filter(Boolean),
+      emails: [settings.email1, settings.email2, settings.email3].filter(
+        Boolean,
+      ),
       certificates: mappedCerts,
-      actionable_items: actionableItems
+      actionable_items: actionableItems,
     };
 
     // Excel formatting files
-    const templatePath = path.resolve(process.cwd(), 'MT_TREND_Certificate_Survey_Tracker_Updated_01052026-2.xlsx');
-    
+    const templatePath = path.resolve(
+      process.cwd(),
+      'MT_TREND_Certificate_Survey_Tracker_Updated_01052026-2.xlsx',
+    );
+
     // Ensure uploads temp exists
     const uploadsDir = path.resolve(process.cwd(), 'uploads');
     if (!fs.existsSync(uploadsDir)) {
@@ -143,17 +179,25 @@ export class VesselsService {
     }
 
     const tempJsonPath = path.resolve(uploadsDir, `export_${vesselId}.json`);
-    const tempOutExcelPath = path.resolve(uploadsDir, `export_${vessel.name.replace(/\s+/g, '_')}.xlsx`);
-    
+    const tempOutExcelPath = path.resolve(
+      uploadsDir,
+      `export_${vessel.name.replace(/\s+/g, '_')}.xlsx`,
+    );
+
     fs.writeFileSync(tempJsonPath, JSON.stringify(exportData, null, 2));
 
     // Execute python command
-    await this.runPythonScript(['format', templatePath, tempOutExcelPath, tempJsonPath]);
+    await this.runPythonScript([
+      'format',
+      templatePath,
+      tempOutExcelPath,
+      tempJsonPath,
+    ]);
 
     return {
       excelPath: tempOutExcelPath,
       jsonPath: tempJsonPath,
-      fileName: `${vessel.name}_Certificate_Tracker.xlsx`
+      fileName: `${vessel.name}_Certificate_Tracker.xlsx`,
     };
   }
 }

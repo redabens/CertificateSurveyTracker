@@ -53,32 +53,42 @@ let VesselsService = class VesselsService {
     constructor(db) {
         this.db = db;
     }
-    getAll(userId, role, companyId) {
+    getAll(userId, role) {
         if (role === 'Admin') {
             return this.db.prepare('SELECT * FROM vessels').all();
         }
         else if (role === 'Crew') {
-            const user = this.db.prepare('SELECT vessel_id FROM users WHERE id = ?').get(userId);
+            const user = this.db
+                .prepare('SELECT vessel_id FROM users WHERE id = ?')
+                .get(userId);
             if (!user || !user.vessel_id)
                 return [];
-            return this.db.prepare('SELECT * FROM vessels WHERE id = ?').all(user.vessel_id);
+            return this.db
+                .prepare('SELECT * FROM vessels WHERE id = ?')
+                .all(user.vessel_id);
         }
         else if (role === 'Partner') {
-            return this.db.prepare('SELECT * FROM vessels WHERE company_id = 1 OR manager = "Verital Marine Services"').all();
+            return this.db
+                .prepare('SELECT * FROM vessels WHERE company_id = 1 OR manager = "Verital Marine Services"')
+                .all();
         }
         else {
             return this.db.prepare('SELECT * FROM vessels').all();
         }
     }
     getById(id) {
-        const vessel = this.db.prepare('SELECT * FROM vessels WHERE id = ?').get(id);
+        const vessel = this.db
+            .prepare('SELECT * FROM vessels WHERE id = ?')
+            .get(id);
         if (!vessel) {
             throw new common_1.NotFoundException('Navire non trouvé');
         }
         return vessel;
     }
     getByName(name) {
-        return this.db.prepare('SELECT * FROM vessels WHERE name = ?').get(name);
+        return this.db
+            .prepare('SELECT * FROM vessels WHERE name = ?')
+            .get(name);
     }
     insert(v) {
         const stmt = this.db.prepare(`
@@ -89,7 +99,9 @@ let VesselsService = class VesselsService {
         return info.lastInsertRowid;
     }
     updateStatus(id, status) {
-        this.db.prepare('UPDATE vessels SET status = ? WHERE id = ?').run(status, id);
+        this.db
+            .prepare('UPDATE vessels SET status = ? WHERE id = ?')
+            .run(status, id);
     }
     delete(id) {
         this.db.prepare('DELETE FROM vessels WHERE id = ?').run(id);
@@ -98,7 +110,7 @@ let VesselsService = class VesselsService {
         return new Promise((resolve, reject) => {
             const pythonCmd = 'python';
             const scriptPath = path.resolve(process.cwd(), 'helpers', 'excel_handler.py');
-            const cmdLine = `"${pythonCmd}" "${scriptPath}" ${args.map(x => `"${x}"`).join(' ')}`;
+            const cmdLine = `"${pythonCmd}" "${scriptPath}" ${args.map((x) => `"${x}"`).join(' ')}`;
             (0, child_process_1.exec)(cmdLine, (error, stdout, stderr) => {
                 if (error) {
                     console.error(`[VesselsService] python error:`, stderr);
@@ -110,14 +122,21 @@ let VesselsService = class VesselsService {
     }
     async generateExcelExport(vesselId, lang) {
         const vessel = this.getById(vesselId);
-        const certificates = this.db.prepare('SELECT * FROM certificates WHERE vessel_id = ?').all();
-        const actionableItems = this.db.prepare('SELECT * FROM actionable_items WHERE vessel_id = ?').all();
-        const settings = this.db.prepare('SELECT * FROM email_settings WHERE vessel_id = ?').get(vesselId) || {};
+        const certificates = this.db
+            .prepare('SELECT * FROM certificates WHERE vessel_id = ?')
+            .all();
+        const actionableItems = this.db
+            .prepare('SELECT * FROM actionable_items WHERE vessel_id = ?')
+            .all();
+        const settings = this.db
+            .prepare('SELECT * FROM email_settings WHERE vessel_id = ?')
+            .get(vesselId) || {};
         const calculateAlarm = (dueDateStr, expDateStr) => {
             const target = dueDateStr || expDateStr;
             if (!target)
                 return 'N/A';
-            const diff = Math.ceil((new Date(target).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+            const diff = Math.ceil((new Date(target).getTime() - new Date().getTime()) /
+                (1000 * 60 * 60 * 24));
             if (diff < 0)
                 return 'OVERDUE / IMMEDIATE';
             if (diff <= 30)
@@ -128,9 +147,9 @@ let VesselsService = class VesselsService {
                 return 'GREEN - 3 TO 6 MONTHS';
             return 'MONITOR >6 MONTHS';
         };
-        const mappedCerts = certificates.map(c => ({
+        const mappedCerts = certificates.map((c) => ({
             ...c,
-            alarm_status: calculateAlarm(c.due_date, c.expiration_date)
+            alarm_status: calculateAlarm(c.due_date, c.expiration_date),
         }));
         const exportData = {
             lang: lang || 'en',
@@ -148,11 +167,11 @@ let VesselsService = class VesselsService {
                 owner: vessel.owner,
                 gross_tonnage: vessel.gross_tonnage,
                 port_of_registry: vessel.port_of_registry,
-                call_sign: vessel.call_sign
+                call_sign: vessel.call_sign,
             },
             emails: [settings.email1, settings.email2, settings.email3].filter(Boolean),
             certificates: mappedCerts,
-            actionable_items: actionableItems
+            actionable_items: actionableItems,
         };
         const templatePath = path.resolve(process.cwd(), 'MT_TREND_Certificate_Survey_Tracker_Updated_01052026-2.xlsx');
         const uploadsDir = path.resolve(process.cwd(), 'uploads');
@@ -162,11 +181,16 @@ let VesselsService = class VesselsService {
         const tempJsonPath = path.resolve(uploadsDir, `export_${vesselId}.json`);
         const tempOutExcelPath = path.resolve(uploadsDir, `export_${vessel.name.replace(/\s+/g, '_')}.xlsx`);
         fs.writeFileSync(tempJsonPath, JSON.stringify(exportData, null, 2));
-        await this.runPythonScript(['format', templatePath, tempOutExcelPath, tempJsonPath]);
+        await this.runPythonScript([
+            'format',
+            templatePath,
+            tempOutExcelPath,
+            tempJsonPath,
+        ]);
         return {
             excelPath: tempOutExcelPath,
             jsonPath: tempJsonPath,
-            fileName: `${vessel.name}_Certificate_Tracker.xlsx`
+            fileName: `${vessel.name}_Certificate_Tracker.xlsx`,
         };
     }
 };

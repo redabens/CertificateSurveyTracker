@@ -2,7 +2,7 @@ import { DatabaseService } from '../database/database.service';
 export declare class VesselsService {
     private readonly db;
     constructor(db: DatabaseService);
-    getAll(userId: number, role: string, companyId: number): any[];
+    getAll(userId: number, role: string): any[];
     getById(id: number): any;
     getByName(name: string): any;
     insert(v: any): number;

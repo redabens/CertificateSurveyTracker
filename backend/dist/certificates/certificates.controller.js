@@ -78,14 +78,14 @@ let CertificatesController = class CertificatesController {
             throw new common_1.ForbiddenException('Accès refusé pour ce navire');
         }
         const certs = this.certsService.getByVessel(parseInt(vesselId));
-        return certs.map(c => ({
+        return certs.map((c) => ({
             ...c,
-            alarm_status: calculateAlarmStatus(c.due_date, c.expiration_date)
+            alarm_status: calculateAlarmStatus(c.due_date, c.expiration_date),
         }));
     }
     async create(req, vesselId, body) {
         if (req.user.role === 'Crew' && body.category !== 'Servicing') {
-            throw new common_1.ForbiddenException('Seuls les certificats d\'entretien (Servicing) peuvent être gérés par l\'équipage');
+            throw new common_1.ForbiddenException("Seuls les certificats d'entretien (Servicing) peuvent être gérés par l'équipage");
         }
         if (req.user.role === 'Partner' || req.user.role === 'Auditor') {
             throw new common_1.ForbiddenException('Action en lecture seule');
@@ -104,7 +104,7 @@ let CertificatesController = class CertificatesController {
             due_date: body.due_date,
             window: body.window,
             alarm_status: alarm,
-            remarks: body.remarks
+            remarks: body.remarks,
         });
         return { id: certId, alarm_status: alarm };
     }
@@ -117,12 +117,12 @@ let CertificatesController = class CertificatesController {
             throw new common_1.NotFoundException('Certificat non trouvé');
         }
         if (req.user.role === 'Crew' && prevCert.category !== 'Servicing') {
-            throw new common_1.ForbiddenException('Seuls les certificats d\'entretien (Servicing) peuvent être modifiés par l\'équipage');
+            throw new common_1.ForbiddenException("Seuls les certificats d'entretien (Servicing) peuvent être modifiés par l'équipage");
         }
         const alarm = calculateAlarmStatus(body.due_date, body.expiration_date);
         this.certsService.update(parseInt(id), {
             ...body,
-            alarm_status: alarm
+            alarm_status: alarm,
         });
         return { success: true, alarm_status: alarm };
     }
@@ -148,7 +148,7 @@ let CertificatesController = class CertificatesController {
         if (req.user.role === 'Crew' && cert.category !== 'Servicing') {
             if (file && fs.existsSync(file.path))
                 fs.unlinkSync(file.path);
-            throw new common_1.ForbiddenException('L\'équipage ne peut modifier que les PDF d\'entretien');
+            throw new common_1.ForbiddenException("L'équipage ne peut modifier que les PDF d'entretien");
         }
         if (!file) {
             throw new common_1.BadRequestException('Aucun fichier PDF téléversé');
@@ -207,7 +207,7 @@ __decorate([
             filename: (req, file, cb) => {
                 const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
                 cb(null, `cert-${uniqueSuffix}${path.extname(file.originalname)}`);
-            }
+            },
         }),
         limits: { fileSize: 10 * 1024 * 1024 },
         fileFilter: (req, file, cb) => {
@@ -217,7 +217,7 @@ __decorate([
             else {
                 cb(new common_1.BadRequestException('Seuls les fichiers PDF sont acceptés.'), false);
             }
-        }
+        },
     })),
     __param(0, (0, common_1.Req)()),
     __param(1, (0, common_1.Param)('id')),

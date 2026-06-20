@@ -55,7 +55,9 @@ let AuthService = class AuthService {
         this.jwtService = jwtService;
     }
     async login(email, pass) {
-        const user = this.dbService.prepare('SELECT * FROM users WHERE email = ?').get(email);
+        const user = this.dbService
+            .prepare('SELECT * FROM users WHERE email = ?')
+            .get(email);
         if (!user) {
             throw new common_1.UnauthorizedException('Identifiants incorrects');
         }
@@ -63,7 +65,11 @@ let AuthService = class AuthService {
         if (!isValid) {
             throw new common_1.UnauthorizedException('Identifiants incorrects');
         }
-        const payload = { id: user.id, role: user.role, companyId: user.company_id };
+        const payload = {
+            id: user.id,
+            role: user.role,
+            companyId: user.company_id,
+        };
         const token = this.jwtService.sign(payload);
         return {
             token,
