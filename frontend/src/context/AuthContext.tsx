@@ -57,7 +57,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const headers = (options.headers || {}) as Record<string, string>;
     options.headers = headers;
     // Base URL points to the NestJS backend
-    const backendUrl = `http://localhost:3000${url.startsWith('/') ? '' : '/'}${url}`;
+    const backendUrl = `http://localhost:3000/api${url.startsWith('/') ? '' : '/'}${url}`;
     
     const savedToken = token || localStorage.getItem('babor_token');
     if (savedToken) {
