@@ -1,0 +1,33 @@
+# Fichiers de données et médias préexistants du client
+TONTON MAHDI SYSTEME.wav
+MT_TREND_Certificate_Survey_Tracker_Updated_01052026-2.xlsx
+transcription_raw.json
+chunks/
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.env
+
+# Base de données locale (SQLite)
+vessels.db
+vessels.db-journal
+
+# Python (Scripts utilitaires)
+__pycache__/
+*.pyc
+.venv/
+venv/
+env/
+inspect_sheets.py
+extract_certificates.py
+print_all_certificates.py
+print_raw_rows.py
+parsed_certificates.json
+
+# Système
+.DS_Store
+Thumbs.db
+Desktop.ini
