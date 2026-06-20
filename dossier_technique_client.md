@@ -190,54 +190,51 @@ erDiagram
 Le gestionnaire de flotte a le contrôle total de la configuration et de l'administration du suivi.
 
 ```mermaid
-usecaseDiagram
-    actor "Ship Manager (Bureaux)" as SM
+graph TB
+    SM["Ship Manager (Bureaux)"] --- UC1(["Importer fichier Excel (Init)"])
+    SM --- UC2(["Visualiser Tableau de bord Flotte"])
+    SM --- UC3(["Modifier dates de Certificat"])
+    SM --- UC4(["Configurer adresses E-mail d'alerte"])
+    SM --- UC5(["Exporter rapport Excel coloré (Audits)"])
+    SM --- UC6(["Gérer les utilisateurs"])
     
-    usecase UC1 as "Importer fichier Excel (Init)"
-    usecase UC2 as "Visualiser Tableau de bord Flotte"
-    usecase UC3 as "Modifier dates de Certificat"
-    usecase UC4 as "Configurer adresses E-mail d'alerte"
-    usecase UC5 as "Exporter rapport Excel coloré (Audits)"
-    usecase UC6 as "Gérer les utilisateurs"
-
-    SM --> UC1
-    SM --> UC2
-    SM --> UC3
-    SM --> UC4
-    SM --> UC5
-    SM --> UC6
+    style SM fill:#1d4ed8,stroke:#3b82f6,stroke-width:2px,color:#fff
+    style UC1 fill:#1e293b,stroke:#475569,color:#fff
+    style UC2 fill:#1e293b,stroke:#475569,color:#fff
+    style UC3 fill:#1e293b,stroke:#475569,color:#fff
+    style UC4 fill:#1e293b,stroke:#475569,color:#fff
+    style UC5 fill:#1e293b,stroke:#475569,color:#fff
+    style UC6 fill:#1e293b,stroke:#475569,color:#fff
 ```
 
 ### B. Cas d'Utilisation : Équipage / Capitaine (À Bord)
 L'équipage met à jour le statut des maintenances à bord.
 
 ```mermaid
-usecaseDiagram
-    actor "Équipage / Capitaine" as Crew
+graph TB
+    Crew["Équipage / Capitaine"] --- UC1(["Visualiser Certificats du Navire"])
+    Crew --- UC2(["Modifier dates des certificats d'entretien (Servicing)"])
+    Crew --- UC3(["Consulter la liste des Actions à faire (Actionable Items)"])
     
-    usecase UC2 as "Visualiser Certificats du Navire"
-    usecase UC3 as "Modifier dates des certificats d'entretien (Servicing)"
-    usecase UC4 as "Consulter la liste des Actions à faire (Actionable Items)"
-
-    Crew --> UC2
-    Crew --> UC3
-    Crew --> UC4
+    style Crew fill:#1d4ed8,stroke:#3b82f6,stroke-width:2px,color:#fff
+    style UC1 fill:#1e293b,stroke:#475569,color:#fff
+    style UC2 fill:#1e293b,stroke:#475569,color:#fff
+    style UC3 fill:#1e293b,stroke:#475569,color:#fff
 ```
 
 ### C. Cas d'Utilisation : Partenaire B2B & Auditeur (Consultation)
 Les parties prenantes externes consultent les statuts en toute transparence pour s'assurer de la conformité.
 
 ```mermaid
-usecaseDiagram
-    actor "Partenaire B2B / Auditeur" as Ext
+graph TB
+    Ext["Partenaire B2B / Auditeur"] --- UC1(["Consulter Dashboard Flotte / Navire"])
+    Ext --- UC2(["Télécharger rapport de conformité Excel"])
+    Ext --- UC3(["Vérifier la validité des certificats"])
     
-    usecase UC1 as "Consulter Dashboard Flotte / Navire"
-    usecase UC2 as "Télécharger rapport de conformité Excel"
-    usecase UC3 as "Vérifier la validité des certificats"
-
-    Ext --> UC1
-    Ext --> UC2
-    Ext --> UC3
+    style Ext fill:#1d4ed8,stroke:#3b82f6,stroke-width:2px,color:#fff
+    style UC1 fill:#1e293b,stroke:#475569,color:#fff
+    style UC2 fill:#1e293b,stroke:#475569,color:#fff
+    style UC3 fill:#1e293b,stroke:#475569,color:#fff
 ```
 
 ---
