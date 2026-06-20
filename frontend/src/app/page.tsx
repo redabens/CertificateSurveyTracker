@@ -266,8 +266,10 @@ export default function Dashboard() {
       } else {
         showToast(data.error || 'Erreur d\'importation', 'error');
       }
-    } catch {
-      showToast('Erreur serveur lors de l\'import', 'error');
+    } catch (err) {
+      console.error(err);
+      const errMsg = err instanceof Error ? err.message : String(err);
+      showToast(lang === 'fr' ? `Erreur lors de l'import: ${errMsg}` : `Import error: ${errMsg}`, 'error');
     }
   };
 
@@ -288,8 +290,10 @@ export default function Dashboard() {
       } else {
         showToast(data.error, 'error');
       }
-    } catch {
-      showToast('Erreur serveur', 'error');
+    } catch (err) {
+      console.error(err);
+      const errMsg = err instanceof Error ? err.message : String(err);
+      showToast(lang === 'fr' ? `Erreur lors de la création du navire: ${errMsg}` : `Error creating vessel: ${errMsg}`, 'error');
     }
   };
 
@@ -306,8 +310,10 @@ export default function Dashboard() {
         setSelectedVesselId(null);
         await loadVessels();
       }
-    } catch {
-      showToast('Erreur serveur', 'error');
+    } catch (err) {
+      console.error(err);
+      const errMsg = err instanceof Error ? err.message : String(err);
+      showToast(lang === 'fr' ? `Erreur lors de la suppression du navire: ${errMsg}` : `Error deleting vessel: ${errMsg}`, 'error');
     }
   };
 
@@ -392,8 +398,10 @@ export default function Dashboard() {
       } else {
         showToast(data.error, 'error');
       }
-    } catch {
-      showToast('Erreur serveur', 'error');
+    } catch (err) {
+      console.error(err);
+      const errMsg = err instanceof Error ? err.message : String(err);
+      showToast(lang === 'fr' ? `Erreur lors de l'enregistrement: ${errMsg}` : `Error saving: ${errMsg}`, 'error');
     }
   };
 
@@ -406,8 +414,10 @@ export default function Dashboard() {
         if (selectedVesselId) loadVesselDetails(selectedVesselId);
         loadVessels();
       }
-    } catch {
-      showToast('Erreur', 'error');
+    } catch (err) {
+      console.error(err);
+      const errMsg = err instanceof Error ? err.message : String(err);
+      showToast(lang === 'fr' ? `Erreur de suppression: ${errMsg}` : `Delete error: ${errMsg}`, 'error');
     }
   };
 
@@ -424,8 +434,10 @@ export default function Dashboard() {
         setActionableForm({ imposed_date: '', category: '', report_number: '', due_date: '', description: '' });
         if (selectedVesselId) loadVesselDetails(selectedVesselId);
       }
-    } catch {
-      showToast('Erreur', 'error');
+    } catch (err) {
+      console.error(err);
+      const errMsg = err instanceof Error ? err.message : String(err);
+      showToast(lang === 'fr' ? `Erreur lors de l'ajout: ${errMsg}` : `Error adding: ${errMsg}`, 'error');
     }
   };
 
@@ -440,8 +452,10 @@ export default function Dashboard() {
         showToast(lang === 'fr' ? 'Statut mis à jour' : 'Status updated', 'success');
         if (selectedVesselId) loadVesselDetails(selectedVesselId);
       }
-    } catch {
-      showToast('Erreur', 'error');
+    } catch (err) {
+      console.error(err);
+      const errMsg = err instanceof Error ? err.message : String(err);
+      showToast(lang === 'fr' ? `Erreur de mise à jour du statut: ${errMsg}` : `Error updating status: ${errMsg}`, 'error');
     }
   };
 
@@ -456,8 +470,10 @@ export default function Dashboard() {
         email3: data.email3 || ''
       });
       setShowSettingsModal(true);
-    } catch {
-      showToast('Erreur de chargement des paramètres', 'error');
+    } catch (err) {
+      console.error(err);
+      const errMsg = err instanceof Error ? err.message : String(err);
+      showToast(lang === 'fr' ? `Erreur de chargement: ${errMsg}` : `Loading error: ${errMsg}`, 'error');
     }
   };
 
@@ -476,8 +492,10 @@ export default function Dashboard() {
         showToast(lang === 'fr' ? 'Paramètres e-mail enregistrés' : 'Email parameters saved', 'success');
         setShowSettingsModal(false);
       }
-    } catch {
-      showToast('Erreur', 'error');
+    } catch (err) {
+      console.error(err);
+      const errMsg = err instanceof Error ? err.message : String(err);
+      showToast(lang === 'fr' ? `Erreur lors de la sauvegarde: ${errMsg}` : `Error saving: ${errMsg}`, 'error');
     }
   };
 
@@ -492,8 +510,10 @@ export default function Dashboard() {
         showToast(msg, 'success');
         loadEmailLogs();
       }
-    } catch {
-      showToast('Erreur', 'error');
+    } catch (err) {
+      console.error(err);
+      const errMsg = err instanceof Error ? err.message : String(err);
+      showToast(lang === 'fr' ? `Erreur lors de la vérification: ${errMsg}` : `Verification error: ${errMsg}`, 'error');
     }
   };
 
