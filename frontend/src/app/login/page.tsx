@@ -49,18 +49,6 @@ export default function LoginPage() {
     }
   };
 
-  const handleSelectDemo = (role: 'admin' | 'captain' | 'partner' | 'auditor') => {
-    const creds = {
-      admin: { email: 'admin@babor.com', pass: 'admin123' },
-      captain: { email: 'captain@babor.com', pass: 'captain123' },
-      partner: { email: 'partner@babor.com', pass: 'partner123' },
-      auditor: { email: 'auditor@babor.com', pass: 'auditor123' }
-    };
-    const selected = creds[role];
-    setEmail(selected.email);
-    setPassword(selected.pass);
-  };
-
   return (
     <div className="login-page">
       {/* Left panel: Branding & Showcase */}
@@ -71,51 +59,9 @@ export default function LoginPage() {
             <span className="logo-text">CNAN<span>Certifs</span></span>
           </div>
           <h1>Gérez la <span>Conformité</span> réglementaire de votre flotte commerciale</h1>
-          <p className="subtitle">
+          <p className="subtitle" style={{ marginBottom: 0 }}>
             Une plateforme d'analyse intelligente de classe mondiale conçue pour centraliser le suivi des certificats maritimes, automatiser les alertes d'échéance et synchroniser vos dossiers techniques.
           </p>
-          
-          <div className="feature-list">
-            <div className="feature-item">
-              <div className="feature-icon-wrapper">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-                  <polyline points="22 4 12 14.01 9 11.01" />
-                </svg>
-              </div>
-              <div className="feature-text">
-                <h3>Dashboard de Conformité</h3>
-                <p>Suivi en temps réel des alarmes et alertes de renouvellement par navire.</p>
-              </div>
-            </div>
-
-            <div className="feature-item">
-              <div className="feature-icon-wrapper">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
-                  <polyline points="22,6 12,13 2,6" />
-                </svg>
-              </div>
-              <div className="feature-text">
-                <h3>Notifications SMTP Automatisées</h3>
-                <p>Emails de rappels automatiques envoyés directement aux armateurs et managers.</p>
-              </div>
-            </div>
-
-            <div className="feature-item">
-              <div className="feature-icon-wrapper">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                  <polyline points="7 10 12 15 17 10" />
-                  <line x1="12" y1="15" x2="12" y2="3" />
-                </svg>
-              </div>
-              <div className="feature-text">
-                <h3>Importation Excel Intelligente</h3>
-                <p>Générez vos dossiers navires en téléversant simplement votre tracker Excel d'origine.</p>
-              </div>
-            </div>
-          </div>
         </div>
       </div>
 
@@ -172,28 +118,6 @@ export default function LoginPage() {
               {loading ? 'Connexion en cours...' : t('login_btn')}
             </button>
           </form>
-          
-          <div className="login-demo-help">
-            <p className="help-title">🎯 Comptes de démonstration</p>
-            <div className="demo-pills">
-              <button type="button" className="demo-pill-btn" onClick={() => handleSelectDemo('admin')}>
-                <span className="demo-pill-role">Administrateur</span>
-                <span className="demo-pill-email">admin@babor.com</span>
-              </button>
-              <button type="button" className="demo-pill-btn" onClick={() => handleSelectDemo('captain')}>
-                <span className="demo-pill-role">Capitaine</span>
-                <span className="demo-pill-email">captain@babor.com</span>
-              </button>
-              <button type="button" className="demo-pill-btn" onClick={() => handleSelectDemo('partner')}>
-                <span className="demo-pill-role">Partenaire</span>
-                <span className="demo-pill-email">partner@babor.com</span>
-              </button>
-              <button type="button" className="demo-pill-btn" onClick={() => handleSelectDemo('auditor')}>
-                <span className="demo-pill-role">Auditeur</span>
-                <span className="demo-pill-email">auditor@babor.com</span>
-              </button>
-            </div>
-          </div>
         </div>
       </div>
     </div>

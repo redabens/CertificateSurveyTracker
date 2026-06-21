@@ -83,6 +83,11 @@ export default function Dashboard() {
   const chartRef = useRef<HTMLCanvasElement | null>(null);
   const chartInstance = useRef<any>(null);
 
+  const handleCatchError = useCallback((err: any) => {
+    if (err instanceof Error && err.message === 'Unauthorized') return;
+    console.error(err);
+  }, []);
+
   // Load Vessels
   const loadVessels = useCallback(async () => {
     try {
@@ -100,9 +105,9 @@ export default function Dashboard() {
         console.error('Expected array, got:', data);
       }
     } catch (err) {
-      console.error(err);
+      handleCatchError(err);
     }
-  }, [apiFetch, selectedVesselId]);
+  }, [apiFetch, selectedVesselId, handleCatchError]);
 
   // Check Session
   useEffect(() => {
@@ -128,9 +133,9 @@ export default function Dashboard() {
         console.error('Error fetching vessel details', resCerts.status, resRecs.status);
       }
     } catch (err) {
-      console.error(err);
+      handleCatchError(err);
     }
-  }, [apiFetch]);
+  }, [apiFetch, handleCatchError]);
 
   // Load Vessel Related details
   useEffect(() => {
@@ -149,9 +154,9 @@ export default function Dashboard() {
         console.error('Error fetching email logs', res.status);
       }
     } catch (err) {
-      console.error(err);
+      handleCatchError(err);
     }
-  }, [apiFetch]);
+  }, [apiFetch, handleCatchError]);
 
   useEffect(() => {
     if (activeView === 'logs') {
@@ -248,7 +253,7 @@ export default function Dashboard() {
           }
         }
       } catch (err) {
-        console.error(err);
+        handleCatchError(err);
       }
     }
     list.sort((a, b) => {
@@ -306,6 +311,7 @@ export default function Dashboard() {
         showToast(data.error || 'Erreur d\'importation', 'error');
       }
     } catch (err) {
+      if (err instanceof Error && err.message === 'Unauthorized') return;
       console.error(err);
       const errMsg = err instanceof Error ? err.message : String(err);
       showToast(lang === 'fr' ? `Erreur lors de l'import: ${errMsg}` : `Import error: ${errMsg}`, 'error');
@@ -330,6 +336,7 @@ export default function Dashboard() {
         showToast(data.error, 'error');
       }
     } catch (err) {
+      if (err instanceof Error && err.message === 'Unauthorized') return;
       console.error(err);
       const errMsg = err instanceof Error ? err.message : String(err);
       showToast(lang === 'fr' ? `Erreur lors de la création du navire: ${errMsg}` : `Error creating vessel: ${errMsg}`, 'error');
@@ -350,6 +357,7 @@ export default function Dashboard() {
         await loadVessels();
       }
     } catch (err) {
+      if (err instanceof Error && err.message === 'Unauthorized') return;
       console.error(err);
       const errMsg = err instanceof Error ? err.message : String(err);
       showToast(lang === 'fr' ? `Erreur lors de la suppression du navire: ${errMsg}` : `Error deleting vessel: ${errMsg}`, 'error');
@@ -438,6 +446,7 @@ export default function Dashboard() {
         showToast(data.error, 'error');
       }
     } catch (err) {
+      if (err instanceof Error && err.message === 'Unauthorized') return;
       console.error(err);
       const errMsg = err instanceof Error ? err.message : String(err);
       showToast(lang === 'fr' ? `Erreur lors de l'enregistrement: ${errMsg}` : `Error saving: ${errMsg}`, 'error');
@@ -454,6 +463,7 @@ export default function Dashboard() {
         loadVessels();
       }
     } catch (err) {
+      if (err instanceof Error && err.message === 'Unauthorized') return;
       console.error(err);
       const errMsg = err instanceof Error ? err.message : String(err);
       showToast(lang === 'fr' ? `Erreur de suppression: ${errMsg}` : `Delete error: ${errMsg}`, 'error');
@@ -474,6 +484,7 @@ export default function Dashboard() {
         if (selectedVesselId) loadVesselDetails(selectedVesselId);
       }
     } catch (err) {
+      if (err instanceof Error && err.message === 'Unauthorized') return;
       console.error(err);
       const errMsg = err instanceof Error ? err.message : String(err);
       showToast(lang === 'fr' ? `Erreur lors de l'ajout: ${errMsg}` : `Error adding: ${errMsg}`, 'error');
@@ -492,6 +503,7 @@ export default function Dashboard() {
         if (selectedVesselId) loadVesselDetails(selectedVesselId);
       }
     } catch (err) {
+      if (err instanceof Error && err.message === 'Unauthorized') return;
       console.error(err);
       const errMsg = err instanceof Error ? err.message : String(err);
       showToast(lang === 'fr' ? `Erreur de mise à jour du statut: ${errMsg}` : `Error updating status: ${errMsg}`, 'error');
@@ -510,6 +522,7 @@ export default function Dashboard() {
       });
       setShowSettingsModal(true);
     } catch (err) {
+      if (err instanceof Error && err.message === 'Unauthorized') return;
       console.error(err);
       const errMsg = err instanceof Error ? err.message : String(err);
       showToast(lang === 'fr' ? `Erreur de chargement: ${errMsg}` : `Loading error: ${errMsg}`, 'error');
@@ -532,6 +545,7 @@ export default function Dashboard() {
         setShowSettingsModal(false);
       }
     } catch (err) {
+      if (err instanceof Error && err.message === 'Unauthorized') return;
       console.error(err);
       const errMsg = err instanceof Error ? err.message : String(err);
       showToast(lang === 'fr' ? `Erreur lors de la sauvegarde: ${errMsg}` : `Error saving: ${errMsg}`, 'error');
@@ -550,6 +564,7 @@ export default function Dashboard() {
         loadEmailLogs();
       }
     } catch (err) {
+      if (err instanceof Error && err.message === 'Unauthorized') return;
       console.error(err);
       const errMsg = err instanceof Error ? err.message : String(err);
       showToast(lang === 'fr' ? `Erreur lors de la vérification: ${errMsg}` : `Verification error: ${errMsg}`, 'error');
