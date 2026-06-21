@@ -8,7 +8,7 @@ type IconProps = React.SVGProps<SVGSVGElement> & {
 // CNANCertifs Startup Identity Logo
 // A high-quality transparent image rendering the final gold sailboat checkmark and sea waves
 export const LogoIcon: React.FC<any> = ({ size = 28, ...props }) => {
-  const width = Math.round(size * 1.833);
+  const width = Math.round(size * 1.242);
   return (
     <Image
       src="/logo.png"
