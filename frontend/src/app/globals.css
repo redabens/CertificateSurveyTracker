@@ -1296,6 +1296,7 @@ h1, h2, h3, h4, .logo-text, .tv-logo-text {
 .login-left-content h1 span {
   color: var(--primary-color);
   background: linear-gradient(180deg, #f3d078, #cca43b);
+  background-clip: text;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }

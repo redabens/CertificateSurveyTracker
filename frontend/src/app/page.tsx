@@ -261,7 +261,7 @@ export default function Dashboard() {
       return ord[a.level] - ord[b.level];
     });
     setTvCerts(list);
-  }, [apiFetch, vessels]);
+  }, [apiFetch, vessels, handleCatchError]);
 
   // TV mode clocks
   useEffect(() => {
