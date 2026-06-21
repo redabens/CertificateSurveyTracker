@@ -33,3 +33,7 @@ Thumbs.db
 Desktop.ini
 
 Epic/
+
+# Raw generated images
+frontend/public/Generated Image*
+

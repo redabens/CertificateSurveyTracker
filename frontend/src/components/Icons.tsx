@@ -1,58 +1,26 @@
 import React from 'react';
+import Image from 'next/image';
 
 type IconProps = React.SVGProps<SVGSVGElement> & {
   size?: number;
 };
 
 // CNANCertifs Startup Identity Logo
-// A stylized gold emblem featuring a cargo ship/sail combining with a checkmark and sea waves
-export const LogoIcon: React.FC<IconProps> = ({ size = 28, ...props }) => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    width={size}
-    height={size}
-    viewBox="0 0 120 100"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="4"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    {...props}
-  >
-    <defs>
-      <linearGradient id="logo-gold-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stopColor="#dfba5c" />
-        <stop offset="100%" stopColor="#cca43b" />
-      </linearGradient>
-      <linearGradient id="logo-green-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stopColor="#48a37e" />
-        <stop offset="100%" stopColor="#1e543f" />
-      </linearGradient>
-    </defs>
-
-    {/* Left Sail (Triangle) */}
-    <path d="M 54 26 C 46 36, 41 47, 39 56 L 54 56 Z" fill="url(#logo-gold-grad)" fillOpacity="0.25" stroke="url(#logo-gold-grad)" strokeWidth="4" />
-
-    {/* Mast */}
-    <line x1="54" y1="22" x2="54" y2="60" stroke="url(#logo-gold-grad)" strokeWidth="4" />
-
-    {/* Main Sail / Checkmark */}
-    <path d="M 40 56 L 54 70 L 92 22" stroke="url(#logo-gold-grad)" strokeWidth="4" />
-
-    {/* Left Bow & Cabin */}
-    <path d="M 12 59 L 18 59 L 18 51 L 26 51 L 26 59 L 40 59" stroke="url(#logo-gold-grad)" strokeWidth="4" />
-    <path d="M 12 59 L 16 65 L 30 65" stroke="url(#logo-gold-grad)" strokeWidth="4" />
-
-    {/* Right Stern & Rigging */}
-    <path d="M 92 22 L 106 41 L 93 59 L 80 59" stroke="url(#logo-gold-grad)" strokeWidth="4" />
-    <path d="M 93 59 L 89 65 L 75 65" stroke="url(#logo-gold-grad)" strokeWidth="4" />
-
-    {/* Waves */}
-    <path d="M 10 74 C 22 70, 28 78, 40 74 C 52 70, 58 78, 70 74 C 82 70, 88 78, 100 74 C 112 70, 115 74, 115 74" stroke="url(#logo-green-grad)" strokeWidth="4.2" />
-    <path d="M 15 81 C 27 77, 33 85, 45 81 C 57 77, 63 85, 75 81 C 87 77, 93 85, 105 81 C 117 77, 120 81, 120 81" stroke="url(#logo-green-grad)" strokeWidth="4.2" />
-    <path d="M 8 88 C 20 84, 26 92, 38 88 C 50 84, 56 92, 68 88 C 80 84, 86 92, 98 88 C 110 84, 113 88, 113 88" stroke="url(#logo-green-grad)" strokeWidth="4.2" strokeOpacity="0.6" />
-  </svg>
-);
+// A high-quality transparent image rendering the final gold sailboat checkmark and sea waves
+export const LogoIcon: React.FC<any> = ({ size = 28, ...props }) => {
+  const width = Math.round(size * 1.833);
+  return (
+    <Image
+      src="/logo.png"
+      width={width}
+      height={size}
+      alt="CNANCertifs Logo"
+      priority
+      style={{ display: 'inline-block', verticalAlign: 'middle', height: size, width: 'auto', objectFit: 'contain', ...props.style }}
+      {...props}
+    />
+  );
+};
 
 // Sleek Cargo/Vessel ship icon
 export const ShipIcon: React.FC<IconProps> = ({ size = 20, ...props }) => (

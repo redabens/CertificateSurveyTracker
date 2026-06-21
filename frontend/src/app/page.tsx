@@ -635,7 +635,7 @@ export default function Dashboard() {
           <div className="tv-header">
             <div className="tv-brand">
               <span className="tv-logo-icon icon-svg">
-                <LogoIcon size={32} />
+                <LogoIcon size={42} />
               </span>
               <span className="tv-logo-text">Portail<span>Certificats</span> <small>CNAN NORD</small></span>
             </div>
@@ -721,7 +721,7 @@ export default function Dashboard() {
           <aside className="sidebar">
             <div className="brand">
               <span className="logo-icon icon-svg">
-                <LogoIcon size={32} />
+                <LogoIcon size={42} />
               </span>
               <span className="logo-text">CNAN<span>Certifs</span></span>
             </div>

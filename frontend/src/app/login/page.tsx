@@ -54,7 +54,7 @@ export default function LoginPage() {
       <div className="login-card glass">
         <div className="login-brand">
           <span className="logo-icon icon-svg">
-            <LogoIcon size={36} />
+            <LogoIcon size={70} />
           </span>
           <span className="logo-text">CNAN<span>Certifs</span></span>
         </div>
