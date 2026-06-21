@@ -90,6 +90,11 @@ let VesselsService = class VesselsService {
             .prepare('SELECT * FROM vessels WHERE name = ?')
             .get(name);
     }
+    getByImo(imo) {
+        return this.db
+            .prepare('SELECT * FROM vessels WHERE imo_number = ?')
+            .get(imo);
+    }
     insert(v) {
         const stmt = this.db.prepare(`
       INSERT INTO vessels (company_id, name, imo_number, flag, asset_type, owner, manager, gross_tonnage, deadweight_tonnage, port_of_registry, call_sign, status)

@@ -148,6 +148,13 @@ let VesselsController = class VesselsController {
                 fs.unlinkSync(file.path);
                 throw new common_1.BadRequestException(`Le navire "${vInfo.name}" existe déjà dans le système`);
             }
+            if (vInfo.imo_number) {
+                const existingImo = this.vesselsService.getByImo(String(vInfo.imo_number));
+                if (existingImo) {
+                    fs.unlinkSync(file.path);
+                    throw new common_1.BadRequestException(`Le navire avec le numéro IMO "${vInfo.imo_number}" existe déjà dans le système ("${existingImo.name}")`);
+                }
+            }
             const vesselId = this.vesselsService.insert({
                 company_id: 2,
                 name: vInfo.name,

@@ -48,6 +48,12 @@ export class VesselsService {
       .get(name) as any;
   }
 
+  getByImo(imo: string) {
+    return this.db
+      .prepare('SELECT * FROM vessels WHERE imo_number = ?')
+      .get(imo) as any;
+  }
+
   insert(v: any): number {
     const stmt = this.db.prepare(`
       INSERT INTO vessels (company_id, name, imo_number, flag, asset_type, owner, manager, gross_tonnage, deadweight_tonnage, port_of_registry, call_sign, status)

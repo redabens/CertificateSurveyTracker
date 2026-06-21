@@ -5,6 +5,7 @@ export declare class VesselsService {
     getAll(userId: number, role: string): any[];
     getById(id: number): any;
     getByName(name: string): any;
+    getByImo(imo: string): any;
     insert(v: any): number;
     updateStatus(id: number, status: string): void;
     delete(id: number): void;

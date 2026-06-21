@@ -160,7 +160,7 @@ export class DatabaseService implements OnModuleInit {
     insertVessel.run(
       1,
       'BABOR ALGERIEN',
-      '9477177',
+      '9477189',
       'Algeria',
       'Products Tanker',
       'CNAN',

@@ -72,7 +72,7 @@ export default function Dashboard() {
   // UI Toast system
   const [toasts, setToasts] = useState<ToastMsg[]>([]);
   const showToast = (text: string, type: 'success' | 'error' | 'info' = 'info') => {
-    const id = Date.now();
+    const id = Date.now() * 1000 + Math.floor(Math.random() * 1000);
     setToasts(prev => [...prev, { id, text, type }]);
     setTimeout(() => {
       setToasts(prev => prev.filter(t => t.id !== id));

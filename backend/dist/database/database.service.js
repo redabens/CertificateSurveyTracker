@@ -170,7 +170,7 @@ let DatabaseService = class DatabaseService {
       INSERT INTO vessels (company_id, name, imo_number, flag, asset_type, owner, manager, gross_tonnage, deadweight_tonnage, port_of_registry, call_sign, status)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
-        insertVessel.run(1, 'BABOR ALGERIEN', '9477177', 'Algeria', 'Products Tanker', 'CNAN', 'Verital Marine Services', 15000, 25000, 'Alger', '7TBC', 'Normal');
+        insertVessel.run(1, 'BABOR ALGERIEN', '9477189', 'Algeria', 'Products Tanker', 'CNAN', 'Verital Marine Services', 15000, 25000, 'Alger', '7TBC', 'Normal');
         this.db
             .prepare('INSERT INTO email_settings (vessel_id, email1, email2, email3) VALUES (?, ?, ?, ?)')
             .run(1, 'captain@babor.com', 'manager@babor.com', 'notifications@babor.com');

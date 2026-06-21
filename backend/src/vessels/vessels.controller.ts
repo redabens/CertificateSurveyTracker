@@ -140,6 +140,16 @@ export class VesselsController {
         );
       }
 
+      if (vInfo.imo_number) {
+        const existingImo = this.vesselsService.getByImo(String(vInfo.imo_number));
+        if (existingImo) {
+          fs.unlinkSync(file.path);
+          throw new BadRequestException(
+            `Le navire avec le numéro IMO "${vInfo.imo_number}" existe déjà dans le système ("${existingImo.name}")`,
+          );
+        }
+      }
+
       const vesselId = this.vesselsService.insert({
         company_id: 2,
         name: vInfo.name,
