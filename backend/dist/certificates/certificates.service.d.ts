@@ -8,4 +8,5 @@ export declare class CertificatesService {
     update(id: number, c: any): void;
     updatePdfUrl(id: number, pdfUrl: string): void;
     delete(id: number): void;
+    assertCrewCanAccess(role: string, category: string, action: string): void;
 }

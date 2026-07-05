@@ -1,13 +1,22 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useAuth } from '../context/AuthContext';
-import { useLanguage } from '../context/LanguageContext';
-import { useRouter } from 'next/navigation';
-import { Chart } from 'chart.js/auto';
+import React, { useRef } from 'react';
+import { useDashboard } from '../hooks/useDashboard';
+import { ForcePasswordChangeView } from '../components/dashboard/ForcePasswordChangeView';
+import { TvModeView } from '../components/dashboard/TvModeView';
+import { DashboardOverview } from '../components/dashboard/DashboardOverview';
+import { PdfViewerModal } from '../components/dashboard/PdfViewerModal';
+import { CertificatesTable } from '../components/dashboard/CertificatesTable';
+import { VesselSelector } from '../components/dashboard/VesselSelector';
+import { ResetPasswordDrawer } from '../components/drawers/ResetPasswordDrawer';
+import { ImportExcelDrawer } from '../components/drawers/ImportExcelDrawer';
+import { AddVesselDrawer } from '../components/drawers/AddVesselDrawer';
+import { EditCertificateDrawer } from '../components/drawers/EditCertificateDrawer';
+import { AddActionableDrawer } from '../components/drawers/AddActionableDrawer';
+import { EmailSettingsDrawer } from '../components/drawers/EmailSettingsDrawer';
+import { AddUserDrawer } from '../components/drawers/AddUserDrawer';
 import {
   LogoIcon,
-  ShipIcon,
   DashboardIcon,
   FleetIcon,
   TvIcon,
@@ -17,627 +26,116 @@ import {
   ImportIcon,
   AlertIcon,
   WarningIcon,
-  CheckIcon,
-  AttachmentIcon,
-  TrashIcon,
-  CloseIcon
+  CheckIcon
 } from '../components/Icons';
 
-type ToastMsg = { id: number; text: string; type: 'success' | 'error' | 'info' };
-
 export default function Dashboard() {
-  const { token, user, logout, apiFetch } = useAuth();
-  const { lang, setLang, t } = useLanguage();
-  const router = useRouter();
-
-  // Navigation & Views
-  const [activeView, setActiveView] = useState<'dashboard' | 'fleet' | 'logs'>('dashboard');
-  const [tvMode, setTvMode] = useState(false);
-  const [tvTime, setTvTime] = useState('');
-  const [tvDate, setTvDate] = useState('');
-  const [tvCerts, setTvCerts] = useState<any[]>([]);
-
-  // State Data
-  const [vessels, setVessels] = useState<any[]>([]);
-  const [selectedVesselId, setSelectedVesselId] = useState<number | null>(null);
-  const [certificates, setCertificates] = useState<any[]>([]);
-  const [actionableItems, setActionableItems] = useState<any[]>([]);
-  const [emailLogs, setEmailLogs] = useState<any[]>([]);
-  
-  // Search & Filters (Certificates)
-  const [certSearch, setCertSearch] = useState('');
-  const [certCategory, setCertCategory] = useState('ALL');
-  const [certStatus, setCertStatus] = useState('ALL');
-  const [activeTab, setActiveTab] = useState<'certs' | 'recs'>('certs');
-
-  // Modals Visibility
-  const [showImportModal, setShowImportModal] = useState(false);
-  const [showAddVesselModal, setShowAddVesselModal] = useState(false);
-  const [showEditCertModal, setShowEditCertModal] = useState(false);
-  const [showAddActionableModal, setShowAddActionableModal] = useState(false);
-  const [showSettingsModal, setShowSettingsModal] = useState(false);
-  const [showPdfModal, setShowPdfModal] = useState(false);
-
-  // Form States
-  const [importFile, setImportFile] = useState<File | null>(null);
-  const [vesselForm, setVesselForm] = useState({ name: '', imo_number: '', flag: '', asset_type: '', owner: '', manager: '' });
-  const [certForm, setCertForm] = useState({ id: '', name: '', category: 'Class', organization: '', issuing_date: '', expiration_date: '', due_date: '', window: '', remarks: '' });
-  const [certPdfFile, setCertPdfFile] = useState<File | null>(null);
-  const [certPdfCurrent, setCertPdfCurrent] = useState('');
-  const [actionableForm, setActionableForm] = useState({ imposed_date: '', category: '', report_number: '', due_date: '', description: '' });
-  const [settingsForm, setSettingsForm] = useState({ vessel_id: 0, email1: '', email2: '', email3: '' });
-  const [pdfViewerUrl, setPdfViewerUrl] = useState('');
-  const [pdfViewerName, setPdfViewerName] = useState('');
-
-  // UI Toast system
-  const [toasts, setToasts] = useState<ToastMsg[]>([]);
-  const showToast = (text: string, type: 'success' | 'error' | 'info' = 'info') => {
-    const id = Date.now() * 1000 + Math.floor(Math.random() * 1000);
-    setToasts(prev => [...prev, { id, text, type }]);
-    setTimeout(() => {
-      setToasts(prev => prev.filter(t => t.id !== id));
-    }, 4500);
-  };
-
-  // Chart Ref
   const chartRef = useRef<HTMLCanvasElement | null>(null);
-  const chartInstance = useRef<any>(null);
 
-  const handleCatchError = useCallback((err: any) => {
-    if (err instanceof Error && err.message === 'Unauthorized') return;
-    console.error(err);
-  }, []);
-
-  // Load Vessels
-  const loadVessels = useCallback(async () => {
-    try {
-      const res = await apiFetch('/vessels');
-      if (!res.ok) {
-        throw new Error(`HTTP Error ${res.status}`);
-      }
-      const data = await res.json();
-      if (Array.isArray(data)) {
-        setVessels(data);
-        if (data.length > 0 && !selectedVesselId) {
-          setSelectedVesselId(data[0].id);
-        }
-      } else {
-        console.error('Expected array, got:', data);
-      }
-    } catch (err) {
-      handleCatchError(err);
-    }
-  }, [apiFetch, selectedVesselId, handleCatchError]);
-
-  // Check Session
-  useEffect(() => {
-    if (!token) {
-      router.push('/login');
-    } else {
-      void loadVessels();
-    }
-  }, [token, loadVessels, router]);
-
-  const loadVesselDetails = useCallback(async (id: number) => {
-    try {
-      const [resCerts, resRecs] = await Promise.all([
-        apiFetch(`/vessels/${id}/certificates`),
-        apiFetch(`/vessels/${id}/actionable-items`)
-      ]);
-      if (resCerts.ok && resRecs.ok) {
-        const certs = await resCerts.json();
-        const recs = await resRecs.json();
-        if (Array.isArray(certs)) setCertificates(certs);
-        if (Array.isArray(recs)) setActionableItems(recs);
-      } else {
-        console.error('Error fetching vessel details', resCerts.status, resRecs.status);
-      }
-    } catch (err) {
-      handleCatchError(err);
-    }
-  }, [apiFetch, handleCatchError]);
-
-  // Load Vessel Related details
-  useEffect(() => {
-    if (selectedVesselId) {
-      void loadVesselDetails(selectedVesselId);
-    }
-  }, [selectedVesselId, loadVesselDetails]);
-
-  const loadEmailLogs = useCallback(async () => {
-    try {
-      const res = await apiFetch('/email-logs');
-      if (res.ok) {
-        const data = await res.json();
-        if (Array.isArray(data)) setEmailLogs(data);
-      } else {
-        console.error('Error fetching email logs', res.status);
-      }
-    } catch (err) {
-      handleCatchError(err);
-    }
-  }, [apiFetch, handleCatchError]);
-
-  useEffect(() => {
-    if (activeView === 'logs') {
-      void loadEmailLogs();
-    }
-  }, [activeView, loadEmailLogs]);
-
-  // Update Doughnut Chart
-  useEffect(() => {
-    if (activeView === 'dashboard' && vessels.length > 0 && chartRef.current) {
-      let red = 0, yellow = 0, green = 0, normal = 0;
-      vessels.forEach(v => {
-        red += v.counts.red || 0;
-        yellow += v.counts.yellow || 0;
-        green += v.counts.green || 0;
-        normal += v.counts.normal || 0;
-      });
-
-      if (chartInstance.current) {
-        chartInstance.current.destroy();
-      }
-
-      const total = red + yellow + green + normal;
-      if (total === 0) {
-        chartInstance.current = new Chart(chartRef.current, {
-          type: 'doughnut',
-          data: {
-            labels: [lang === 'fr' ? 'Aucune donnée' : 'No Data'],
-            datasets: [{ data: [1], backgroundColor: ['#27272a'], borderWidth: 0 }]
-          },
-          options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
-        });
-        return;
-      }
-
-      const labelsFr = ['Urgent / Expire (<30j)', 'Attention (30j-90j)', 'Suivi (90j-180j)', 'Conforme (>180j)'];
-      const labelsEn = ['Urgent / Expired (<30d)', 'Warning (30d-90d)', 'Monitored (90d-180d)', 'Compliant (>180d)'];
-
-      chartInstance.current = new Chart(chartRef.current, {
-        type: 'doughnut',
-        data: {
-          labels: lang === 'fr' ? labelsFr : labelsEn,
-          datasets: [{
-            data: [red, yellow, green, normal],
-            backgroundColor: ['#d64f3e', '#e59b3c', '#48a37e', '#cca43b'],
-            borderWidth: 1,
-            borderColor: 'var(--border-color)'
-          }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            legend: {
-              position: 'right',
-              labels: { color: 'rgb(148, 163, 184)', font: { family: 'Inter', size: 12 } }
-            }
-          },
-          cutout: '65%'
-        }
-      });
-    }
-
-    return () => {
-      if (chartInstance.current) {
-        chartInstance.current.destroy();
-        chartInstance.current = null;
-      }
-    };
-  }, [vessels, activeView, lang]);
-
-  const loadTvCerts = useCallback(async () => {
-    const list: any[] = [];
-    for (const v of vessels) {
-      try {
-        const res = await apiFetch(`/vessels/${v.id}/certificates`);
-        if (res.ok) {
-          const certs = await res.json();
-          if (Array.isArray(certs)) {
-            certs.forEach((c: any) => {
-              const isRed = c.alarm_status.includes('RED') || c.alarm_status.includes('OVERDUE');
-              const isYellow = c.alarm_status.includes('YELLOW');
-              const isGreen = c.alarm_status.includes('GREEN');
-              if (isRed || isYellow || isGreen) {
-                list.push({
-                  vessel_name: v.name,
-                  cert_name: c.name,
-                  due_date: c.due_date || c.expiration_date || 'N/A',
-                  alarm_status: c.alarm_status,
-                  level: isRed ? 'red' : isYellow ? 'yellow' : 'green'
-                });
-              }
-            });
-          }
-        }
-      } catch (err) {
-        handleCatchError(err);
-      }
-    }
-    list.sort((a, b) => {
-      const ord: Record<string, number> = { red: 1, yellow: 2, green: 3 };
-      return ord[a.level] - ord[b.level];
-    });
-    setTvCerts(list);
-  }, [apiFetch, vessels, handleCatchError]);
-
-  // TV mode clocks
-  useEffect(() => {
-    if (tvMode) {
-      const update = () => {
-        const now = new Date();
-        const hrs = String(now.getHours()).padStart(2, '0');
-        const mins = String(now.getMinutes()).padStart(2, '0');
-        const secs = String(now.getSeconds()).padStart(2, '0');
-        setTvTime(`${hrs}:${mins}:${secs}`);
-
-        const opts = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' } as any;
-        setTvDate(now.toLocaleDateString(lang === 'fr' ? 'fr-FR' : 'en-US', opts));
-      };
-      update();
-      const interval = setInterval(update, 1000);
-      void loadTvCerts();
-      const tvFetchInterval = setInterval(() => {
-        void loadTvCerts();
-      }, 30000);
-      return () => {
-        clearInterval(interval);
-        clearInterval(tvFetchInterval);
-      };
-    }
-  }, [tvMode, vessels, lang, loadTvCerts]);
-
-  // Operations
-  const handleImportExcel = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!importFile) return;
-    const formData = new FormData();
-    formData.append('file', importFile);
-    try {
-      const res = await apiFetch('/vessels/import', {
-        method: 'POST',
-        body: formData
-      });
-      const data = await res.json();
-      if (res.ok) {
-        showToast(lang === 'fr' ? `Navire importé avec succès !` : 'Vessel imported successfully!', 'success');
-        setShowImportModal(false);
-        setImportFile(null);
-        await loadVessels();
-        setSelectedVesselId(data.vesselId);
-      } else {
-        showToast(data.error || 'Erreur d\'importation', 'error');
-      }
-    } catch (err) {
-      if (err instanceof Error && err.message === 'Unauthorized') return;
-      console.error(err);
-      const errMsg = err instanceof Error ? err.message : String(err);
-      showToast(lang === 'fr' ? `Erreur lors de l'import: ${errMsg}` : `Import error: ${errMsg}`, 'error');
-    }
-  };
-
-  const handleCreateVessel = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      const res = await apiFetch('/vessels/manual', {
-        method: 'POST',
-        body: JSON.stringify(vesselForm)
-      });
-      const data = await res.json();
-      if (res.ok) {
-        showToast(lang === 'fr' ? 'Navire créé' : 'Vessel created', 'success');
-        setShowAddVesselModal(false);
-        setVesselForm({ name: '', imo_number: '', flag: '', asset_type: '', owner: '', manager: '' });
-        await loadVessels();
-        setSelectedVesselId(data.id);
-      } else {
-        showToast(data.error, 'error');
-      }
-    } catch (err) {
-      if (err instanceof Error && err.message === 'Unauthorized') return;
-      console.error(err);
-      const errMsg = err instanceof Error ? err.message : String(err);
-      showToast(lang === 'fr' ? `Erreur lors de la création du navire: ${errMsg}` : `Error creating vessel: ${errMsg}`, 'error');
-    }
-  };
-
-  const handleDeleteVessel = async () => {
-    if (!selectedVesselId) return;
-    const conf = lang === 'fr' 
-      ? 'Êtes-vous absolument sûr de vouloir supprimer ce navire et toutes ses données ?' 
-      : 'Are you sure you want to delete this vessel and all its data?';
-    if (!confirm(conf)) return;
-    try {
-      const res = await apiFetch(`/vessels/${selectedVesselId}`, { method: 'DELETE' });
-      if (res.ok) {
-        showToast(lang === 'fr' ? 'Navire supprimé' : 'Vessel deleted', 'success');
-        setSelectedVesselId(null);
-        await loadVessels();
-      }
-    } catch (err) {
-      if (err instanceof Error && err.message === 'Unauthorized') return;
-      console.error(err);
-      const errMsg = err instanceof Error ? err.message : String(err);
-      showToast(lang === 'fr' ? `Erreur lors de la suppression du navire: ${errMsg}` : `Error deleting vessel: ${errMsg}`, 'error');
-    }
-  };
-
-  const handleEditCertOpen = (c: any) => {
-    setCertForm({
-      id: c.id,
-      name: c.name,
-      category: c.category,
-      organization: c.organization || '',
-      issuing_date: c.issuing_date || '',
-      expiration_date: c.expiration_date || '',
-      due_date: c.due_date || '',
-      window: c.window || '',
-      remarks: c.remarks || ''
-    });
-    setCertPdfFile(null);
-    setCertPdfCurrent(c.pdf_url || '');
-    setShowEditCertModal(true);
-  };
-
-  const handleCreateCertOpen = () => {
-    setCertForm({
-      id: '',
-      name: '',
-      category: user?.role === 'Crew' ? 'Servicing' : 'Class',
-      organization: '',
-      issuing_date: '',
-      expiration_date: '',
-      due_date: '',
-      window: '',
-      remarks: ''
-    });
-    setCertPdfFile(null);
-    setCertPdfCurrent('');
-    setShowEditCertModal(true);
-  };
-
-  const handleEditCertSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      let url = certForm.id ? `/certificates/${certForm.id}` : `/vessels/${selectedVesselId}/certificates`;
-      let method = certForm.id ? 'PUT' : 'POST';
-      
-      const res = await apiFetch(url, {
-        method,
-        body: JSON.stringify({
-          name: certForm.name,
-          category: certForm.category,
-          organization: certForm.organization,
-          issuing_date: certForm.issuing_date,
-          expiration_date: certForm.expiration_date,
-          due_date: certForm.due_date,
-          window: certForm.window,
-          remarks: certForm.remarks
-        })
-      });
-      const data = await res.json();
-      if (res.ok) {
-        const certId = certForm.id || data.id;
-        
-        // Handle PDF upload if selected
-        if (certPdfFile) {
-          const formData = new FormData();
-          formData.append('pdf', certPdfFile);
-          
-          const uploadRes = await fetch(`http://localhost:3000/api/certificates/${certId}/upload`, {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${token}`
-            },
-            body: formData
-          });
-          if (uploadRes.ok) {
-            showToast(lang === 'fr' ? 'PDF téléversé !' : 'PDF uploaded!', 'success');
-          }
-        }
-
-        showToast(lang === 'fr' ? 'Certificat enregistré' : 'Certificate saved', 'success');
-        setShowEditCertModal(false);
-        if (selectedVesselId) loadVesselDetails(selectedVesselId);
-        loadVessels();
-      } else {
-        showToast(data.error, 'error');
-      }
-    } catch (err) {
-      if (err instanceof Error && err.message === 'Unauthorized') return;
-      console.error(err);
-      const errMsg = err instanceof Error ? err.message : String(err);
-      showToast(lang === 'fr' ? `Erreur lors de l'enregistrement: ${errMsg}` : `Error saving: ${errMsg}`, 'error');
-    }
-  };
-
-  const handleDeleteCert = async (certId: number) => {
-    if (!confirm(lang === 'fr' ? 'Supprimer ce certificat ?' : 'Delete this certificate?')) return;
-    try {
-      const res = await apiFetch(`/certificates/${certId}`, { method: 'DELETE' });
-      if (res.ok) {
-        showToast(lang === 'fr' ? 'Certificat supprimé' : 'Certificate deleted', 'success');
-        if (selectedVesselId) loadVesselDetails(selectedVesselId);
-        loadVessels();
-      }
-    } catch (err) {
-      if (err instanceof Error && err.message === 'Unauthorized') return;
-      console.error(err);
-      const errMsg = err instanceof Error ? err.message : String(err);
-      showToast(lang === 'fr' ? `Erreur de suppression: ${errMsg}` : `Delete error: ${errMsg}`, 'error');
-    }
-  };
-
-  const handleActionableSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      const res = await apiFetch(`/vessels/${selectedVesselId}/actionable-items`, {
-        method: 'POST',
-        body: JSON.stringify(actionableForm)
-      });
-      if (res.ok) {
-        showToast(lang === 'fr' ? 'Recommandation ajoutée' : 'Recommendation added', 'success');
-        setShowAddActionableModal(false);
-        setActionableForm({ imposed_date: '', category: '', report_number: '', due_date: '', description: '' });
-        if (selectedVesselId) loadVesselDetails(selectedVesselId);
-      }
-    } catch (err) {
-      if (err instanceof Error && err.message === 'Unauthorized') return;
-      console.error(err);
-      const errMsg = err instanceof Error ? err.message : String(err);
-      showToast(lang === 'fr' ? `Erreur lors de l'ajout: ${errMsg}` : `Error adding: ${errMsg}`, 'error');
-    }
-  };
-
-  const toggleActionableStatus = async (id: number, currentStatus: string) => {
-    const nextStatus = currentStatus === 'Completed' ? 'Pending' : 'Completed';
-    try {
-      const res = await apiFetch(`/actionable-items/${id}/status`, {
-        method: 'PUT',
-        body: JSON.stringify({ status: nextStatus })
-      });
-      if (res.ok) {
-        showToast(lang === 'fr' ? 'Statut mis à jour' : 'Status updated', 'success');
-        if (selectedVesselId) loadVesselDetails(selectedVesselId);
-      }
-    } catch (err) {
-      if (err instanceof Error && err.message === 'Unauthorized') return;
-      console.error(err);
-      const errMsg = err instanceof Error ? err.message : String(err);
-      showToast(lang === 'fr' ? `Erreur de mise à jour du statut: ${errMsg}` : `Error updating status: ${errMsg}`, 'error');
-    }
-  };
-
-  const handleEmailSettingsOpen = async () => {
-    try {
-      const res = await apiFetch(`/vessels/${selectedVesselId}/settings`);
-      const data = await res.json();
-      setSettingsForm({
-        vessel_id: selectedVesselId || 0,
-        email1: data.email1 || '',
-        email2: data.email2 || '',
-        email3: data.email3 || ''
-      });
-      setShowSettingsModal(true);
-    } catch (err) {
-      if (err instanceof Error && err.message === 'Unauthorized') return;
-      console.error(err);
-      const errMsg = err instanceof Error ? err.message : String(err);
-      showToast(lang === 'fr' ? `Erreur de chargement: ${errMsg}` : `Loading error: ${errMsg}`, 'error');
-    }
-  };
-
-  const handleEmailSettingsSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      const res = await apiFetch(`/vessels/${selectedVesselId}/settings`, {
-        method: 'PUT',
-        body: JSON.stringify({
-          email1: settingsForm.email1,
-          email2: settingsForm.email2,
-          email3: settingsForm.email3
-        })
-      });
-      if (res.ok) {
-        showToast(lang === 'fr' ? 'Paramètres e-mail enregistrés' : 'Email parameters saved', 'success');
-        setShowSettingsModal(false);
-      }
-    } catch (err) {
-      if (err instanceof Error && err.message === 'Unauthorized') return;
-      console.error(err);
-      const errMsg = err instanceof Error ? err.message : String(err);
-      showToast(lang === 'fr' ? `Erreur lors de la sauvegarde: ${errMsg}` : `Error saving: ${errMsg}`, 'error');
-    }
-  };
-
-  const triggerAlertCheck = async () => {
-    try {
-      const res = await apiFetch('/trigger-notifications', { method: 'POST' });
-      const data = await res.json();
-      if (res.ok) {
-        const msg = lang === 'fr'
-          ? `Vérification effectuée. ${data.checked} certificats analysés, ${data.alerts} alertes e-mail.`
-          : `Check complete. ${data.checked} certificates analyzed, ${data.alerts} email alerts generated.`;
-        showToast(msg, 'success');
-        loadEmailLogs();
-      }
-    } catch (err) {
-      if (err instanceof Error && err.message === 'Unauthorized') return;
-      console.error(err);
-      const errMsg = err instanceof Error ? err.message : String(err);
-      showToast(lang === 'fr' ? `Erreur lors de la vérification: ${errMsg}` : `Verification error: ${errMsg}`, 'error');
-    }
-  };
-
-  const handleExcelExport = () => {
-    if (!selectedVesselId) return;
-    const url = `http://localhost:3000/api/vessels/${selectedVesselId}/export?token=${encodeURIComponent(token || '')}&lang=${lang}`;
-    window.open(url);
-    showToast(lang === 'fr' ? 'Téléchargement lancé...' : 'Download started...', 'success');
-  };
-
-  const openPdfViewer = (url: string, name: string) => {
-    // URL relative pointed to backend static files
-    setPdfViewerUrl(`http://localhost:3000${url}`);
-    setPdfViewerName(name);
-    setShowPdfModal(true);
-  };
-
-  const selectedVessel = vessels.find(v => v.id === selectedVesselId);
-
-  // Filters certs list
-  const filteredCerts = certificates.filter(c => {
-    if (certSearch && !c.name.toLowerCase().includes(certSearch.toLowerCase())) return false;
-    if (certCategory !== 'ALL' && c.category !== certCategory) return false;
-    if (certStatus !== 'ALL') {
-      const isRed = c.alarm_status.includes('RED') || c.alarm_status.includes('OVERDUE');
-      const isYellow = c.alarm_status.includes('YELLOW');
-      const isGreen = c.alarm_status.includes('GREEN');
-      const isNormal = c.alarm_status.includes('MONITOR') || c.alarm_status.includes('N/A');
-      if (certStatus === 'RED' && !isRed) return false;
-      if (certStatus === 'YELLOW' && !isYellow) return false;
-      if (certStatus === 'GREEN' && !isGreen) return false;
-      if (certStatus === 'NORMAL' && !isNormal) return false;
-    }
-    return true;
-  });
-
-  const getAlarmBadgeClass = (status: string) => {
-    if (status.includes('RED') || status.includes('OVERDUE')) return 'badge-red';
-    if (status.includes('YELLOW')) return 'badge-yellow';
-    if (status.includes('GREEN')) return 'badge-green';
-    return 'badge-normal';
-  };
-
-  const getAlarmLabel = (status: string) => {
-    if (lang === 'fr') {
-      if (status.includes('RED')) return 'ROUGE - <1 MOIS';
-      if (status.includes('YELLOW')) return 'JAUNE - 1 A 3 MOIS';
-      if (status.includes('GREEN')) return 'VERT - 3 A 6 MOIS';
-      if (status.includes('MONITOR')) return 'SUIVI >6 MOIS';
-      if (status.includes('OVERDUE')) return 'EXPIRÉ / IMMINENT';
-      return status;
-    }
-    return status;
-  };
-
-  // TV Fullscreen toggler
-  const enterTvMode = () => {
-    setTvMode(true);
-    const doc = document.documentElement;
-    if (doc.requestFullscreen) doc.requestFullscreen().catch(() => {});
-  };
-
-  const exitTvMode = () => {
-    setTvMode(false);
-    if (document.exitFullscreen && document.fullscreenElement) {
-      document.exitFullscreen().catch(() => {});
-    }
-  };
+  // Destructure everything from useDashboard hook to avoid changing the JSX structure below
+  const {
+    // Auth context passthrough
+    token, user, logout,
+    // Language
+    lang, setLang, t,
+    // Navigation
+    activeView, setActiveView,
+    tvMode, tvTime, tvDate, tvCerts,
+    enterTvMode, exitTvMode,
+    // Data
+    vessels, selectedVesselId, setSelectedVesselId,
+    actionableItems, emailLogs,
+    selectedVessel, filteredCerts,
+    // Audit
+    auditLogs, auditLoading,
+    // Filters
+    certSearch, setCertSearch,
+    certCategory, setCertCategory,
+    certStatus, setCertStatus,
+    activeTab, setActiveTab,
+    // Modals
+    showImportModal, setShowImportModal,
+    showAddVesselModal, setShowAddVesselModal,
+    showEditCertModal, setShowEditCertModal,
+    showAddActionableModal, setShowAddActionableModal,
+    showSettingsModal, setShowSettingsModal,
+    showPdfModal, setShowPdfModal,
+    showAddUserModal, setShowAddUserModal,
+    showResetPasswordModal, setShowResetPasswordModal,
+    // Form states
+    importFile, setImportFile,
+    vesselForm, setVesselForm,
+    certForm, setCertForm,
+    setCertPdfFile,
+    certPdfCurrent,
+    actionableForm, setActionableForm,
+    pdfViewerUrl, setPdfViewerUrl,
+    pdfViewerName,
+    // Email
+    vesselEmails,
+    newVesselEmail, setNewVesselEmail,
+    emailToVerify, setEmailToVerify,
+    verificationCode, setVerificationCode,
+    devOtpNotice, setDevOtpNotice,
+    // Users
+    usersList,
+    userForm, setUserForm,
+    tempInviteOtp, setTempInviteOtp,
+    setResetPasswordUserId,
+    resetPasswordUserName, setResetPasswordUserName,
+    resetPasswordValue, setResetPasswordValue,
+    // Password change
+    newPassword, setNewPassword,
+    confirmPassword, setConfirmPassword,
+    passwordChangeError, passwordChangeLoading,
+    // Global
+    isSubmitting,
+    toasts,
+    // Helpers
+    showToast,
+    formatDateString, formatDateTimeString,
+    getAlarmBadgeClass, getAlarmLabel,
+    // Handlers
+    handleImportExcel,
+    handleCreateVessel,
+    handleDeleteVessel,
+    handleEditCertOpen,
+    handleCreateCertOpen,
+    handleEditCertSubmit,
+    handleDeleteCert,
+    handleActionableSubmit,
+    toggleActionableStatus,
+    handleEmailSettingsOpen,
+    handleAddEmailSubmit,
+    handleVerifyEmailSubmit,
+    handleDeleteEmail,
+    handleCreateUserSubmit,
+    handleAdminResetPassword,
+    handleDeleteUser,
+    handleForcePasswordChange,
+    triggerAlertCheck,
+    handleExcelExport,
+    openPdfViewer,
+    loadAuditLogs,
+  } = useDashboard(chartRef);
 
   if (!token || !user) return null;
+
+  if (user.mustChangePassword) {
+    return (
+      <ForcePasswordChangeView
+        lang={lang}
+        newPassword={newPassword}
+        setNewPassword={setNewPassword}
+        confirmPassword={confirmPassword}
+        setConfirmPassword={setConfirmPassword}
+        passwordChangeError={passwordChangeError}
+        passwordChangeLoading={passwordChangeLoading}
+        handleForcePasswordChange={handleForcePasswordChange}
+        toasts={toasts}
+      />
+    );
+  }
 
   return (
     <div style={{ minHeight: '100vh' }}>
@@ -646,85 +144,16 @@ export default function Dashboard() {
       {/* TV FULLSCREEN OVERLAY */}
       {/* ---------------------------------------------------- */}
       {tvMode && (
-        <div id="view-tv-mode" className="tv-dashboard">
-          <div className="tv-header">
-            <div className="tv-brand">
-              <span className="tv-logo-icon icon-svg">
-                <LogoIcon size={42} />
-              </span>
-              <span className="tv-logo-text">Portail<span>Certificats</span> <small>CNAN NORD</small></span>
-            </div>
-            <div className="tv-time-container">
-              <span id="tv-current-time">{tvTime}</span>
-              <span id="tv-current-date">{tvDate}</span>
-            </div>
-            <button className="btn btn-sm btn-outline btn-tv-exit" onClick={exitTvMode}>{t('tv_exit_btn')}</button>
-          </div>
-
-          <div className="tv-layout">
-            <div className="tv-panel tv-panel-left">
-              <h2>{t('tv_overall_fleet')}</h2>
-              <div className="tv-vessel-list">
-                {vessels.map(v => (
-                  <div className="tv-vessel-row" key={v.id}>
-                    <div className="tv-vessel-row-left">
-                      <span className="tv-vessel-name">{v.name}</span>
-                      <span className="tv-vessel-meta">IMO {v.imo_number || 'N/A'} | Flag {v.flag || 'N/A'}</span>
-                    </div>
-                    <div className="tv-vessel-status-indicator">
-                      <span className={`tv-indicator-circle ${v.status === 'Imminent' ? 'red' : v.status === 'Attention' ? 'yellow' : v.status === 'Suivi' ? 'green' : 'normal'}`}></span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="tv-panel tv-panel-right">
-              <div className="tv-summary-widgets">
-                <div className="tv-widget tv-widget-red">
-                  <span className="widget-label">{t('widget_urgent')}</span>
-                  <span className="widget-value">{vessels.reduce((acc, curr) => acc + curr.counts.red, 0)}</span>
-                </div>
-                <div className="tv-widget tv-widget-yellow">
-                  <span className="widget-label">{t('widget_attention')}</span>
-                  <span className="widget-value">{vessels.reduce((acc, curr) => acc + curr.counts.yellow, 0)}</span>
-                </div>
-                <div className="tv-widget tv-widget-green">
-                  <span className="widget-label">{t('logs_col_status')}</span>
-                  <span className="widget-value">
-                    {vessels.reduce((acc, curr) => acc + curr.counts.total, 0) > 0
-                      ? Math.round((vessels.reduce((acc, curr) => acc + curr.counts.normal + curr.counts.green, 0) / vessels.reduce((acc, curr) => acc + curr.counts.total, 0)) * 100)
-                      : 100}%
-                  </span>
-                </div>
-              </div>
-
-              <div className="tv-scrolling-alerts-box">
-                <h2>{t('tv_alerts_title')}</h2>
-                <div className="tv-alerts-container scrollable" style={{ maxHeight: 'calc(100vh - 350px)' }}>
-                  {tvCerts.length === 0 ? (
-                    <p className="placeholder-text" style={{ color: 'rgba(255,255,255,0.4)' }}>
-                      {lang === 'fr' ? 'Aucune alerte active dans la flotte. Statut conforme.' : 'No active alerts in fleet. Compliant status.'}
-                    </p>
-                  ) : (
-                    tvCerts.map((item, idx) => (
-                      <div className={`tv-alert-item tv-alert-${item.level}`} key={idx}>
-                        <div className="tv-alert-item-left">
-                          <span className="tv-alert-vessel">{item.vessel_name}</span>
-                          <span className="tv-alert-name">{item.cert_name}</span>
-                          <span className="tv-alert-due">{lang === 'fr' ? 'Échéance' : 'Due'}: {item.due_date}</span>
-                        </div>
-                        <span className={`tv-alert-status ${item.level === 'red' ? 'text-red' : item.level === 'yellow' ? 'text-yellow' : 'text-green'}`}>
-                          {getAlarmLabel(item.alarm_status)}
-                        </span>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+        <TvModeView
+          lang={lang}
+          vessels={vessels}
+          tvTime={tvTime}
+          tvDate={tvDate}
+          tvCerts={tvCerts}
+          exitTvMode={exitTvMode}
+          t={t}
+          getAlarmLabel={getAlarmLabel}
+        />
       )}
 
       {/* ---------------------------------------------------- */}
@@ -753,6 +182,24 @@ export default function Dashboard() {
               <a href="#logs" className={`nav-item ${activeView === 'logs' ? 'active' : ''}`} onClick={() => setActiveView('logs')}>
                 <span className="icon-svg"><LogsIcon /></span> <span>{t('nav_logs')}</span>
               </a>
+              {user.role === 'Admin' && (
+                <a href="#users" className={`nav-item ${activeView === 'users' ? 'active' : ''}`} onClick={() => setActiveView('users')}>
+                  <span className="icon-svg"><UserIcon size={18} /></span> <span>{lang === 'fr' ? 'Utilisateurs' : 'Users'}</span>
+                </a>
+              )}
+              {user.role === 'Admin' && (
+                <a
+                  href="#audit"
+                  className={`nav-item ${activeView === 'audit' ? 'active' : ''}`}
+                  onClick={() => {
+                    setActiveView('audit');
+                    void loadAuditLogs();
+                  }}
+                >
+                  <span className="icon-svg"><LogsIcon /></span>
+                  <span>{lang === 'fr' ? 'Audit Trail' : 'Audit Trail'}</span>
+                </a>
+              )}
             </nav>
             <div className="sidebar-footer">
               <div className="user-profile">
@@ -775,7 +222,7 @@ export default function Dashboard() {
             {/* HEADER */}
             <header className="app-header">
               <div className="header-search">
-                <h1>{t(`nav_${activeView}`)}</h1>
+                <h1>{activeView === 'audit' ? (lang === 'fr' ? 'Journal d\'Audit' : 'Audit Trail') : t(`nav_${activeView}`)}</h1>
               </div>
               <div className="header-actions">
                 <div className="lang-selector">
@@ -794,108 +241,14 @@ export default function Dashboard() {
             {/* VIEW: DASHBOARD */}
             {/* ---------------------------------------------------- */}
             {activeView === 'dashboard' && (
-              <section className="app-view active">
-                <div className="stats-grid">
-                  <div className="stat-card stat-total">
-                    <div className="stat-icon icon-svg" style={{ color: 'var(--primary-color)' }}><ShipIcon size={24} /></div>
-                    <div className="stat-details">
-                      <h3>{t('widget_active_vessels')}</h3>
-                      <div className="stat-number">{vessels.length}</div>
-                    </div>
-                  </div>
-                  <div className="stat-card stat-red">
-                    <div className="stat-icon icon-svg" style={{ color: 'var(--status-red)' }}><AlertIcon size={24} /></div>
-                    <div className="stat-details">
-                      <h3>{t('widget_urgent')}</h3>
-                      <div className="stat-number">{vessels.reduce((acc, curr) => acc + curr.counts.red, 0)}</div>
-                    </div>
-                  </div>
-                  <div className="stat-card stat-yellow">
-                    <div className="stat-icon icon-svg" style={{ color: 'var(--status-yellow)' }}><WarningIcon size={24} /></div>
-                    <div className="stat-details">
-                      <h3>{t('widget_attention')}</h3>
-                      <div className="stat-number">{vessels.reduce((acc, curr) => acc + curr.counts.yellow, 0)}</div>
-                    </div>
-                  </div>
-                  <div className="stat-card stat-green">
-                    <div className="stat-icon icon-svg" style={{ color: 'var(--status-green)' }}><CheckIcon size={24} /></div>
-                    <div className="stat-details">
-                      <h3>{t('widget_monitored')}</h3>
-                      <div className="stat-number">{vessels.reduce((acc, curr) => acc + curr.counts.green, 0)}</div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="dashboard-charts-grid">
-                  <div className="card glass">
-                    <h2>{t('chart_title')}</h2>
-                    <div className="chart-container">
-                      <canvas ref={chartRef}></canvas>
-                    </div>
-                  </div>
-                  <div className="card glass flex-column">
-                    <h2>{t('actions_required')}</h2>
-                    <div className="list-container scrollable">
-                      {vessels.filter(v => v.status === 'Imminent' || v.status === 'Attention').length === 0 ? (
-                        <p className="placeholder-text">{t('no_alerts')}</p>
-                      ) : (
-                        vessels.filter(v => v.status === 'Imminent' || v.status === 'Attention').map(v => (
-                          <div className="critical-list-item" style={{ cursor: 'pointer' }} onClick={() => { setActiveView('fleet'); setSelectedVesselId(v.id); }} key={v.id}>
-                            <div className="item-left">
-                              <span className="item-title">{v.name}</span>
-                              <span className="item-sub">
-                                {lang === 'fr' ? 'Nécessite des actions de conformité urgentes' : 'Requires urgent compliance action'}
-                              </span>
-                            </div>
-                            <span className={`badge ${v.status === 'Imminent' ? 'badge-red' : 'badge-yellow'}`}>
-                              {v.counts.red} {lang === 'fr' ? 'Urgents' : 'Urgents'} | {v.counts.yellow} {lang === 'fr' ? 'Alertes' : 'Warnings'}
-                            </span>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="section-header">
-                  <h2>{t('vessel_summary')}</h2>
-                </div>
-                <div className="vessels-card-grid">
-                  {vessels.map(v => (
-                    <div className={`vessel-card status-${v.status}`} onClick={() => { setActiveView('fleet'); setSelectedVesselId(v.id); }} key={v.id}>
-                      <div className="vessel-card-header">
-                        <div>
-                          <h3>{v.name}</h3>
-                          <span className="vessel-card-imo">IMO {v.imo_number || 'N/A'}</span>
-                        </div>
-                        <span className={`badge ${v.status === 'Imminent' ? 'badge-red' : v.status === 'Attention' ? 'badge-yellow' : v.status === 'Suivi' ? 'badge-green' : 'badge-normal'}`}>
-                          {lang === 'fr' 
-                            ? (v.status === 'Imminent' ? 'Imminent' : v.status === 'Attention' ? 'Attention' : v.status === 'Suivi' ? 'Suivi' : 'Normal')
-                            : (v.status === 'Imminent' ? 'Urgent' : v.status === 'Attention' ? 'Warning' : v.status === 'Suivi' ? 'Monitored' : 'Normal')}
-                        </span>
-                      </div>
-                      <div className="vessel-card-stats">
-                        <div className="vessel-stat-col">
-                          {lang === 'fr' ? 'Urgents' : 'Urgents'}
-                          <span className="text-red">{v.counts.red}</span>
-                        </div>
-                        <div className="vessel-stat-col">
-                          {lang === 'fr' ? 'Alertes' : 'Warnings'}
-                          <span className="text-yellow">{v.counts.yellow}</span>
-                        </div>
-                        <div className="vessel-stat-col">
-                          {lang === 'fr' ? 'Suivis' : 'Monitored'}
-                          <span className="text-green">{v.counts.green}</span>
-                        </div>
-                        <div className="vessel-stat-col">
-                          {lang === 'fr' ? 'Certificats' : 'Certs'}
-                          <span>{v.counts.total}</span>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </section>
+              <DashboardOverview
+                vessels={vessels}
+                lang={lang}
+                t={t}
+                chartRef={chartRef}
+                setActiveView={setActiveView}
+                setSelectedVesselId={setSelectedVesselId}
+              />
             )}
 
             {/* ---------------------------------------------------- */}
@@ -904,24 +257,14 @@ export default function Dashboard() {
             {activeView === 'fleet' && (
               <section className="app-view active">
                 <div className="fleet-view-container">
-                  <div className="fleet-sidebar">
-                    <div className="fleet-sidebar-header">
-                      <h3>{t('nav_fleet')}</h3>
-                      {user.role === 'Admin' && (
-                        <button className="btn btn-sm btn-outline" onClick={() => setShowAddVesselModal(true)}>
-                          {t('btn_manual_vessel')}
-                        </button>
-                      )}
-                    </div>
-                    <div className="fleet-list">
-                      {vessels.map(v => (
-                        <div className={`fleet-vessel-item ${selectedVesselId === v.id ? 'active' : ''}`} onClick={() => setSelectedVesselId(v.id)} key={v.id}>
-                          <span>{v.name}</span>
-                          <span className={`tv-indicator-circle ${v.status === 'Imminent' ? 'red' : v.status === 'Attention' ? 'yellow' : v.status === 'Suivi' ? 'green' : 'normal'}`}></span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
+                  <VesselSelector
+                    vessels={vessels}
+                    selectedVesselId={selectedVesselId}
+                    onSelect={setSelectedVesselId}
+                    isAdmin={user.role === 'Admin'}
+                    onAddVessel={() => setShowAddVesselModal(true)}
+                    t={t}
+                  />
 
                   <div className="fleet-detail-area">
                     {!selectedVessel ? (
@@ -1003,6 +346,7 @@ export default function Dashboard() {
                               <div className="table-toolbar">
                                 <div className="search-filters">
                                   <input
+                                    id="certSearchInput"
                                     type="text"
                                     className="input-field"
                                     placeholder={t('search_placeholder')}
@@ -1030,77 +374,18 @@ export default function Dashboard() {
                                 )}
                               </div>
 
-                              <div className="table-container scrollable">
-                                <table className="data-table">
-                                  <thead>
-                                    <tr>
-                                      <th>{t('table_col_name')}</th>
-                                      <th>{t('table_col_cat')}</th>
-                                      <th>{t('table_col_org')}</th>
-                                      <th>{t('table_col_issue')}</th>
-                                      <th>{t('table_col_expiry')}</th>
-                                      <th>{t('table_col_due')}</th>
-                                      <th>{t('table_col_status')}</th>
-                                      <th>{t('table_col_remarks')}</th>
-                                      <th>{t('table_col_actions')}</th>
-                                    </tr>
-                                  </thead>
-                                  <tbody>
-                                    {filteredCerts.length === 0 ? (
-                                      <tr><td colSpan={9} className="placeholder-text">{lang === 'fr' ? 'Aucun certificat trouvé.' : 'No certificates found.'}</td></tr>
-                                    ) : (
-                                      filteredCerts.map(c => {
-                                        const isReadOnly = user.role === 'Partner' || user.role === 'Auditor';
-                                        const isCrew = user.role === 'Crew';
-                                        
-                                        return (
-                                          <tr key={c.id}>
-                                            <td>
-                                              <strong>{c.name}</strong>
-                                              {c.pdf_url && (
-                                                <span className="pdf-icon-btn icon-svg" onClick={() => openPdfViewer(c.pdf_url, c.name)} title={lang === 'fr' ? 'Voir le PDF' : 'View PDF'} style={{ marginLeft: 6, display: 'inline-flex', verticalAlign: 'middle' }}>
-                                                  <AttachmentIcon size={14} />
-                                                </span>
-                                              )}
-                                            </td>
-                                            <td>
-                                              {c.category === 'Class' ? t('filter_class_certs') : c.category === 'Flag' ? t('filter_flag_certs') : t('filter_servicing_certs')}
-                                            </td>
-                                            <td>{c.organization || '-'}</td>
-                                            <td>{c.issuing_date || '-'}</td>
-                                            <td>{c.expiration_date || '-'}</td>
-                                            <td>{c.due_date || '-'}</td>
-                                            <td>
-                                              <span className={`badge ${getAlarmBadgeClass(c.alarm_status)}`}>
-                                                {getAlarmLabel(c.alarm_status)}
-                                              </span>
-                                            </td>
-                                            <td><small className="text-secondary">{c.remarks || ''}</small></td>
-                                            <td>
-                                              {isReadOnly ? (
-                                                <span className="text-muted">{lang === 'fr' ? 'Lecture seule' : 'Read-only'}</span>
-                                              ) : isCrew ? (
-                                                c.category === 'Servicing' ? (
-                                                  <button className="btn btn-sm btn-outline" onClick={() => handleEditCertOpen(c)}>{lang === 'fr' ? 'Mettre à jour' : 'Update'}</button>
-                                                ) : (
-                                                  <span className="text-muted">{lang === 'fr' ? 'Restreint' : 'Restricted'}</span>
-                                                )
-                                              ) : (
-                                                <div style={{ display: 'flex', gap: 4 }}>
-                                                  <button className="btn btn-sm btn-outline" onClick={() => handleEditCertOpen(c)}>{lang === 'fr' ? 'Modifier' : 'Edit'}</button>
-                                                  <button className="btn btn-sm btn-danger icon-svg" onClick={() => handleDeleteCert(c.id)} style={{ padding: '6px 10px' }} title={lang === 'fr' ? 'Supprimer' : 'Delete'}>
-                                                    <TrashIcon size={14} />
-                                                  </button>
-                                                </div>
-                                              )}
-                                            </td>
-                                          </tr>
-                                        );
-                                      })
-                                    )}
-                                  </tbody>
-                                </table>
-                              </div>
+                              <CertificatesTable
+                                filteredCerts={filteredCerts}
+                                userRole={user.role}
+                                lang={lang}
+                                t={t}
+                                formatDateString={formatDateString}
+                                getAlarmBadgeClass={getAlarmBadgeClass}
+                                getAlarmLabel={getAlarmLabel}
+                                handleEditCertOpen={handleEditCertOpen}
+                                handleDeleteCert={handleDeleteCert}
+                                openPdfViewer={openPdfViewer}
+                              />
                             </div>
                           )}
 
@@ -1142,10 +427,10 @@ export default function Dashboard() {
                                         return (
                                           <tr key={a.id}>
                                             <td><code style={{ fontFamily: 'Roboto Mono' }}>{a.item_id || '-'}</code></td>
-                                            <td>{a.imposed_date || '-'}</td>
+                                            <td>{formatDateString(a.imposed_date)}</td>
                                             <td>{a.category || '-'}</td>
                                             <td>{a.report_number || '-'}</td>
-                                            <td><strong>{a.due_date || (lang === 'fr' ? 'Non spécifiée' : 'Not specified')}</strong></td>
+                                            <td><strong>{a.due_date ? formatDateString(a.due_date) : (lang === 'fr' ? 'Non spécifiée' : 'Not specified')}</strong></td>
                                             <td><div style={{ maxWidth: 400, whiteSpace: 'normal', fontSize: 12 }}>{a.description}</div></td>
                                             <td>
                                               {!isReadOnly ? (
@@ -1217,7 +502,7 @@ export default function Dashboard() {
                                 <td>{l.certificate_name}</td>
                                 <td><span className={`badge ${badgeClass}`}>{getAlarmLabel(l.alarm_level)}</span></td>
                                 <td><code style={{ fontSize: 11 }}>{l.sent_to}</code></td>
-                                <td>{l.sent_at}</td>
+                                <td>{formatDateTimeString(l.sent_at)}</td>
                                 <td>
                                   <span className={`badge ${isFailure ? 'badge-red' : 'badge-green'}`}>
                                     {isFailure ? (lang === 'fr' ? 'ÉCHEC' : 'FAILED') : (lang === 'fr' ? 'ENVOYÉ ✓' : 'SENT ✓')}
@@ -1233,244 +518,268 @@ export default function Dashboard() {
                 </div>
               </section>
             )}
+
+            {/* ---------------------------------------------------- */}
+            {/* VIEW: USER MANAGEMENT */}
+            {/* ---------------------------------------------------- */}
+            {activeView === 'users' && user?.role === 'Admin' && (
+              <section className="app-view active">
+                <div className="card glass">
+                  <div className="card-header-actions" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <h2>{lang === 'fr' ? 'Gestion des Utilisateurs' : 'User Management'}</h2>
+                    <button className="btn btn-primary" onClick={() => { setTempInviteOtp(null); setShowAddUserModal(true); }}>
+                      <span className="icon-svg"><UserIcon size={16} /></span> <span style={{ marginLeft: '8px' }}>{lang === 'fr' ? 'Nouvel Utilisateur' : 'New User'}</span>
+                    </button>
+                  </div>
+                  <p className="section-desc" style={{ marginTop: 8 }}>
+                    {lang === 'fr'
+                      ? 'Créez des comptes et attribuez-leur des rôles (Administrateur, Équipage, Partenaire, Auditeur).'
+                      : 'Create accounts and assign them roles (Admin, Crew, Partner, Auditor).'}
+                  </p>
+
+                  <div className="table-container scrollable" style={{ marginTop: 20 }}>
+                    <table className="data-table">
+                      <thead>
+                        <tr>
+                          <th>{lang === 'fr' ? 'Nom Complet' : 'Full Name'}</th>
+                          <th>Email</th>
+                          <th>{lang === 'fr' ? 'Rôle' : 'Role'}</th>
+                          <th>{lang === 'fr' ? 'Première Connexion' : 'First Connection'}</th>
+                          <th>{lang === 'fr' ? 'Navire Associé' : 'Associated Vessel'}</th>
+                          <th>{lang === 'fr' ? 'Actions' : 'Actions'}</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {usersList.length === 0 ? (
+                          <tr><td colSpan={6} className="placeholder-text">{lang === 'fr' ? 'Aucun utilisateur trouvé.' : 'No users found.'}</td></tr>
+                        ) : (
+                          usersList.map(u => {
+                            const linkedVesselName = vessels.find(v => v.id === u.vessel_id)?.name || '-';
+                            return (
+                              <tr key={u.id}>
+                                  <td><strong>{u.full_name}</strong></td>
+                                  <td><code>{u.email}</code></td>
+                                  <td>
+                                    <span className={`badge ${u.role === 'Admin' ? 'badge-red' : u.role === 'Crew' ? 'badge-yellow' : u.role === 'Partner' ? 'badge-green' : 'badge-normal'}`}>
+                                      {u.role === 'Admin' ? 'Administrateur' : u.role === 'Crew' ? 'Équipage' : u.role === 'Partner' ? 'Partenaire' : 'Auditeur'}
+                                    </span>
+                                  </td>
+                                  <td>
+                                    <span className={`badge ${u.must_change_password ? 'badge-yellow' : 'badge-green'}`}>
+                                      {u.must_change_password 
+                                        ? (lang === 'fr' ? 'En attente (OTP)' : 'Pending (OTP)') 
+                                        : (lang === 'fr' ? 'Configuré ✓' : 'Configured ✓')}
+                                    </span>
+                                  </td>
+                                  <td><strong>{linkedVesselName}</strong></td>
+                                  <td>
+                                    <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                                      <button
+                                        type="button"
+                                        className="btn btn-sm btn-outline"
+                                        style={{ fontSize: '11px', padding: '4px 8px', whiteSpace: 'nowrap' }}
+                                        onClick={() => {
+                                          setResetPasswordUserId(u.id);
+                                          setResetPasswordUserName(u.full_name);
+                                          setResetPasswordValue('');
+                                          setShowResetPasswordModal(true);
+                                        }}
+                                        title={lang === 'fr' ? 'Réinitialiser le mot de passe' : 'Reset password'}
+                                      >
+                                        🔑 {lang === 'fr' ? 'MDP' : 'Reset'}
+                                      </button>
+                                      <button
+                                        type="button"
+                                        className="btn btn-sm btn-danger"
+                                        style={{ fontSize: '11px', padding: '4px 8px' }}
+                                        onClick={() => handleDeleteUser(u.id, u.full_name)}
+                                        title={lang === 'fr' ? 'Supprimer cet utilisateur' : 'Delete this user'}
+                                      >
+                                        🗑️
+                                      </button>
+                                    </div>
+                                  </td>
+                              </tr>
+                            );
+                          })
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </section>
+            )}
+
+            {/* ---------------------------------------------------- */}
+            {/* VIEW: AUDIT TRAIL */}
+            {/* ---------------------------------------------------- */}
+            {activeView === 'audit' && user?.role === 'Admin' && (
+              <section className="app-view active">
+                <div className="card glass">
+                  <div className="card-header-actions" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <h2>{lang === 'fr' ? 'Journal d\'Audit' : 'Audit Trail'}</h2>
+                    <button className="btn btn-outline" onClick={loadAuditLogs} disabled={auditLoading}>
+                      {auditLoading ? (lang === 'fr' ? 'Chargement...' : 'Loading...') : (lang === 'fr' ? 'Rafraîchir' : 'Refresh')}
+                    </button>
+                  </div>
+                  <p className="section-desc" style={{ marginTop: 8 }}>
+                    {lang === 'fr'
+                      ? 'Historique complet des actions critiques effectuées sur la plateforme.'
+                      : 'Complete history of critical actions performed on the platform.'}
+                  </p>
+
+                  <div className="table-container scrollable" style={{ marginTop: 20 }}>
+                    <table className="data-table">
+                      <thead>
+                        <tr>
+                          <th>Date / Heure</th>
+                          <th>Utilisateur</th>
+                          <th>Action</th>
+                          <th>Type de Cible</th>
+                          <th>ID Cible</th>
+                          <th>Nom de Cible</th>
+                          <th>Changements</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {auditLogs.length === 0 ? (
+                          <tr><td colSpan={7} className="placeholder-text">{lang === 'fr' ? 'Aucun log d\'audit disponible.' : 'No audit logs available.'}</td></tr>
+                        ) : (
+                          auditLogs.map(l => {
+                            let changesStr = '';
+                            if (l.changes) {
+                              try {
+                                const parsed = JSON.parse(l.changes);
+                                changesStr = Object.entries(parsed).map(([k, v]: [string, any]) => {
+                                  return `${k}: ${v.from} ➔ ${v.to}`;
+                                }).join(', ');
+                              } catch {
+                                changesStr = String(l.changes);
+                              }
+                            }
+                            return (
+                              <tr key={l.id}>
+                                <td>{formatDateTimeString(l.timestamp)}</td>
+                                <td>{l.user_email}</td>
+                                <td><span className="badge badge-normal">{l.action}</span></td>
+                                <td>{l.target_type}</td>
+                                <td>{l.target_id || '-'}</td>
+                                <td><strong>{l.target_name || '-'}</strong></td>
+                                <td><small className="text-secondary">{changesStr || '-'}</small></td>
+                              </tr>
+                            );
+                          })
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </section>
+            )}
           </main>
         </div>
       )}
 
-      {/* ---------------------------------------------------- */}
-      {/* POPUP MODALS */}
-      {/* ---------------------------------------------------- */}
+      <ResetPasswordDrawer
+        open={showResetPasswordModal}
+        userName={resetPasswordUserName}
+        passwordValue={resetPasswordValue}
+        isSubmitting={isSubmitting}
+        lang={lang}
+        onClose={() => { setShowResetPasswordModal(false); setResetPasswordValue(''); }}
+        onPasswordChange={setResetPasswordValue}
+        onSubmit={handleAdminResetPassword}
+      />
 
-      {/* MODAL: IMPORT EXCEL */}
-      {showImportModal && (
-        <div className="modal active">
-          <div className="modal-content glass">
-            <div className="modal-header">
-              <h2>{t('btn_import_excel')}</h2>
-              <span className="close-btn icon-svg" onClick={() => setShowImportModal(false)}><CloseIcon size={18} /></span>
-            </div>
-            <form onSubmit={handleImportExcel}>
-              <div className="form-group">
-                <label>Sélectionnez le fichier Excel du suivi des certificats (Format .xlsx)</label>
-                <div className="file-drop-zone">
-                  <input type="file" accept=".xlsx" required onChange={(e) => setImportFile(e.target.files?.[0] || null)} />
-                  <p>Glissez-déposez le fichier ici ou cliquez pour parcourir</p>
-                  <small className="file-name-display">{importFile ? importFile.name : (lang === 'fr' ? 'Aucun fichier' : 'No file')}</small>
-                </div>
-              </div>
-              <div className="modal-footer">
-                <button type="button" className="btn btn-outline" onClick={() => setShowImportModal(false)}>{lang === 'fr' ? 'Annuler' : 'Cancel'}</button>
-                <button type="submit" className="btn btn-primary">{lang === 'fr' ? "Lancer l'importation" : 'Start Import'}</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <ImportExcelDrawer
+        open={showImportModal}
+        importFile={importFile}
+        isSubmitting={isSubmitting}
+        lang={lang}
+        t={t}
+        onClose={() => setShowImportModal(false)}
+        onFileChange={setImportFile}
+        onSubmit={handleImportExcel}
+      />
 
-      {/* MODAL: MANUAL VESSEL CREATION */}
-      {showAddVesselModal && (
-        <div className="modal active">
-          <div className="modal-content glass">
-            <div className="modal-header">
-              <h2>{t('btn_manual_vessel')}</h2>
-              <span className="close-btn icon-svg" onClick={() => setShowAddVesselModal(false)}><CloseIcon size={18} /></span>
-            </div>
-            <form onSubmit={handleCreateVessel}>
-              <div className="form-grid">
-                <div className="form-group">
-                  <label>Nom du Navire *</label>
-                  <input type="text" required className="input-field" placeholder="Ex. BABOR ALGERIEN" value={vesselForm.name} onChange={(e) => setVesselForm({ ...vesselForm, name: e.target.value })} />
-                </div>
-                <div className="form-group">
-                  <label>Numéro IMO</label>
-                  <input type="text" className="input-field" placeholder="Ex. 9477177" value={vesselForm.imo_number} onChange={(e) => setVesselForm({ ...vesselForm, imo_number: e.target.value })} />
-                </div>
-                <div className="form-group">
-                  <label>Pavillon</label>
-                  <input type="text" className="input-field" placeholder="Ex. Algérie" value={vesselForm.flag} onChange={(e) => setVesselForm({ ...vesselForm, flag: e.target.value })} />
-                </div>
-                <div className="form-group">
-                  <label>Type d&apos;Asset</label>
-                  <input type="text" className="input-field" placeholder="Ex. Products Tanker" value={vesselForm.asset_type} onChange={(e) => setVesselForm({ ...vesselForm, asset_type: e.target.value })} />
-                </div>
-                <div className="form-group">
-                  <label>Propriétaire</label>
-                  <input type="text" className="input-field" placeholder="Ex. CNAN" value={vesselForm.owner} onChange={(e) => setVesselForm({ ...vesselForm, owner: e.target.value })} />
-                </div>
-                <div className="form-group">
-                  <label>Technical Manager</label>
-                  <input type="text" className="input-field" placeholder="Ex. Verital" value={vesselForm.manager} onChange={(e) => setVesselForm({ ...vesselForm, manager: e.target.value })} />
-                </div>
-              </div>
-              <div className="modal-footer">
-                <button type="button" className="btn btn-outline" onClick={() => setShowAddVesselModal(false)}>{lang === 'fr' ? 'Annuler' : 'Cancel'}</button>
-                <button type="submit" className="btn btn-primary">{lang === 'fr' ? 'Créer Navire' : 'Create Vessel'}</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <AddVesselDrawer
+        open={showAddVesselModal}
+        vesselForm={vesselForm}
+        isSubmitting={isSubmitting}
+        lang={lang}
+        t={t}
+        onClose={() => setShowAddVesselModal(false)}
+        onFormChange={setVesselForm}
+        onSubmit={handleCreateVessel}
+      />
 
-      {/* MODAL: ADD / EDIT CERTIFICATE */}
-      {showEditCertModal && (
-        <div className="modal active">
-          <div className="modal-content glass">
-            <div className="modal-header">
-              <h2>{certForm.id ? t('table_col_actions') : t('btn_add_cert')}</h2>
-              <span className="close-btn icon-svg" onClick={() => setShowEditCertModal(false)}><CloseIcon size={18} /></span>
-            </div>
-            <form onSubmit={handleEditCertSubmit}>
-              <div className="form-group">
-                <label>Nom du Certificat *</label>
-                <input type="text" required className="input-field" disabled={user?.role === 'Crew'} value={certForm.name} onChange={(e) => setCertForm({ ...certForm, name: e.target.value })} />
-              </div>
-              <div className="form-grid">
-                <div className="form-group">
-                  <label>Catégorie *</label>
-                  <select className="select-field" required disabled={user?.role === 'Crew'} value={certForm.category} onChange={(e) => setCertForm({ ...certForm, category: e.target.value })}>
-                    <option value="Class">Certificats de Classe / Statutaires</option>
-                    <option value="Flag">Certificats de Pavillon</option>
-                    <option value="Servicing">Certificats d&apos;Entretien (Équipement)</option>
-                  </select>
-                </div>
-                <div className="form-group">
-                  <label>Émetteur</label>
-                  <input type="text" className="input-field" placeholder="Ex. LR" value={certForm.organization} onChange={(e) => setCertForm({ ...certForm, organization: e.target.value })} />
-                </div>
-              </div>
-              <div className="form-grid">
-                <div className="form-group">
-                  <label>Emission</label>
-                  <input type="date" className="input-field" value={certForm.issuing_date} onChange={(e) => setCertForm({ ...certForm, issuing_date: e.target.value })} />
-                </div>
-                <div className="form-group">
-                  <label>Expiration</label>
-                  <input type="date" className="input-field" value={certForm.expiration_date} onChange={(e) => setCertForm({ ...certForm, expiration_date: e.target.value })} />
-                </div>
-              </div>
-              <div className="form-grid">
-                <div className="form-group">
-                  <label>Date Visite / Échéance Active</label>
-                  <input type="date" className="input-field" value={certForm.due_date} onChange={(e) => setCertForm({ ...certForm, due_date: e.target.value })} />
-                </div>
-                <div className="form-group">
-                  <label>Fenêtre Autorisée</label>
-                  <input type="text" className="input-field" placeholder="Ex. AS Window" value={certForm.window} onChange={(e) => setCertForm({ ...certForm, window: e.target.value })} />
-                </div>
-              </div>
+      <EditCertificateDrawer
+        open={showEditCertModal}
+        certForm={certForm}
+        certPdfCurrent={certPdfCurrent}
+        isSubmitting={isSubmitting}
+        isCrew={user?.role === 'Crew'}
+        lang={lang}
+        t={t}
+        onClose={() => setShowEditCertModal(false)}
+        onFormChange={setCertForm}
+        onPdfFileChange={setCertPdfFile}
+        onSubmit={handleEditCertSubmit}
+        onViewCurrentPdf={() => openPdfViewer(certPdfCurrent, certForm.name)}
+        onFileSizeError={() => showToast(lang === 'fr' ? 'Fichier trop volumineux (Max. 10 Mo)' : 'File too large (Max. 10 MB)', 'error')}
+      />
 
-              <div className="form-group">
-                <label>Fichier Certificat PDF (Facultatif - Max 10 Mo)</label>
-                <div className="pdf-upload-controls">
-                  <input type="file" accept=".pdf" className="input-field" style={{ width: '100%' }} onChange={(e) => setCertPdfFile(e.target.files?.[0] || null)} />
-                  {certPdfCurrent && (
-                    <small className="text-secondary" style={{ marginTop: 4, display: 'block' }}>
-                      📎 <span style={{ color: 'var(--primary-color)', textDecoration: 'underline', cursor: 'pointer' }} onClick={() => openPdfViewer(certPdfCurrent, certForm.name)}>
-                        {lang === 'fr' ? 'Voir le PDF actuel' : 'View current PDF'}
-                      </span>
-                    </small>
-                  )}
-                </div>
-              </div>
+      <AddActionableDrawer
+        open={showAddActionableModal}
+        actionableForm={actionableForm}
+        isSubmitting={isSubmitting}
+        lang={lang}
+        t={t}
+        onClose={() => setShowAddActionableModal(false)}
+        onFormChange={setActionableForm}
+        onSubmit={handleActionableSubmit}
+      />
 
-              <div className="form-group">
-                <label>Remarques</label>
-                <textarea rows={3} className="textarea-field" value={certForm.remarks} onChange={(e) => setCertForm({ ...certForm, remarks: e.target.value })}></textarea>
-              </div>
+      <EmailSettingsDrawer
+        open={showSettingsModal}
+        vesselEmails={vesselEmails}
+        newVesselEmail={newVesselEmail}
+        emailToVerify={emailToVerify}
+        verificationCode={verificationCode}
+        devOtpNotice={devOtpNotice}
+        isSubmitting={isSubmitting}
+        lang={lang}
+        onClose={() => setShowSettingsModal(false)}
+        onNewEmailChange={setNewVesselEmail}
+        onAddEmailSubmit={handleAddEmailSubmit}
+        onVerifyEmailSubmit={handleVerifyEmailSubmit}
+        onDeleteEmail={handleDeleteEmail}
+        onStartVerify={(email, otp) => { setEmailToVerify(email); setVerificationCode(''); setDevOtpNotice(otp); }}
+        onCancelVerify={() => { setEmailToVerify(null); setDevOtpNotice(null); }}
+        onVerificationCodeChange={setVerificationCode}
+      />
 
-              <div className="modal-footer">
-                <button type="button" className="btn btn-outline" onClick={() => setShowEditCertModal(false)}>{lang === 'fr' ? 'Annuler' : 'Cancel'}</button>
-                <button type="submit" className="btn btn-primary">{lang === 'fr' ? 'Enregistrer' : 'Save'}</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL: ADD ACTIONABLE ITEM */}
-      {showAddActionableModal && (
-        <div className="modal active">
-          <div className="modal-content glass">
-            <div className="modal-header">
-              <h2>{t('btn_add_rec')}</h2>
-              <span className="close-btn icon-svg" onClick={() => setShowAddActionableModal(false)}><CloseIcon size={18} /></span>
-            </div>
-            <form onSubmit={handleActionableSubmit}>
-              <div className="form-grid">
-                <div className="form-group">
-                  <label>Date Imposée</label>
-                  <input type="date" className="input-field" value={actionableForm.imposed_date} onChange={(e) => setActionableForm({ ...actionableForm, imposed_date: e.target.value })} />
-                </div>
-                <div className="form-group">
-                  <label>Catégorie</label>
-                  <input type="text" className="input-field" placeholder="Ex. Class" value={actionableForm.category} onChange={(e) => setActionableForm({ ...actionableForm, category: e.target.value })} />
-                </div>
-                <div className="form-group">
-                  <label>Rapport N°</label>
-                  <input type="text" className="input-field" placeholder="Ex. 12345" value={actionableForm.report_number} onChange={(e) => setActionableForm({ ...actionableForm, report_number: e.target.value })} />
-                </div>
-                <div className="form-group">
-                  <label>Date Limite</label>
-                  <input type="date" className="input-field" value={actionableForm.due_date} onChange={(e) => setActionableForm({ ...actionableForm, due_date: e.target.value })} />
-                </div>
-              </div>
-              <div className="form-group">
-                <label>Description *</label>
-                <textarea rows={4} required className="textarea-field" value={actionableForm.description} onChange={(e) => setActionableForm({ ...actionableForm, description: e.target.value })}></textarea>
-              </div>
-              <div className="modal-footer">
-                <button type="button" className="btn btn-outline" onClick={() => setShowAddActionableModal(false)}>{lang === 'fr' ? 'Annuler' : 'Cancel'}</button>
-                <button type="submit" className="btn btn-primary">{lang === 'fr' ? 'Ajouter' : 'Add'}</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL: EMAIL SETTINGS */}
-      {showSettingsModal && (
-        <div className="modal active">
-          <div className="modal-content glass">
-            <div className="modal-header">
-              <h2>{t('btn_email_settings')}</h2>
-              <span className="close-btn icon-svg" onClick={() => setShowSettingsModal(false)}><CloseIcon size={18} /></span>
-            </div>
-            <form onSubmit={handleEmailSettingsSubmit}>
-              <div className="form-group">
-                <label>Adresse E-mail 1</label>
-                <input type="email" className="input-field" placeholder="manager1@babor.com" value={settingsForm.email1} onChange={(e) => setSettingsForm({ ...settingsForm, email1: e.target.value })} />
-              </div>
-              <div className="form-group">
-                <label>Adresse E-mail 2</label>
-                <input type="email" className="input-field" placeholder="manager2@babor.com" value={settingsForm.email2} onChange={(e) => setSettingsForm({ ...settingsForm, email2: e.target.value })} />
-              </div>
-              <div className="form-group">
-                <label>Adresse E-mail 3</label>
-                <input type="email" className="input-field" placeholder="manager3@babor.com" value={settingsForm.email3} onChange={(e) => setSettingsForm({ ...settingsForm, email3: e.target.value })} />
-              </div>
-              <div className="modal-footer">
-                <button type="button" className="btn btn-outline" onClick={() => setShowSettingsModal(false)}>{lang === 'fr' ? 'Annuler' : 'Cancel'}</button>
-                <button type="submit" className="btn btn-primary">{lang === 'fr' ? 'Enregistrer' : 'Save'}</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <AddUserDrawer
+        open={showAddUserModal}
+        userForm={userForm}
+        vessels={vessels}
+        tempInviteOtp={tempInviteOtp}
+        isSubmitting={isSubmitting}
+        lang={lang}
+        onClose={() => { setTempInviteOtp(null); setShowAddUserModal(false); }}
+        onFormChange={setUserForm}
+        onSubmit={handleCreateUserSubmit}
+      />
 
       {/* MODAL: PDF VIEWER */}
-      {showPdfModal && (
-        <div className="modal active" id="modalPdfViewer">
-          <div className="modal-content glass" style={{ maxWidth: 850 }}>
-            <div className="modal-header">
-              <h2>{t('pdf_viewer_title')} - {pdfViewerName}</h2>
-              <span className="close-btn icon-svg" onClick={() => { setShowPdfModal(false); setPdfViewerUrl(''); }}><CloseIcon size={18} /></span>
-            </div>
-            <div className="pdf-container">
-              <iframe src={pdfViewerUrl} width="100%" height="600px" style={{ border: 'none', borderRadius: 'var(--border-radius-md)', background: '#121620' }}></iframe>
-            </div>
-          </div>
-        </div>
-      )}
+      <PdfViewerModal
+        showPdfModal={showPdfModal}
+        pdfViewerName={pdfViewerName}
+        pdfViewerUrl={pdfViewerUrl}
+        setShowPdfModal={setShowPdfModal}
+        setPdfViewerUrl={setPdfViewerUrl}
+        t={t}
+      />
 
       {/* TOAST SYSTEM CONTAINER */}
       <div className="toast-container">

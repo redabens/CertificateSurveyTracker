@@ -1,36 +1,139 @@
 import os
 import sys
 import json
+import re
 import datetime
 import openpyxl
 from openpyxl.styles import PatternFill, Font
 
-def parse_excel_date(val):
+# ─── Normalisation robuste des dates (P3) ─────────────────────────────────────
+# Table de traduction: mois français abrégés/complets → anglais abrégé
+FRENCH_MONTHS = {
+    'janv': 'Jan', 'jan': 'Jan', 'janvier': 'Jan',
+    'févr': 'Feb', 'fév': 'Feb', 'fevr': 'Feb', 'fev': 'Feb',
+    'février': 'Feb', 'fevrier': 'Feb',
+    'mars': 'Mar',
+    'avr': 'Apr', 'avril': 'Apr',
+    'mai': 'May',
+    'juin': 'Jun',
+    'juil': 'Jul', 'juillet': 'Jul',
+    'août': 'Aug', 'aout': 'Aug',
+    'sept': 'Sep', 'sep': 'Sep', 'septembre': 'Sep',
+    'oct': 'Oct', 'octobre': 'Oct',
+    'nov': 'Nov', 'novembre': 'Nov',
+    'déc': 'Dec', 'dec': 'Dec', 'décembre': 'Dec', 'decembre': 'Dec',
+}
+
+def normalize_date(val):
+    """
+    Normalise n'importe quelle valeur de date vers le format ISO YYYY-MM-DD.
+
+    Supporte:
+      - datetime.datetime / datetime.date (valeurs natives openpyxl)
+      - Numéros de série Excel (int/float) via openpyxl.utils.datetime
+      - Chaînes ISO: YYYY-MM-DD
+      - Chaînes DD/MM/YYYY, DD-MM-YYYY, DD.MM.YYYY
+      - Chaînes texte françaises: "12 mai 2025", "02 févr. 2024", "2 Novembre 2023"
+      - Chaînes texte anglaises: "12 May 2025", "May 12, 2025"
+
+    Retourne: str au format YYYY-MM-DD, ou None si non parsable.
+    """
     if val is None:
         return None
+
+    # datetime.datetime ou datetime.date (valeur native openpyxl)
     if isinstance(val, datetime.datetime):
         return val.strftime('%Y-%m-%d')
+    if isinstance(val, datetime.date):
+        return val.strftime('%Y-%m-%d')
+
+    # Numéro de série Excel (int ou float)
     if isinstance(val, (int, float)):
-        # Excel date is days since 1899-12-30 (due to 1900 leap year bug)
         try:
-            base_date = datetime.datetime(1899, 12, 30)
-            delta = datetime.timedelta(days=val)
-            return (base_date + delta).strftime('%Y-%m-%d')
+            from openpyxl.utils.datetime import from_excel
+            dt = from_excel(val)
+            if isinstance(dt, (datetime.datetime, datetime.date)):
+                return dt.strftime('%Y-%m-%d')
         except Exception:
-            return str(val)
-    if isinstance(val, str):
-        val_strip = val.strip()
-        if val_strip.isdigit():
-            try:
-                base_date = datetime.datetime(1899, 12, 30)
-                delta = datetime.timedelta(days=int(val_strip))
-                return (base_date + delta).strftime('%Y-%m-%d')
-            except Exception:
-                pass
-        # If it's already in format YYYY-MM-DD
-        if len(val_strip) >= 10 and val_strip[4] == '-' and val_strip[7] == '-':
-            return val_strip[:10]
-    return str(val)
+            pass
+        # Fallback: calcul manuel (base Excel = 1899-12-30)
+        try:
+            base = datetime.datetime(1899, 12, 30)
+            return (base + datetime.timedelta(days=int(val))).strftime('%Y-%m-%d')
+        except Exception:
+            return None
+
+    if not isinstance(val, str):
+        return None
+
+    val = val.strip()
+    if not val:
+        return None
+
+    # Déjà au format ISO YYYY-MM-DD (ou YYYY-MM-DDTHH:MM:SS)
+    if re.match(r'^\d{4}-\d{2}-\d{2}', val):
+        return val[:10]
+
+    # Chaîne numérique → traiter comme numéro de série Excel
+    if re.match(r'^\d+(\.\d+)?$', val):
+        try:
+            from openpyxl.utils.datetime import from_excel
+            dt = from_excel(float(val))
+            if isinstance(dt, (datetime.datetime, datetime.date)):
+                return dt.strftime('%Y-%m-%d')
+        except Exception:
+            pass
+        try:
+            base = datetime.datetime(1899, 12, 30)
+            return (base + datetime.timedelta(days=int(float(val)))).strftime('%Y-%m-%d')
+        except Exception:
+            return None
+
+    # DD/MM/YYYY ou DD-MM-YYYY ou DD.MM.YYYY
+    m = re.match(r'^(\d{1,2})[/\-\.](\d{1,2})[/\-\.](\d{4})$', val)
+    if m:
+        try:
+            d, mo, y = int(m.group(1)), int(m.group(2)), int(m.group(3))
+            return datetime.date(y, mo, d).strftime('%Y-%m-%d')
+        except (ValueError, OverflowError):
+            pass
+
+    # Texte français/anglais: "12 mai 2025", "02 févr. 2024", "2 Novembre 2023", "12 May 2025"
+    # Étape 1: normaliser en minuscules et retirer les points finaux d'abréviation
+    normalized = val.lower()
+    normalized = normalized.replace('.', ' ').strip()
+
+    # Étape 2: remplacer les mois français par leurs équivalents anglais abrégés
+    for fr, en in sorted(FRENCH_MONTHS.items(), key=lambda x: -len(x[0])):
+        normalized = re.sub(r'\b' + re.escape(fr) + r'\b', en, normalized)
+
+    # Étape 3: nettoyer les espaces multiples
+    normalized = re.sub(r'\s+', ' ', normalized).strip()
+
+    # Étape 4: tester les formats connus
+    for fmt in (
+        '%d %b %Y',   # 12 Jan 2025
+        '%d %B %Y',   # 12 January 2025
+        '%B %d %Y',   # January 12 2025
+        '%b %d %Y',   # Jan 12 2025
+        '%B %d, %Y',  # January 12, 2025 (virgule retirée plus haut)
+        '%b %d, %Y',  # Jan 12, 2025
+        '%d-%b-%Y',   # 12-Jan-2025
+        '%d/%b/%Y',   # 12/Jan/2025
+    ):
+        try:
+            return datetime.datetime.strptime(normalized, fmt).strftime('%Y-%m-%d')
+        except ValueError:
+            continue
+
+    # Aucun format reconnu
+    return None
+
+
+# Alias pour compatibilité avec les appels existants dans ce fichier
+def parse_excel_date(val):
+    """Alias vers normalize_date pour compatibilité ascendante."""
+    return normalize_date(val)
 
 def cmd_parse(filepath):
     if not os.path.exists(filepath):

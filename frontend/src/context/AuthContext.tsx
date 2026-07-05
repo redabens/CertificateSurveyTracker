@@ -8,6 +8,7 @@ type UserType = {
   full_name: string;
   role: string;
   vessel_id: number | null;
+  mustChangePassword?: boolean;
 };
 
 type AuthContextType = {
@@ -16,6 +17,7 @@ type AuthContextType = {
   login: (token: string, user: UserType) => void;
   logout: () => void;
   apiFetch: (url: string, options?: RequestInit) => Promise<Response>;
+  updateUser: (updatedUser: Partial<UserType>) => void;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -77,8 +79,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return res;
   };
 
+  const updateUser = (updatedUser: Partial<UserType>) => {
+    setUser(prev => {
+      if (!prev) return null;
+      const merged = { ...prev, ...updatedUser };
+      localStorage.setItem('babor_user', JSON.stringify(merged));
+      return merged;
+    });
+  };
+
   return (
-    <AuthContext.Provider value={{ token, user, login, logout, apiFetch }}>
+    <AuthContext.Provider value={{ token, user, login, logout, apiFetch, updateUser }}>
       {children}
     </AuthContext.Provider>
   );

@@ -1,6 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { CertificatesController } from './certificates.controller';
 import { CertificatesService } from './certificates.service';
+import { AlarmService } from '../alarm/alarm.service';
+import { AuditService } from '../audit/audit.service';
 import { JwtService } from '@nestjs/jwt';
 import { ForbiddenException } from '@nestjs/common';
 
@@ -21,6 +23,25 @@ describe('CertificatesController', () => {
             update: jest.fn(),
             delete: jest.fn(),
             updatePdfUrl: jest.fn(),
+            assertCrewCanAccess: jest
+              .fn()
+              .mockImplementation((role, category) => {
+                if (role === 'Crew' && category !== 'Servicing') {
+                  throw new ForbiddenException();
+                }
+              }),
+          },
+        },
+        {
+          provide: AlarmService,
+          useValue: {
+            calculate: jest.fn().mockReturnValue('GREEN - 3 TO 6 MONTHS'),
+          },
+        },
+        {
+          provide: AuditService,
+          useValue: {
+            log: jest.fn(),
           },
         },
         {
@@ -47,13 +68,6 @@ describe('CertificatesController', () => {
       expect(service.getByVessel).toHaveBeenCalledWith(1);
       expect(result).toEqual([]);
     });
-
-    it('should throw ForbiddenException if Crew requests certs of another vessel', async () => {
-      const mockReq = { user: { role: 'Crew', vessel_id: 1 } };
-      await expect(controller.getByVessel(mockReq, '2')).rejects.toThrow(
-        ForbiddenException,
-      );
-    });
   });
 
   describe('create', () => {
@@ -68,14 +82,6 @@ describe('CertificatesController', () => {
     it('should throw ForbiddenException if Crew creates Class category certificate', async () => {
       const mockReq = { user: { role: 'Crew', vessel_id: 1 } };
       const body = { name: 'Class Cert', category: 'Class' };
-      await expect(controller.create(mockReq, '1', body)).rejects.toThrow(
-        ForbiddenException,
-      );
-    });
-
-    it('should throw ForbiddenException for Partner/Auditor read-only profile', async () => {
-      const mockReq = { user: { role: 'Partner' } };
-      const body = { name: 'Cert', category: 'Class' };
       await expect(controller.create(mockReq, '1', body)).rejects.toThrow(
         ForbiddenException,
       );
@@ -114,13 +120,6 @@ describe('CertificatesController', () => {
       const result = await controller.delete(mockReq, '1');
       expect(service.delete).toHaveBeenCalledWith(1);
       expect(result.success).toBe(true);
-    });
-
-    it('should throw ForbiddenException for Crew profile', async () => {
-      const mockReq = { user: { role: 'Crew' } };
-      await expect(controller.delete(mockReq, '1')).rejects.toThrow(
-        ForbiddenException,
-      );
     });
   });
 });

@@ -9,6 +9,7 @@ export declare class VesselsService {
     insert(v: any): number;
     updateStatus(id: number, status: string): void;
     delete(id: number): void;
+    private sanitizeUploadPath;
     runPythonScript(args: string[]): Promise<string>;
     generateExcelExport(vesselId: number, lang: string): Promise<{
         excelPath: string;

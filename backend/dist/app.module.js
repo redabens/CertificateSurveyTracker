@@ -16,6 +16,9 @@ const vessels_module_1 = require("./vessels/vessels.module");
 const certificates_module_1 = require("./certificates/certificates.module");
 const actionable_module_1 = require("./actionable/actionable.module");
 const email_module_1 = require("./email/email.module");
+const alarm_module_1 = require("./alarm/alarm.module");
+const audit_module_1 = require("./audit/audit.module");
+const storage_module_1 = require("./storage/storage.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -24,11 +27,14 @@ exports.AppModule = AppModule = __decorate([
         imports: [
             schedule_1.ScheduleModule.forRoot(),
             database_module_1.DatabaseModule,
+            alarm_module_1.AlarmModule,
+            audit_module_1.AuditModule,
+            storage_module_1.StorageModule,
+            email_module_1.EmailModule,
             auth_module_1.AuthModule,
             vessels_module_1.VesselsModule,
             certificates_module_1.CertificatesModule,
             actionable_module_1.ActionableModule,
-            email_module_1.EmailModule,
         ],
         controllers: [app_controller_1.AppController],
     })

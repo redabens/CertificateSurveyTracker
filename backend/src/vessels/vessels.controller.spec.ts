@@ -1,8 +1,11 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { VesselsController } from './vessels.controller';
 import { VesselsService } from './vessels.service';
+import { AlarmService } from '../alarm/alarm.service';
+import { AuditService } from '../audit/audit.service';
 import { JwtService } from '@nestjs/jwt';
-import { ForbiddenException, BadRequestException } from '@nestjs/common';
+import { BadRequestException } from '@nestjs/common';
+import { EmailService } from '../email/email.service';
 
 describe('VesselsController', () => {
   let controller: VesselsController;
@@ -19,6 +22,8 @@ describe('VesselsController', () => {
             insert: jest.fn().mockReturnValue(1),
             delete: jest.fn(),
             getByName: jest.fn(),
+            getById: jest.fn().mockReturnValue({ id: 1, name: 'Vessel 1' }),
+            updateStatus: jest.fn(),
             db: {
               prepare: jest.fn().mockReturnValue({
                 all: jest.fn().mockReturnValue([]),
@@ -29,9 +34,30 @@ describe('VesselsController', () => {
           },
         },
         {
+          provide: AlarmService,
+          useValue: {
+            calculate: jest.fn().mockReturnValue('GREEN - 3 TO 6 MONTHS'),
+            computeVesselStatus: jest.fn().mockReturnValue('Normal'),
+            hasChanged: jest.fn().mockReturnValue(false),
+          },
+        },
+        {
+          provide: AuditService,
+          useValue: {
+            log: jest.fn(),
+          },
+        },
+        {
           provide: JwtService,
           useValue: {
             verify: jest.fn(),
+          },
+        },
+        {
+          provide: EmailService,
+          useValue: {
+            sendOtpEmail: jest.fn().mockResolvedValue(undefined),
+            sendUserInvitationEmail: jest.fn().mockResolvedValue(undefined),
           },
         },
       ],
@@ -62,13 +88,6 @@ describe('VesselsController', () => {
       expect(result).toBeDefined();
     });
 
-    it('should throw ForbiddenException if user is not Admin', async () => {
-      const mockReq = { user: { role: 'Crew' } };
-      await expect(
-        controller.createManual(mockReq, { name: 'Fail' }),
-      ).rejects.toThrow(ForbiddenException);
-    });
-
     it('should throw BadRequestException if name is missing', async () => {
       const mockReq = { user: { role: 'Admin' } };
       await expect(controller.createManual(mockReq, {})).rejects.toThrow(
@@ -83,13 +102,6 @@ describe('VesselsController', () => {
       const result = await controller.delete(mockReq, '1');
       expect(service.delete).toHaveBeenCalledWith(1);
       expect(result).toEqual({ success: true });
-    });
-
-    it('should throw ForbiddenException for non-admin deletion', async () => {
-      const mockReq = { user: { role: 'Partner' } };
-      await expect(controller.delete(mockReq, '1')).rejects.toThrow(
-        ForbiddenException,
-      );
     });
   });
 });

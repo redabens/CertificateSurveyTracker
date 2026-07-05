@@ -3,6 +3,7 @@ import { AuthService } from './auth.service';
 import { DatabaseService } from '../database/database.service';
 import { JwtService } from '@nestjs/jwt';
 import { UnauthorizedException } from '@nestjs/common';
+import { EmailService } from '../email/email.service';
 
 describe('AuthService', () => {
   let service: AuthService;
@@ -19,6 +20,13 @@ describe('AuthService', () => {
           provide: JwtService,
           useValue: {
             sign: jest.fn().mockReturnValue('mock-jwt-token'),
+          },
+        },
+        {
+          provide: EmailService,
+          useValue: {
+            sendOtpEmail: jest.fn().mockResolvedValue(undefined),
+            sendUserInvitationEmail: jest.fn().mockResolvedValue(undefined),
           },
         },
       ],

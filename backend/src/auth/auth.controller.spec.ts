@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
+import { JwtService } from '@nestjs/jwt';
 
 describe('AuthController', () => {
   let controller: AuthController;
@@ -17,6 +18,13 @@ describe('AuthController', () => {
               token: 'mock-jwt',
               user: { email: 'admin@babor.com', role: 'Admin' },
             }),
+          },
+        },
+        {
+          provide: JwtService,
+          useValue: {
+            verify: jest.fn(),
+            sign: jest.fn(),
           },
         },
       ],

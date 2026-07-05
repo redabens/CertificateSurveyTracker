@@ -6,6 +6,7 @@ export declare class DatabaseService implements OnModuleInit {
     private createTables;
     private isEmptyUsers;
     private seedData;
+    private migrateEmailSettings;
     prepare(sql: string): import("node:sqlite").StatementSync;
     exec(sql: string): void;
 }

@@ -49,15 +49,17 @@ let DatabaseService = class DatabaseService {
     db;
     onModuleInit() {
         const isTest = process.env.NODE_ENV === 'test';
-        const dbPath = isTest
-            ? ':memory:'
-            : path.resolve(process.cwd(), 'vessels.db');
+        const dataDir = process.env.DATA_DIR || process.cwd();
+        const dbPath = isTest ? ':memory:' : path.resolve(dataDir, 'vessels.db');
+        if (!isTest)
+            fs.mkdirSync(dataDir, { recursive: true });
         const isNew = isTest || !fs.existsSync(dbPath);
         this.db = new node_sqlite_1.DatabaseSync(dbPath);
         this.createTables();
         if (isNew || this.isEmptyUsers()) {
             this.seedData();
         }
+        this.migrateEmailSettings();
     }
     createTables() {
         this.db.exec(`
@@ -128,6 +130,19 @@ let DatabaseService = class DatabaseService {
       )
     `);
         this.db.exec(`
+      CREATE TABLE IF NOT EXISTS audit_logs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        user_email TEXT NOT NULL,
+        action TEXT NOT NULL,
+        target_type TEXT NOT NULL,
+        target_id INTEGER,
+        target_name TEXT,
+        changes TEXT,
+        timestamp TEXT NOT NULL
+      )
+    `);
+        this.db.exec(`
       CREATE TABLE IF NOT EXISTS email_logs (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         vessel_name TEXT NOT NULL,
@@ -146,8 +161,30 @@ let DatabaseService = class DatabaseService {
         role TEXT NOT NULL,
         company_id INTEGER,
         vessel_id INTEGER,
+        must_change_password INTEGER DEFAULT 1,
         FOREIGN KEY (company_id) REFERENCES companies(id),
         FOREIGN KEY (vessel_id) REFERENCES vessels(id)
+      )
+    `);
+        try {
+            this.db.exec(`ALTER TABLE users ADD COLUMN must_change_password INTEGER DEFAULT 1`);
+        }
+        catch (e) {
+            const errMsg = e instanceof Error ? e.message : String(e);
+            if (!errMsg.includes('duplicate column name')) {
+                console.warn(`[Database] Alert to check column 'must_change_password': ${errMsg}`);
+            }
+        }
+        this.db.exec(`
+      CREATE TABLE IF NOT EXISTS vessel_emails (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        vessel_id INTEGER NOT NULL,
+        email TEXT NOT NULL,
+        is_verified INTEGER DEFAULT 0,
+        otp_code TEXT,
+        otp_expires TEXT,
+        FOREIGN KEY (vessel_id) REFERENCES vessels(id) ON DELETE CASCADE,
+        UNIQUE(vessel_id, email)
       )
     `);
     }
@@ -175,8 +212,8 @@ let DatabaseService = class DatabaseService {
             .prepare('INSERT INTO email_settings (vessel_id, email1, email2, email3) VALUES (?, ?, ?, ?)')
             .run(1, 'captain@babor.com', 'manager@babor.com', 'notifications@babor.com');
         const insertUser = this.db.prepare(`
-      INSERT INTO users (email, password, full_name, role, company_id, vessel_id)
-      VALUES (?, ?, ?, ?, ?, ?)
+      INSERT INTO users (email, password, full_name, role, company_id, vessel_id, must_change_password)
+      VALUES (?, ?, ?, ?, ?, ?, 0)
     `);
         const salt = bcrypt.genSaltSync(10);
         const adminHash = bcrypt.hashSync('admin123', salt);
@@ -188,6 +225,25 @@ let DatabaseService = class DatabaseService {
         insertUser.run('partner@babor.com', partnerHash, 'Verital Marine Partner', 'Partner', 2, null);
         insertUser.run('auditor@babor.com', auditorHash, 'Inspecteur LR', 'Auditor', 3, null);
         console.log('[Database] Seed complete.');
+    }
+    migrateEmailSettings() {
+        try {
+            const rows = this.db
+                .prepare('SELECT * FROM email_settings')
+                .all();
+            const insert = this.db.prepare('INSERT OR IGNORE INTO vessel_emails (vessel_id, email, is_verified) VALUES (?, ?, 1)');
+            for (const row of rows) {
+                if (row.email1)
+                    insert.run(row.vessel_id, row.email1);
+                if (row.email2)
+                    insert.run(row.vessel_id, row.email2);
+                if (row.email3)
+                    insert.run(row.vessel_id, row.email3);
+            }
+        }
+        catch (e) {
+            console.warn('[Database] Email settings migration failed:', e instanceof Error ? e.message : e);
+        }
     }
     prepare(sql) {
         return this.db.prepare(sql);

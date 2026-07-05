@@ -48,6 +48,9 @@ const database_service_1 = require("../database/database.service");
 const child_process_1 = require("child_process");
 const path = __importStar(require("path"));
 const fs = __importStar(require("fs"));
+const UPLOADS_DIR = path.resolve(process.cwd(), 'uploads');
+const MAX_BUFFER_BYTES = 10 * 1024 * 1024;
+const PYTHON_TIMEOUT_MS = 30_000;
 let VesselsService = class VesselsService {
     db;
     constructor(db) {
@@ -80,9 +83,8 @@ let VesselsService = class VesselsService {
         const vessel = this.db
             .prepare('SELECT * FROM vessels WHERE id = ?')
             .get(id);
-        if (!vessel) {
+        if (!vessel)
             throw new common_1.NotFoundException('Navire non trouvé');
-        }
         return vessel;
     }
     getByName(name) {
@@ -111,15 +113,34 @@ let VesselsService = class VesselsService {
     delete(id) {
         this.db.prepare('DELETE FROM vessels WHERE id = ?').run(id);
     }
+    sanitizeUploadPath(filePath) {
+        const resolved = path.resolve(filePath);
+        const uploadsResolved = path.resolve(UPLOADS_DIR);
+        if (!resolved.startsWith(uploadsResolved + path.sep) &&
+            resolved !== uploadsResolved) {
+            throw new Error(`Sécurité: chemin de fichier invalide (hors du répertoire uploads): ${filePath}`);
+        }
+        return resolved;
+    }
     runPythonScript(args) {
         return new Promise((resolve, reject) => {
-            const pythonCmd = 'python';
+            const pythonCmd = process.platform === 'win32' ? 'python' : 'python3';
             const scriptPath = path.resolve(process.cwd(), 'helpers', 'excel_handler.py');
-            const cmdLine = `"${pythonCmd}" "${scriptPath}" ${args.map((x) => `"${x}"`).join(' ')}`;
-            (0, child_process_1.exec)(cmdLine, (error, stdout, stderr) => {
+            const safeArgs = args.map((arg, index) => {
+                if (index === 0)
+                    return arg;
+                if (path.isAbsolute(arg) && fs.existsSync(arg)) {
+                    return this.sanitizeUploadPath(arg);
+                }
+                return arg;
+            });
+            (0, child_process_1.execFile)(pythonCmd, [scriptPath, ...safeArgs], {
+                timeout: PYTHON_TIMEOUT_MS,
+                maxBuffer: MAX_BUFFER_BYTES,
+            }, (error, stdout, stderr) => {
                 if (error) {
-                    console.error(`[VesselsService] python error:`, stderr);
-                    return reject(error);
+                    console.error(`[VesselsService] Erreur Python:`, stderr);
+                    return reject(new Error(error.message));
                 }
                 resolve(stdout);
             });
@@ -129,33 +150,13 @@ let VesselsService = class VesselsService {
         const vessel = this.getById(vesselId);
         const certificates = this.db
             .prepare('SELECT * FROM certificates WHERE vessel_id = ?')
-            .all();
+            .all(vesselId);
         const actionableItems = this.db
             .prepare('SELECT * FROM actionable_items WHERE vessel_id = ?')
-            .all();
+            .all(vesselId);
         const settings = this.db
             .prepare('SELECT * FROM email_settings WHERE vessel_id = ?')
             .get(vesselId) || {};
-        const calculateAlarm = (dueDateStr, expDateStr) => {
-            const target = dueDateStr || expDateStr;
-            if (!target)
-                return 'N/A';
-            const diff = Math.ceil((new Date(target).getTime() - new Date().getTime()) /
-                (1000 * 60 * 60 * 24));
-            if (diff < 0)
-                return 'OVERDUE / IMMEDIATE';
-            if (diff <= 30)
-                return 'RED - <1 MONTH';
-            if (diff <= 90)
-                return 'YELLOW - 1 TO 3 MONTHS';
-            if (diff <= 180)
-                return 'GREEN - 3 TO 6 MONTHS';
-            return 'MONITOR >6 MONTHS';
-        };
-        const mappedCerts = certificates.map((c) => ({
-            ...c,
-            alarm_status: calculateAlarm(c.due_date, c.expiration_date),
-        }));
         const exportData = {
             lang: lang || 'en',
             vessel: {
@@ -175,7 +176,7 @@ let VesselsService = class VesselsService {
                 call_sign: vessel.call_sign,
             },
             emails: [settings.email1, settings.email2, settings.email3].filter(Boolean),
-            certificates: mappedCerts,
+            certificates,
             actionable_items: actionableItems,
         };
         const templatePath = path.resolve(process.cwd(), 'MT_TREND_Certificate_Survey_Tracker_Updated_01052026-2.xlsx');

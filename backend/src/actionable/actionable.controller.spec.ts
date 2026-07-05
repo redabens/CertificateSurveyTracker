@@ -1,8 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ActionableController } from './actionable.controller';
 import { ActionableService } from './actionable.service';
+import { AuditService } from '../audit/audit.service';
 import { JwtService } from '@nestjs/jwt';
-import { ForbiddenException } from '@nestjs/common';
 
 describe('ActionableController', () => {
   let controller: ActionableController;
@@ -18,6 +18,12 @@ describe('ActionableController', () => {
             getByVessel: jest.fn().mockReturnValue([]),
             insert: jest.fn().mockReturnValue(1),
             updateStatus: jest.fn(),
+          },
+        },
+        {
+          provide: AuditService,
+          useValue: {
+            log: jest.fn(),
           },
         },
         {
@@ -39,17 +45,9 @@ describe('ActionableController', () => {
 
   describe('getByVessel', () => {
     it('should delegate to service.getByVessel', async () => {
-      const mockReq = { user: { role: 'Admin' } };
-      const result = await controller.getByVessel(mockReq, '1');
+      const result = await controller.getByVessel('1');
       expect(service.getByVessel).toHaveBeenCalledWith(1);
       expect(result).toEqual([]);
-    });
-
-    it('should throw ForbiddenException if Crew requests for another vessel', async () => {
-      const mockReq = { user: { role: 'Crew', vessel_id: 1 } };
-      await expect(controller.getByVessel(mockReq, '2')).rejects.toThrow(
-        ForbiddenException,
-      );
     });
   });
 
@@ -61,13 +59,6 @@ describe('ActionableController', () => {
       expect(service.insert).toHaveBeenCalled();
       expect(result).toEqual({ id: 1 });
     });
-
-    it('should throw ForbiddenException for non-admin insertions', async () => {
-      const mockReq = { user: { role: 'Crew' } };
-      await expect(
-        controller.create(mockReq, '1', { description: 'Fail' }),
-      ).rejects.toThrow(ForbiddenException);
-    });
   });
 
   describe('updateStatus', () => {
@@ -78,13 +69,6 @@ describe('ActionableController', () => {
       });
       expect(service.updateStatus).toHaveBeenCalledWith(1, 'Completed');
       expect(result).toEqual({ success: true });
-    });
-
-    it('should throw ForbiddenException if non-admin attempts update', async () => {
-      const mockReq = { user: { role: 'Partner' } };
-      await expect(
-        controller.updateStatus(mockReq, '1', { status: 'Completed' }),
-      ).rejects.toThrow(ForbiddenException);
     });
   });
 });

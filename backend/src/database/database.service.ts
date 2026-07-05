@@ -10,15 +10,17 @@ export class DatabaseService implements OnModuleInit {
 
   onModuleInit() {
     const isTest = process.env.NODE_ENV === 'test';
-    const dbPath = isTest
-      ? ':memory:'
-      : path.resolve(process.cwd(), 'vessels.db');
+    // DATA_DIR permet de monter un volume Docker persistent (ex: /data)
+    const dataDir = process.env.DATA_DIR || process.cwd();
+    const dbPath = isTest ? ':memory:' : path.resolve(dataDir, 'vessels.db');
+    if (!isTest) fs.mkdirSync(dataDir, { recursive: true });
     const isNew = isTest || !fs.existsSync(dbPath);
     this.db = new DatabaseSync(dbPath);
     this.createTables();
     if (isNew || this.isEmptyUsers()) {
       this.seedData();
     }
+    this.migrateEmailSettings();
   }
 
   private createTables() {
@@ -99,7 +101,22 @@ export class DatabaseService implements OnModuleInit {
       )
     `);
 
-    // 6. Email Dispatch Logs
+    // 6. Audit Trail — Historique de toutes les actions critiques utilisateurs
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS audit_logs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        user_email TEXT NOT NULL,
+        action TEXT NOT NULL,
+        target_type TEXT NOT NULL,
+        target_id INTEGER,
+        target_name TEXT,
+        changes TEXT,
+        timestamp TEXT NOT NULL
+      )
+    `);
+
+    // 7. Email Dispatch Logs
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS email_logs (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -111,7 +128,7 @@ export class DatabaseService implements OnModuleInit {
       )
     `);
 
-    // 7. Users Table with JWT Auth support
+    // 8. Users Table with JWT Auth support
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -121,8 +138,37 @@ export class DatabaseService implements OnModuleInit {
         role TEXT NOT NULL,
         company_id INTEGER,
         vessel_id INTEGER,
+        must_change_password INTEGER DEFAULT 1,
         FOREIGN KEY (company_id) REFERENCES companies(id),
         FOREIGN KEY (vessel_id) REFERENCES vessels(id)
+      )
+    `);
+
+    // Ensure must_change_password column exists if table was already created
+    try {
+      this.db.exec(
+        `ALTER TABLE users ADD COLUMN must_change_password INTEGER DEFAULT 1`,
+      );
+    } catch (e) {
+      const errMsg = e instanceof Error ? e.message : String(e);
+      if (!errMsg.includes('duplicate column name')) {
+        console.warn(
+          `[Database] Alert to check column 'must_change_password': ${errMsg}`,
+        );
+      }
+    }
+
+    // 9. Vessel Dynamic Emails Table
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS vessel_emails (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        vessel_id INTEGER NOT NULL,
+        email TEXT NOT NULL,
+        is_verified INTEGER DEFAULT 0,
+        otp_code TEXT,
+        otp_expires TEXT,
+        FOREIGN KEY (vessel_id) REFERENCES vessels(id) ON DELETE CASCADE,
+        UNIQUE(vessel_id, email)
       )
     `);
   }
@@ -186,8 +232,8 @@ export class DatabaseService implements OnModuleInit {
 
     // 3. Seed Users with bcrypt
     const insertUser = this.db.prepare(`
-      INSERT INTO users (email, password, full_name, role, company_id, vessel_id)
-      VALUES (?, ?, ?, ?, ?, ?)
+      INSERT INTO users (email, password, full_name, role, company_id, vessel_id, must_change_password)
+      VALUES (?, ?, ?, ?, ?, ?, 0)
     `);
 
     const salt = bcrypt.genSaltSync(10);
@@ -230,6 +276,27 @@ export class DatabaseService implements OnModuleInit {
     );
 
     console.log('[Database] Seed complete.');
+  }
+
+  private migrateEmailSettings() {
+    try {
+      const rows = this.db
+        .prepare('SELECT * FROM email_settings')
+        .all() as any[];
+      const insert = this.db.prepare(
+        'INSERT OR IGNORE INTO vessel_emails (vessel_id, email, is_verified) VALUES (?, ?, 1)',
+      );
+      for (const row of rows) {
+        if (row.email1) insert.run(row.vessel_id, row.email1);
+        if (row.email2) insert.run(row.vessel_id, row.email2);
+        if (row.email3) insert.run(row.vessel_id, row.email3);
+      }
+    } catch (e) {
+      console.warn(
+        '[Database] Email settings migration failed:',
+        e instanceof Error ? e.message : e,
+      );
+    }
   }
 
   // Repository Methods helper

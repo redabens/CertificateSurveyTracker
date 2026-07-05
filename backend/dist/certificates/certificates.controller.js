@@ -49,51 +49,37 @@ exports.CertificatesController = void 0;
 const common_1 = require("@nestjs/common");
 const certificates_service_1 = require("./certificates.service");
 const jwt_auth_guard_1 = require("../auth/jwt-auth.guard");
+const roles_guard_1 = require("../auth/roles.guard");
+const roles_decorator_1 = require("../auth/roles.decorator");
+const crew_vessel_guard_1 = require("../auth/crew-vessel.guard");
+const alarm_service_1 = require("../alarm/alarm.service");
+const audit_service_1 = require("../audit/audit.service");
 const platform_express_1 = require("@nestjs/platform-express");
 const multer_1 = require("multer");
 const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
-function calculateAlarmStatus(dueDateStr, expirationDateStr) {
-    const target = dueDateStr || expirationDateStr;
-    if (!target)
-        return 'N/A';
-    const diff = Math.ceil((new Date(target).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
-    if (diff < 0)
-        return 'OVERDUE / IMMEDIATE';
-    if (diff <= 30)
-        return 'RED - <1 MONTH';
-    if (diff <= 90)
-        return 'YELLOW - 1 TO 3 MONTHS';
-    if (diff <= 180)
-        return 'GREEN - 3 TO 6 MONTHS';
-    return 'MONITOR >6 MONTHS';
-}
 let CertificatesController = class CertificatesController {
     certsService;
-    constructor(certsService) {
+    alarmService;
+    auditService;
+    constructor(certsService, alarmService, auditService) {
         this.certsService = certsService;
+        this.alarmService = alarmService;
+        this.auditService = auditService;
     }
     async getByVessel(req, vesselId) {
-        if (req.user.role === 'Crew' && req.user.vessel_id != vesselId) {
-            throw new common_1.ForbiddenException('Accès refusé pour ce navire');
-        }
         const certs = this.certsService.getByVessel(parseInt(vesselId));
         return certs.map((c) => ({
             ...c,
-            alarm_status: calculateAlarmStatus(c.due_date, c.expiration_date),
+            alarm_status: this.alarmService.calculate(c.due_date, c.expiration_date),
         }));
     }
     async create(req, vesselId, body) {
-        if (req.user.role === 'Crew' && body.category !== 'Servicing') {
-            throw new common_1.ForbiddenException("Seuls les certificats d'entretien (Servicing) peuvent être gérés par l'équipage");
-        }
-        if (req.user.role === 'Partner' || req.user.role === 'Auditor') {
-            throw new common_1.ForbiddenException('Action en lecture seule');
-        }
         if (!body.name || !body.category) {
             throw new common_1.BadRequestException('Le nom et la catégorie sont requis');
         }
-        const alarm = calculateAlarmStatus(body.due_date, body.expiration_date);
+        this.certsService.assertCrewCanAccess(req.user.role, body.category, 'créer');
+        const alarm = this.alarmService.calculate(body.due_date, body.expiration_date);
         const certId = this.certsService.insert({
             vessel_id: parseInt(vesselId),
             name: body.name,
@@ -106,61 +92,95 @@ let CertificatesController = class CertificatesController {
             alarm_status: alarm,
             remarks: body.remarks,
         });
+        this.auditService.log({
+            user_id: req.user.id,
+            user_email: req.user.email,
+            action: 'CREATE_CERTIFICATE',
+            target_type: 'certificate',
+            target_id: certId,
+            target_name: body.name,
+        });
         return { id: certId, alarm_status: alarm };
     }
     async update(req, id, body) {
-        if (req.user.role === 'Partner' || req.user.role === 'Auditor') {
-            throw new common_1.ForbiddenException('Action en lecture seule');
-        }
         const prevCert = this.certsService.getById(parseInt(id));
         if (!prevCert) {
             throw new common_1.NotFoundException('Certificat non trouvé');
         }
-        if (req.user.role === 'Crew' && prevCert.category !== 'Servicing') {
-            throw new common_1.ForbiddenException("Seuls les certificats d'entretien (Servicing) peuvent être modifiés par l'équipage");
+        this.certsService.assertCrewCanAccess(req.user.role, prevCert.category, 'modifier');
+        const alarm = this.alarmService.calculate(body.due_date, body.expiration_date);
+        const changes = {};
+        for (const field of [
+            'expiration_date',
+            'due_date',
+            'organization',
+            'remarks',
+            'window',
+        ]) {
+            if (body[field] !== undefined && body[field] !== prevCert[field]) {
+                changes[field] = { from: prevCert[field], to: body[field] };
+            }
         }
-        const alarm = calculateAlarmStatus(body.due_date, body.expiration_date);
-        this.certsService.update(parseInt(id), {
-            ...body,
-            alarm_status: alarm,
+        this.certsService.update(parseInt(id), { ...body, alarm_status: alarm });
+        this.auditService.log({
+            user_id: req.user.id,
+            user_email: req.user.email,
+            action: 'UPDATE_CERTIFICATE',
+            target_type: 'certificate',
+            target_id: parseInt(id),
+            target_name: prevCert.name,
+            changes: Object.keys(changes).length > 0 ? changes : undefined,
         });
         return { success: true, alarm_status: alarm };
     }
     async delete(req, id) {
-        if (req.user.role !== 'Admin') {
-            throw new common_1.ForbiddenException('Action interdite pour votre profil');
-        }
+        const cert = this.certsService.getById(parseInt(id));
         this.certsService.delete(parseInt(id));
+        this.auditService.log({
+            user_id: req.user.id,
+            user_email: req.user.email,
+            action: 'DELETE_CERTIFICATE',
+            target_type: 'certificate',
+            target_id: parseInt(id),
+            target_name: cert?.name,
+        });
         return { success: true };
     }
     async uploadPdf(req, id, file) {
-        if (req.user.role === 'Partner' || req.user.role === 'Auditor') {
-            if (file && fs.existsSync(file.path))
-                fs.unlinkSync(file.path);
-            throw new common_1.ForbiddenException('Action interdite pour votre profil');
-        }
         const cert = this.certsService.getById(parseInt(id));
         if (!cert) {
             if (file && fs.existsSync(file.path))
                 fs.unlinkSync(file.path);
             throw new common_1.NotFoundException('Certificat non trouvé');
         }
-        if (req.user.role === 'Crew' && cert.category !== 'Servicing') {
+        try {
+            this.certsService.assertCrewCanAccess(req.user.role, cert.category, 'uploader un PDF');
+        }
+        catch (err) {
             if (file && fs.existsSync(file.path))
                 fs.unlinkSync(file.path);
-            throw new common_1.ForbiddenException("L'équipage ne peut modifier que les PDF d'entretien");
+            throw err;
         }
         if (!file) {
             throw new common_1.BadRequestException('Aucun fichier PDF téléversé');
         }
         const relativePath = `/uploads/pdf/${file.filename}`;
         this.certsService.updatePdfUrl(parseInt(id), relativePath);
+        this.auditService.log({
+            user_id: req.user.id,
+            user_email: req.user.email,
+            action: 'UPLOAD_PDF',
+            target_type: 'certificate',
+            target_id: parseInt(id),
+            target_name: cert.name,
+        });
         return { success: true, pdf_url: relativePath };
     }
 };
 exports.CertificatesController = CertificatesController;
 __decorate([
     (0, common_1.Get)('vessels/:vesselId/certificates'),
+    (0, common_1.UseGuards)(crew_vessel_guard_1.CrewVesselGuard),
     __param(0, (0, common_1.Req)()),
     __param(1, (0, common_1.Param)('vesselId')),
     __metadata("design:type", Function),
@@ -169,6 +189,8 @@ __decorate([
 ], CertificatesController.prototype, "getByVessel", null);
 __decorate([
     (0, common_1.Post)('vessels/:vesselId/certificates'),
+    (0, roles_decorator_1.Roles)('Admin', 'Crew'),
+    (0, common_1.UseGuards)(crew_vessel_guard_1.CrewVesselGuard),
     __param(0, (0, common_1.Req)()),
     __param(1, (0, common_1.Param)('vesselId')),
     __param(2, (0, common_1.Body)()),
@@ -178,6 +200,7 @@ __decorate([
 ], CertificatesController.prototype, "create", null);
 __decorate([
     (0, common_1.Put)('certificates/:id'),
+    (0, roles_decorator_1.Roles)('Admin', 'Crew'),
     __param(0, (0, common_1.Req)()),
     __param(1, (0, common_1.Param)('id')),
     __param(2, (0, common_1.Body)()),
@@ -187,6 +210,7 @@ __decorate([
 ], CertificatesController.prototype, "update", null);
 __decorate([
     (0, common_1.Delete)('certificates/:id'),
+    (0, roles_decorator_1.Roles)('Admin'),
     __param(0, (0, common_1.Req)()),
     __param(1, (0, common_1.Param)('id')),
     __metadata("design:type", Function),
@@ -195,6 +219,7 @@ __decorate([
 ], CertificatesController.prototype, "delete", null);
 __decorate([
     (0, common_1.Post)('certificates/:id/upload'),
+    (0, roles_decorator_1.Roles)('Admin', 'Crew'),
     (0, common_1.UseInterceptors)((0, platform_express_1.FileInterceptor)('pdf', {
         storage: (0, multer_1.diskStorage)({
             destination: (req, file, cb) => {
@@ -205,7 +230,7 @@ __decorate([
                 cb(null, uploadDir);
             },
             filename: (req, file, cb) => {
-                const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+                const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
                 cb(null, `cert-${uniqueSuffix}${path.extname(file.originalname)}`);
             },
         }),
@@ -228,7 +253,9 @@ __decorate([
 ], CertificatesController.prototype, "uploadPdf", null);
 exports.CertificatesController = CertificatesController = __decorate([
     (0, common_1.Controller)(),
-    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
-    __metadata("design:paramtypes", [certificates_service_1.CertificatesService])
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
+    __metadata("design:paramtypes", [certificates_service_1.CertificatesService,
+        alarm_service_1.AlarmService,
+        audit_service_1.AuditService])
 ], CertificatesController);
 //# sourceMappingURL=certificates.controller.js.map

@@ -37,11 +37,10 @@ let CertificatesService = class CertificatesService {
     }
     update(id, c) {
         this.db
-            .prepare(`
-      UPDATE certificates
-      SET organization = ?, issuing_date = ?, expiration_date = ?, due_date = ?, window = ?, alarm_status = ?, remarks = ?
-      WHERE id = ?
-    `)
+            .prepare(`UPDATE certificates
+         SET organization = ?, issuing_date = ?, expiration_date = ?, due_date = ?,
+             window = ?, alarm_status = ?, remarks = ?
+         WHERE id = ?`)
             .run(c.organization ?? null, c.issuing_date ?? null, c.expiration_date ?? null, c.due_date ?? null, c.window ?? null, c.alarm_status ?? 'N/A', c.remarks ?? null, id);
     }
     updatePdfUrl(id, pdfUrl) {
@@ -51,6 +50,11 @@ let CertificatesService = class CertificatesService {
     }
     delete(id) {
         this.db.prepare('DELETE FROM certificates WHERE id = ?').run(id);
+    }
+    assertCrewCanAccess(role, category, action) {
+        if (role === 'Crew' && category !== 'Servicing') {
+            throw new common_1.ForbiddenException(`L'équipage ne peut ${action} que des certificats d'entretien (Servicing). Catégorie demandée: ${category}.`);
+        }
     }
 };
 exports.CertificatesService = CertificatesService;

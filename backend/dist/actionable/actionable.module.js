@@ -11,12 +11,13 @@ const common_1 = require("@nestjs/common");
 const actionable_service_1 = require("./actionable.service");
 const actionable_controller_1 = require("./actionable.controller");
 const auth_module_1 = require("../auth/auth.module");
+const audit_module_1 = require("../audit/audit.module");
 let ActionableModule = class ActionableModule {
 };
 exports.ActionableModule = ActionableModule;
 exports.ActionableModule = ActionableModule = __decorate([
     (0, common_1.Module)({
-        imports: [auth_module_1.AuthModule],
+        imports: [auth_module_1.AuthModule, audit_module_1.AuditModule],
         providers: [actionable_service_1.ActionableService],
         controllers: [actionable_controller_1.ActionableController],
         exports: [actionable_service_1.ActionableService],

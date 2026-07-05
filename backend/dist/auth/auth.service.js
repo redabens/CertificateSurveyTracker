@@ -46,18 +46,21 @@ exports.AuthService = void 0;
 const common_1 = require("@nestjs/common");
 const jwt_1 = require("@nestjs/jwt");
 const database_service_1 = require("../database/database.service");
+const email_service_1 = require("../email/email.service");
 const bcrypt = __importStar(require("bcryptjs"));
 let AuthService = class AuthService {
     dbService;
     jwtService;
-    constructor(dbService, jwtService) {
+    emailService;
+    constructor(dbService, jwtService, emailService) {
         this.dbService = dbService;
         this.jwtService = jwtService;
+        this.emailService = emailService;
     }
     async login(email, pass) {
         const user = this.dbService
             .prepare('SELECT * FROM users WHERE email = ?')
-            .get(email);
+            .get(email.toLowerCase().trim());
         if (!user) {
             throw new common_1.UnauthorizedException('Identifiants incorrects');
         }
@@ -67,8 +70,10 @@ let AuthService = class AuthService {
         }
         const payload = {
             id: user.id,
+            email: user.email,
             role: user.role,
             companyId: user.company_id,
+            vessel_id: user.vessel_id,
         };
         const token = this.jwtService.sign(payload);
         return {
@@ -78,14 +83,86 @@ let AuthService = class AuthService {
                 full_name: user.full_name,
                 role: user.role,
                 vessel_id: user.vessel_id,
+                mustChangePassword: !!user.must_change_password,
             },
         };
+    }
+    async getUsers() {
+        return this.dbService
+            .prepare('SELECT id, email, full_name, role, company_id, vessel_id, must_change_password FROM users')
+            .all();
+    }
+    async createUser(email, fullName, role, companyId, vesselId) {
+        const cleanEmail = email.toLowerCase().trim();
+        const existing = this.dbService
+            .prepare('SELECT * FROM users WHERE email = ?')
+            .get(cleanEmail);
+        if (existing) {
+            throw new common_1.BadRequestException('Un utilisateur avec cet e-mail existe déjà');
+        }
+        const otp = Math.random().toString(36).substring(2, 8).toUpperCase();
+        const salt = bcrypt.genSaltSync(10);
+        const passHash = bcrypt.hashSync(otp, salt);
+        this.dbService
+            .prepare(`
+      INSERT INTO users (email, password, full_name, role, company_id, vessel_id, must_change_password)
+      VALUES (?, ?, ?, ?, ?, ?, 1)
+    `)
+            .run(cleanEmail, passHash, fullName, role, companyId, vesselId);
+        await this.emailService.sendUserInvitationEmail(cleanEmail, fullName, otp);
+        return {
+            email: cleanEmail,
+            full_name: fullName,
+            role,
+            tempOtp: otp,
+        };
+    }
+    async changePassword(userId, newPass) {
+        if (!newPass || newPass.length < 6) {
+            throw new common_1.BadRequestException('Le mot de passe doit faire au moins 6 caractères');
+        }
+        const salt = bcrypt.genSaltSync(10);
+        const passHash = bcrypt.hashSync(newPass, salt);
+        this.dbService
+            .prepare('UPDATE users SET password = ?, must_change_password = 0 WHERE id = ?')
+            .run(passHash, userId);
+        return { success: true };
+    }
+    async adminResetPassword(userId, newPass) {
+        if (!newPass || newPass.length < 6) {
+            throw new common_1.BadRequestException('Le mot de passe doit faire au moins 6 caractères');
+        }
+        const salt = bcrypt.genSaltSync(10);
+        const passHash = bcrypt.hashSync(newPass, salt);
+        this.dbService
+            .prepare('UPDATE users SET password = ?, must_change_password = 1 WHERE id = ?')
+            .run(passHash, userId);
+        return { success: true };
+    }
+    async deleteUser(userId) {
+        const user = this.dbService
+            .prepare('SELECT * FROM users WHERE id = ?')
+            .get(userId);
+        if (!user) {
+            throw new common_1.BadRequestException('Utilisateur introuvable');
+        }
+        if (user.role === 'Admin') {
+            const adminCount = this.dbService
+                .prepare("SELECT COUNT(*) as cnt FROM users WHERE role = 'Admin'")
+                .get().cnt;
+            if (adminCount <= 1) {
+                throw new common_1.BadRequestException('Impossible de supprimer le dernier administrateur');
+            }
+        }
+        this.dbService.prepare('DELETE FROM users WHERE id = ?').run(userId);
+        return { success: true };
     }
 };
 exports.AuthService = AuthService;
 exports.AuthService = AuthService = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [database_service_1.DatabaseService,
-        jwt_1.JwtService])
+        jwt_1.JwtService,
+        email_service_1.EmailService])
 ], AuthService);
 //# sourceMappingURL=auth.service.js.map

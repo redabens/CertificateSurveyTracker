@@ -3,41 +3,47 @@ import {
   Get,
   Post,
   Delete,
-  Put,
   Param,
   Body,
+  Query,
   UseGuards,
   Req,
   Res,
   UseInterceptors,
   UploadedFile,
-  ForbiddenException,
   BadRequestException,
 } from '@nestjs/common';
 import { VesselsService } from './vessels.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RolesGuard } from '../auth/roles.guard';
+import { Roles } from '../auth/roles.decorator';
+import { AlarmService } from '../alarm/alarm.service';
+import { AuditService } from '../audit/audit.service';
+import { EmailService } from '../email/email.service';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import * as fs from 'fs';
 
-// Helper to determine alarm
-function calculateAlarmStatus(dueDateStr: string, expirationDateStr: string) {
-  const target = dueDateStr || expirationDateStr;
-  if (!target) return 'N/A';
-  const diff = Math.ceil(
-    (new Date(target).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24),
-  );
-  if (diff < 0) return 'OVERDUE / IMMEDIATE';
-  if (diff <= 30) return 'RED - <1 MONTH';
-  if (diff <= 90) return 'YELLOW - 1 TO 3 MONTHS';
-  if (diff <= 180) return 'GREEN - 3 TO 6 MONTHS';
-  return 'MONITOR >6 MONTHS';
-}
-
+/**
+ * VesselsController — Gestion des navires (CRUD, import/export Excel, emails).
+ *
+ * SRP: Ce contrôleur NE fait QUE router les requêtes HTTP vers les services
+ *      et appeler AuditService pour la traçabilité.
+ *
+ * Sécurité:
+ *   - JwtAuthGuard: authentification JWT sur toutes les routes
+ *   - RolesGuard + @Roles(): RBAC déclaratif (remplace tous les if role checks)
+ *   - AlarmService: calcul et synchronisation automatique des alarm_status
+ */
 @Controller('vessels')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
 export class VesselsController {
-  constructor(private readonly vesselsService: VesselsService) {}
+  constructor(
+    private readonly vesselsService: VesselsService,
+    private readonly emailService: EmailService,
+    private readonly alarmService: AlarmService,
+    private readonly auditService: AuditService,
+  ) {}
 
   @Get()
   async getAll(@Req() req: any) {
@@ -47,25 +53,30 @@ export class VesselsController {
       const certs = this.vesselsService['db']
         .prepare('SELECT * FROM certificates WHERE vessel_id = ?')
         .all(v.id) as any[];
-      let red = 0,
-        yellow = 0,
-        green = 0,
-        normal = 0;
 
-      certs.forEach((c) => {
-        const alarm = calculateAlarmStatus(c.due_date, c.expiration_date);
-        if (alarm.includes('RED') || alarm.includes('OVERDUE')) red++;
-        else if (alarm.includes('YELLOW')) yellow++;
-        else if (alarm.includes('GREEN')) green++;
-        else normal++;
+      // Synchronisation P1: recalcul et mise à jour DB si alarm_status diverge
+      const alarmLevels = certs.map((c) => {
+        const computed = this.alarmService.calculate(
+          c.due_date,
+          c.expiration_date,
+        );
+        if (this.alarmService.hasChanged(c.alarm_status, computed)) {
+          this.vesselsService['db']
+            .prepare('UPDATE certificates SET alarm_status = ? WHERE id = ?')
+            .run(computed, c.id);
+        }
+        return computed;
       });
 
-      let overall = 'Normal';
-      if (red > 0) overall = 'Imminent';
-      else if (yellow > 0) overall = 'Attention';
-      else if (green > 0) overall = 'Suivi';
-
+      const overall = this.alarmService.computeVesselStatus(alarmLevels);
       this.vesselsService.updateStatus(v.id, overall);
+
+      const red = alarmLevels.filter(
+        (a) => a.includes('RED') || a.includes('OVERDUE'),
+      ).length;
+      const yellow = alarmLevels.filter((a) => a.includes('YELLOW')).length;
+      const green = alarmLevels.filter((a) => a.includes('GREEN')).length;
+      const normal = alarmLevels.length - red - yellow - green;
 
       return {
         ...v,
@@ -76,32 +87,50 @@ export class VesselsController {
   }
 
   @Post('manual')
+  @Roles('Admin')
   async createManual(@Req() req: any, @Body() body: any) {
-    if (req.user.role !== 'Admin') {
-      throw new ForbiddenException('Action interdite pour votre profil');
-    }
     if (!body.name) {
       throw new BadRequestException('Le nom du navire est requis');
     }
     const id = this.vesselsService.insert(body);
     this.vesselsService['db']
       .prepare(
-        'INSERT OR IGNORE INTO email_settings (vessel_id, email1, email2, email3) VALUES (?, ?, ?, ?)',
+        'INSERT OR IGNORE INTO vessel_emails (vessel_id, email, is_verified) VALUES (?, ?, 1)',
       )
-      .run(id, '', '', '');
+      .run(id, req.user.email);
+
+    this.auditService.log({
+      user_id: req.user.id,
+      user_email: req.user.email,
+      action: 'CREATE_VESSEL',
+      target_type: 'vessel',
+      target_id: id,
+      target_name: body.name,
+    });
+
     return { id, name: body.name };
   }
 
   @Delete(':id')
+  @Roles('Admin')
   async delete(@Req() req: any, @Param('id') id: string) {
-    if (req.user.role !== 'Admin') {
-      throw new ForbiddenException('Action interdite pour votre profil');
-    }
+    const vessel = this.vesselsService.getById(parseInt(id));
     this.vesselsService.delete(parseInt(id));
+
+    this.auditService.log({
+      user_id: req.user.id,
+      user_email: req.user.email,
+      action: 'DELETE_VESSEL',
+      target_type: 'vessel',
+      target_id: parseInt(id),
+      target_name: vessel?.name,
+    });
+
     return { success: true };
   }
 
   @Post('import')
+  @Roles('Admin')
   @UseInterceptors(
     FileInterceptor('file', {
       storage: diskStorage({
@@ -113,10 +142,6 @@ export class VesselsController {
     }),
   )
   async importExcel(@Req() req: any, @UploadedFile() file: any) {
-    if (req.user.role !== 'Admin') {
-      if (file && fs.existsSync(file.path)) fs.unlinkSync(file.path);
-      throw new ForbiddenException('Action interdite pour votre profil');
-    }
     if (!file) {
       throw new BadRequestException('Veuillez téléverser un fichier Excel');
     }
@@ -141,11 +166,13 @@ export class VesselsController {
       }
 
       if (vInfo.imo_number) {
-        const existingImo = this.vesselsService.getByImo(String(vInfo.imo_number));
+        const existingImo = this.vesselsService.getByImo(
+          String(vInfo.imo_number),
+        );
         if (existingImo) {
           fs.unlinkSync(file.path);
           throw new BadRequestException(
-            `Le navire avec le numéro IMO "${vInfo.imo_number}" existe déjà dans le système ("${existingImo.name}")`,
+            `Le navire avec le numéro IMO "${vInfo.imo_number}" existe déjà ("${existingImo.name}")`,
           );
         }
       }
@@ -167,16 +194,19 @@ export class VesselsController {
 
       this.vesselsService['db']
         .prepare(
-          'INSERT OR IGNORE INTO email_settings (vessel_id, email1, email2, email3) VALUES (?, ?, ?, ?)',
+          'INSERT OR IGNORE INTO vessel_emails (vessel_id, email, is_verified) VALUES (?, ?, 1)',
         )
-        .run(vesselId, '', '', '');
+        .run(vesselId, req.user.email);
 
       const insertCert = this.vesselsService['db'].prepare(`
         INSERT INTO certificates (vessel_id, name, category, organization, issuing_date, expiration_date, due_date, window, alarm_status, remarks)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
       for (const c of certs) {
-        const alarm = calculateAlarmStatus(c.due_date, c.expiration_date);
+        const alarm = this.alarmService.calculate(
+          c.due_date,
+          c.expiration_date,
+        );
         insertCert.run(
           vesselId,
           c.name,
@@ -207,11 +237,21 @@ export class VesselsController {
       }
 
       fs.unlinkSync(file.path);
+
+      this.auditService.log({
+        user_id: req.user.id,
+        user_email: req.user.email,
+        action: 'IMPORT_VESSEL',
+        target_type: 'vessel',
+        target_id: vesselId,
+        target_name: vInfo.name,
+      });
+
       return { success: true, vesselId, name: vInfo.name };
     } catch (err) {
       if (file && fs.existsSync(file.path)) fs.unlinkSync(file.path);
       throw new BadRequestException(
-        'Erreur lors du traitement du fichier Excel: ' + err.message,
+        'Erreur lors du traitement du fichier Excel: ' + (err as Error).message,
       );
     }
   }
@@ -225,50 +265,129 @@ export class VesselsController {
     res.download(excelPath, fileName, (err: any) => {
       if (fs.existsSync(jsonPath)) fs.unlinkSync(jsonPath);
       if (fs.existsSync(excelPath)) fs.unlinkSync(excelPath);
-      if (err) {
-        console.error('[Export Error]', err);
-      }
+      if (err) console.error('[Export Error]', err);
     });
   }
 
-  @Get(':id/settings')
-  async getSettings(@Param('id') vesselId: string) {
-    let settings = this.vesselsService['db']
-      .prepare('SELECT * FROM email_settings WHERE vessel_id = ?')
-      .get(parseInt(vesselId)) as any;
-    if (!settings) {
-      this.vesselsService['db']
-        .prepare(
-          'INSERT OR IGNORE INTO email_settings (vessel_id, email1, email2, email3) VALUES (?, ?, ?, ?)',
-        )
-        .run(parseInt(vesselId), '', '', '');
-      settings = { email1: '', email2: '', email3: '' };
-    }
-    return settings;
+  @Get(':id/emails')
+  async getEmails(@Param('id') vesselId: string) {
+    return this.vesselsService['db']
+      .prepare('SELECT * FROM vessel_emails WHERE vessel_id = ?')
+      .all(parseInt(vesselId)) as any[];
   }
 
-  @Put(':id/settings')
-  async updateSettings(
+  @Post(':id/emails')
+  @Roles('Admin')
+  async addEmail(
     @Req() req: any,
     @Param('id') vesselId: string,
     @Body() body: any,
   ) {
-    if (req.user.role !== 'Admin') {
-      throw new ForbiddenException('Action interdite pour votre profil');
+    if (!body.email) {
+      throw new BadRequestException("L'adresse e-mail est requise");
     }
+
+    const email = body.email.toLowerCase().trim();
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const expires = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+
     this.vesselsService['db']
       .prepare(
-        `
-      INSERT OR REPLACE INTO email_settings (vessel_id, email1, email2, email3)
-      VALUES (?, ?, ?, ?)
-    `,
+        `INSERT OR REPLACE INTO vessel_emails (vessel_id, email, is_verified, otp_code, otp_expires)
+         VALUES (?, ?, 0, ?, ?)`,
       )
-      .run(
-        parseInt(vesselId),
-        body.email1 || '',
-        body.email2 || '',
-        body.email3 || '',
+      .run(parseInt(vesselId), email, otp, expires);
+
+    await this.emailService.sendOtpEmail(email, otp);
+
+    this.auditService.log({
+      user_id: req.user.id,
+      user_email: req.user.email,
+      action: 'ADD_VESSEL_EMAIL',
+      target_type: 'email',
+      target_id: parseInt(vesselId),
+      target_name: email,
+    });
+
+    const smtpConfigured = !!(process.env.SMTP_USER && process.env.SMTP_PASS);
+    return {
+      success: true,
+      email,
+      devOtp: smtpConfigured ? undefined : otp,
+    };
+  }
+
+  @Post(':id/emails/verify')
+  @Roles('Admin')
+  async verifyEmail(
+    @Req() req: any,
+    @Param('id') vesselId: string,
+    @Body() body: any,
+  ) {
+    if (!body.email || !body.code) {
+      throw new BadRequestException(
+        "L'e-mail et le code de vérification sont requis",
       );
+    }
+
+    const email = body.email.toLowerCase().trim();
+    const code = body.code.trim();
+
+    const record = this.vesselsService['db']
+      .prepare('SELECT * FROM vessel_emails WHERE vessel_id = ? AND email = ?')
+      .get(parseInt(vesselId), email) as any;
+
+    if (!record) {
+      throw new BadRequestException(
+        'Adresse e-mail non trouvée pour ce navire',
+      );
+    }
+    if (record.is_verified) {
+      return { success: true, message: 'E-mail déjà vérifié' };
+    }
+    if (record.otp_code !== code) {
+      throw new BadRequestException('Code de vérification incorrect');
+    }
+    if (record.otp_expires && new Date(record.otp_expires) < new Date()) {
+      throw new BadRequestException('Code de vérification expiré');
+    }
+
+    this.vesselsService['db']
+      .prepare(
+        'UPDATE vessel_emails SET is_verified = 1, otp_code = NULL, otp_expires = NULL WHERE vessel_id = ? AND email = ?',
+      )
+      .run(parseInt(vesselId), email);
+
+    return { success: true };
+  }
+
+  @Delete(':id/emails')
+  @Roles('Admin')
+  async removeEmail(
+    @Req() req: any,
+    @Param('id') vesselId: string,
+    @Query('email') emailFromQuery: string,
+    @Body() body: any,
+  ) {
+    const emailToDelete = emailFromQuery || body?.email;
+    if (!emailToDelete) {
+      throw new BadRequestException("L'e-mail à supprimer est requis");
+    }
+
+    const email = emailToDelete.toLowerCase().trim();
+    this.vesselsService['db']
+      .prepare('DELETE FROM vessel_emails WHERE vessel_id = ? AND email = ?')
+      .run(parseInt(vesselId), email);
+
+    this.auditService.log({
+      user_id: req.user.id,
+      user_email: req.user.email,
+      action: 'REMOVE_VESSEL_EMAIL',
+      target_type: 'email',
+      target_id: parseInt(vesselId),
+      target_name: email,
+    });
+
     return { success: true };
   }
 }

@@ -1,9 +1,24 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service';
-import { exec } from 'child_process';
+import { execFile } from 'child_process';
 import * as path from 'path';
 import * as fs from 'fs';
 
+const UPLOADS_DIR = path.resolve(process.cwd(), 'uploads');
+const MAX_BUFFER_BYTES = 10 * 1024 * 1024; // 10 MB
+const PYTHON_TIMEOUT_MS = 30_000; // 30 secondes
+
+/**
+ * VesselsService — Accès aux données des navires et exécution des scripts Python.
+ *
+ * SRP: Ce service gère UNIQUEMENT les opérations CRUD sur les navires
+ *      et l'exécution sécurisée du script Python excel_handler.py.
+ *
+ * Sécurité (P2):
+ *   - Utilisation de execFile() au lieu de exec() → pas de shell intermédiaire
+ *   - Validation stricte des chemins de fichiers avant exécution Python
+ *   - Timeout de 30s et limite de buffer 10MB sur le process Python
+ */
 @Injectable()
 export class VesselsService {
   constructor(private readonly db: DatabaseService) {}
@@ -20,14 +35,13 @@ export class VesselsService {
         .prepare('SELECT * FROM vessels WHERE id = ?')
         .all(user.vessel_id) as any[];
     } else if (role === 'Partner') {
-      // Partner sees vessels matching their technical manager or CNAN fleet
       return this.db
         .prepare(
           'SELECT * FROM vessels WHERE company_id = 1 OR manager = "Verital Marine Services"',
         )
         .all() as any[];
     } else {
-      // Auditor can see all vessels
+      // Auditor — accès à tous les navires
       return this.db.prepare('SELECT * FROM vessels').all() as any[];
     }
   }
@@ -36,9 +50,7 @@ export class VesselsService {
     const vessel = this.db
       .prepare('SELECT * FROM vessels WHERE id = ?')
       .get(id) as any;
-    if (!vessel) {
-      throw new NotFoundException('Navire non trouvé');
-    }
+    if (!vessel) throw new NotFoundException('Navire non trouvé');
     return vessel;
   }
 
@@ -83,29 +95,71 @@ export class VesselsService {
   }
 
   delete(id: number) {
-    // Delete cascade is enabled in DB for certificates, actionable_items, email_settings
     this.db.prepare('DELETE FROM vessels WHERE id = ?').run(id);
   }
 
-  // Runs python script
+  // ─── Exécution sécurisée du script Python ─────────────────────────────────
+
+  /**
+   * Vérifie qu'un chemin de fichier est bien dans le répertoire uploads autorisé.
+   * Protège contre les attaques path traversal (ex: ../../etc/passwd).
+   */
+  private sanitizeUploadPath(filePath: string): string {
+    const resolved = path.resolve(filePath);
+    const uploadsResolved = path.resolve(UPLOADS_DIR);
+    if (
+      !resolved.startsWith(uploadsResolved + path.sep) &&
+      resolved !== uploadsResolved
+    ) {
+      throw new Error(
+        `Sécurité: chemin de fichier invalide (hors du répertoire uploads): ${filePath}`,
+      );
+    }
+    return resolved;
+  }
+
+  /**
+   * Exécute le script Python excel_handler.py de façon sécurisée.
+   *
+   * Sécurité: utilise execFile() (PAS exec()) → les arguments sont passés
+   * comme tableau, jamais interpolés dans un shell.
+   * Cela empêche toute injection de commande shell.
+   */
   runPythonScript(args: string[]): Promise<string> {
     return new Promise((resolve, reject) => {
-      const pythonCmd = 'python';
-      // Path is resolved relative to the main project directory or python script destination
+      // Détection automatique du binaire Python selon l'OS
+      const pythonCmd = process.platform === 'win32' ? 'python' : 'python3';
+
       const scriptPath = path.resolve(
         process.cwd(),
         'helpers',
         'excel_handler.py',
       );
-      const cmdLine = `"${pythonCmd}" "${scriptPath}" ${args.map((x) => `"${x}"`).join(' ')}`;
 
-      exec(cmdLine, (error, stdout, stderr) => {
-        if (error) {
-          console.error(`[VesselsService] python error:`, stderr);
-          return reject(error);
+      // Valider et sanitizer tous les chemins de fichiers dans les arguments
+      const safeArgs = args.map((arg, index) => {
+        if (index === 0) return arg; // La commande (parse/format) est une constante
+        if (path.isAbsolute(arg) && fs.existsSync(arg)) {
+          return this.sanitizeUploadPath(arg);
         }
-        resolve(stdout);
+        return arg;
       });
+
+      execFile(
+        pythonCmd,
+        [scriptPath, ...safeArgs],
+        {
+          timeout: PYTHON_TIMEOUT_MS,
+          maxBuffer: MAX_BUFFER_BYTES,
+        },
+        (error, stdout, stderr) => {
+          if (error) {
+            console.error(`[VesselsService] Erreur Python:`, stderr);
+            return reject(new Error(error.message));
+          }
+          resolve(stdout);
+        },
+      );
     });
   }
 
@@ -115,37 +169,16 @@ export class VesselsService {
   ): Promise<{ excelPath: string; jsonPath: string; fileName: string }> {
     const vessel = this.getById(vesselId);
 
-    // Fetch related database data
     const certificates = this.db
       .prepare('SELECT * FROM certificates WHERE vessel_id = ?')
-      .all() as any[];
+      .all(vesselId) as any[];
     const actionableItems = this.db
       .prepare('SELECT * FROM actionable_items WHERE vessel_id = ?')
-      .all() as any[];
+      .all(vesselId) as any[];
     const settings =
       (this.db
         .prepare('SELECT * FROM email_settings WHERE vessel_id = ?')
         .get(vesselId) as any) || {};
-
-    // Helper to calculate alarm status dynamically for export
-    const calculateAlarm = (dueDateStr: string, expDateStr: string) => {
-      const target = dueDateStr || expDateStr;
-      if (!target) return 'N/A';
-      const diff = Math.ceil(
-        (new Date(target).getTime() - new Date().getTime()) /
-          (1000 * 60 * 60 * 24),
-      );
-      if (diff < 0) return 'OVERDUE / IMMEDIATE';
-      if (diff <= 30) return 'RED - <1 MONTH';
-      if (diff <= 90) return 'YELLOW - 1 TO 3 MONTHS';
-      if (diff <= 180) return 'GREEN - 3 TO 6 MONTHS';
-      return 'MONITOR >6 MONTHS';
-    };
-
-    const mappedCerts = certificates.map((c) => ({
-      ...c,
-      alarm_status: calculateAlarm(c.due_date, c.expiration_date),
-    }));
 
     const exportData = {
       lang: lang || 'en',
@@ -168,17 +201,15 @@ export class VesselsService {
       emails: [settings.email1, settings.email2, settings.email3].filter(
         Boolean,
       ),
-      certificates: mappedCerts,
+      certificates,
       actionable_items: actionableItems,
     };
 
-    // Excel formatting files
     const templatePath = path.resolve(
       process.cwd(),
       'MT_TREND_Certificate_Survey_Tracker_Updated_01052026-2.xlsx',
     );
 
-    // Ensure uploads temp exists
     const uploadsDir = path.resolve(process.cwd(), 'uploads');
     if (!fs.existsSync(uploadsDir)) {
       fs.mkdirSync(uploadsDir, { recursive: true });
@@ -192,7 +223,6 @@ export class VesselsService {
 
     fs.writeFileSync(tempJsonPath, JSON.stringify(exportData, null, 2));
 
-    // Execute python command
     await this.runPythonScript([
       'format',
       templatePath,

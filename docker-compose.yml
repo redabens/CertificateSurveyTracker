@@ -1,0 +1,123 @@
+version: '3.9'
+
+# ─────────────────────────────────────────────────────────────────────────────
+# docker-compose.yml — Portail Certificats CNAN NORD
+# Déploiement: Linux Server
+#
+# Services:
+#   backend  → API NestJS (port 3000)
+#   frontend → Interface Next.js (port 4000)
+#   minio    → Stockage fichiers S3-compatible (ports 9000 + 9001 web UI)
+#
+# Volumes persistants (survivent aux redéploiements):
+#   cnan-db-data   → Répertoire contenant vessels.db
+#   cnan-uploads   → PDFs uploadés (si STORAGE_PROVIDER=local)
+#   cnan-minio     → Données MinIO (si STORAGE_PROVIDER=minio)
+#
+# Utilisation:
+#   1. Copier .env.example → .env et remplir les valeurs
+#   2. docker compose up -d --build
+#   3. Interface MinIO disponible sur http://votre-serveur:9001
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+  # ─── Backend NestJS ─────────────────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: cnan-backend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DATA_DIR: /data
+      # Auth
+      JWT_SECRET: ${JWT_SECRET:-CHANGER_EN_PRODUCTION_32_CHARS_MIN}
+      # Email — Brevo (recommandé) ou SMTP générique
+      EMAIL_PROVIDER: ${EMAIL_PROVIDER:-brevo}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_HOST: ${SMTP_HOST:-smtp-relay.brevo.com}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_FROM: ${SMTP_FROM:-"Portail CNAN NORD" <alerts@cnan-nord.com>}
+      # Stockage fichiers
+      STORAGE_PROVIDER: ${STORAGE_PROVIDER:-local}
+      MINIO_ENDPOINT: minio
+      MINIO_PORT: 9000
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin}
+      MINIO_BUCKET: ${MINIO_BUCKET:-certificates}
+      MINIO_USE_SSL: "false"
+    volumes:
+      # Base de données SQLite — persistante
+      - cnan-db-data:/data
+      # Uploads PDF locaux — persistants (utilisé si STORAGE_PROVIDER=local)
+      - cnan-uploads:/app/uploads
+    depends_on:
+      minio:
+        condition: service_healthy
+    networks:
+      - cnan-net
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/api"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ─── Frontend Next.js ────────────────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: cnan-frontend
+    restart: unless-stopped
+    ports:
+      - "4000:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: http://backend:3000/api
+    depends_on:
+      - backend
+    networks:
+      - cnan-net
+
+  # ─── MinIO — Stockage Objet S3-Compatible ────────────────────────────────────
+  minio:
+    image: minio/minio:latest
+    container_name: cnan-minio
+    restart: unless-stopped
+    # Démarre le serveur MinIO et active la console web sur le port 9001
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"   # API S3 (utilisée par le backend)
+      - "9001:9001"   # Console web d'administration
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+    volumes:
+      # Données MinIO — persistantes
+      - cnan-minio:/data
+    networks:
+      - cnan-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+# ─── Volumes nommés (persistants) ─────────────────────────────────────────────
+volumes:
+  cnan-db-data:
+    name: cnan_db_data
+  cnan-uploads:
+    name: cnan_uploads
+  cnan-minio:
+    name: cnan_minio
+
+# ─── Réseau interne ───────────────────────────────────────────────────────────
+networks:
+  cnan-net:
+    name: cnan_network
+    driver: bridge

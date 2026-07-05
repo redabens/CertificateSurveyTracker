@@ -1,8 +1,9 @@
 # Portail Certificats CNAN NORD - Plateforme de Suivi des Certificats Maritimes (Decoupled Stack)
 
 **Portail Certificats CNAN NORD** est une plateforme web moderne et performante de gestion de conformité réglementaire pour une flotte de navires de commerce. Le projet est entièrement restructuré en architecture découplée de production :
-*   **Frontend** : Client Single Page réactif développé avec **Next.js** (React, TypeScript, Vanilla CSS).
-*   **Backend** : API REST robuste développée avec **NestJS** (TypeScript, node:sqlite).
+
+- **Frontend** : Client Single Page réactif développé avec **Next.js** (React, TypeScript, Vanilla CSS).
+- **Backend** : API REST robuste développée avec **NestJS** (TypeScript, node:sqlite).
 
 ---
 
@@ -36,11 +37,12 @@
 ## ⚙️ Installation et Lancement
 
 ### Prérequis
-*   **Node.js** version 22.5.0 ou supérieure (recommandé v22.17.1+)
-*   **Python 3.x** avec la bibliothèque `openpyxl` :
-    ```bash
-    pip install openpyxl
-    ```
+
+- **Node.js** version 22.5.0 ou supérieure (recommandé v22.17.1+)
+- **Python 3.x** avec la bibliothèque `openpyxl` :
+  ```bash
+  pip install openpyxl
+  ```
 
 ---
 
@@ -85,15 +87,16 @@
 
 Utilisez les comptes démo pré-alimentés pour tester la gestion des rôles :
 
-*   **Administrateur (Accès Complet)** :
-    *   Email : `admin@babor.com`
-    *   Mot de passe : `admin123`
-*   **Capitaine (Équipage - Édition Servicing)** :
-    *   Email : `captain@babor.com`
-    *   Mot de passe : `captain123`
-*   **Partenaire B2B (Lecture seule)** :
-    *   Email : `partner@babor.com`
-    *   Mot de passe : `partner123`
-*   **Auditeur Externe (Lecture seule)** :
-    *   Email : `auditor@babor.com`
-    *   Mot de passe : `auditor123`
+- **Administrateur (Accès Complet)** :
+  - Email : `admin@babor.com`
+  - Mot de passe : `admin123`
+- **Capitaine (Équipage - Édition Servicing)** :
+  - Email : `captain@babor.com`
+  - Mot de passe : `captain123`
+- **Partenaire B2B (Lecture seule)** :
+  - Email : `partner@babor.com`
+  - Mot de passe : `partner123`
+- **Auditeur Externe (Lecture seule)** :
+  - Email : `auditor@babor.com`
+  - Mot de passe : `auditor123`
+

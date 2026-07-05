@@ -10,69 +10,76 @@ import {
   Req,
   UseInterceptors,
   UploadedFile,
-  ForbiddenException,
   BadRequestException,
   NotFoundException,
 } from '@nestjs/common';
 import { CertificatesService } from './certificates.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RolesGuard } from '../auth/roles.guard';
+import { Roles } from '../auth/roles.decorator';
+import { CrewVesselGuard } from '../auth/crew-vessel.guard';
+import { AlarmService } from '../alarm/alarm.service';
+import { AuditService } from '../audit/audit.service';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import * as fs from 'fs';
 import * as path from 'path';
 
-// Helper to determine alarm
-function calculateAlarmStatus(dueDateStr: string, expirationDateStr: string) {
-  const target = dueDateStr || expirationDateStr;
-  if (!target) return 'N/A';
-  const diff = Math.ceil(
-    (new Date(target).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24),
-  );
-  if (diff < 0) return 'OVERDUE / IMMEDIATE';
-  if (diff <= 30) return 'RED - <1 MONTH';
-  if (diff <= 90) return 'YELLOW - 1 TO 3 MONTHS';
-  if (diff <= 180) return 'GREEN - 3 TO 6 MONTHS';
-  return 'MONITOR >6 MONTHS';
-}
-
+/**
+ * CertificatesController — CRUD des certificats + upload PDF.
+ *
+ * SRP: Ce contrôleur NE fait QUE router les requêtes et appeler les services.
+ *
+ * Sécurité RBAC:
+ *   - @Roles('Admin', 'Crew'): seuls Admin et Crew peuvent créer/modifier des certificats
+ *   - @Roles('Admin'): seul l'Admin peut supprimer
+ *   - CrewVesselGuard: le Crew ne peut accéder qu'à son navire assigné
+ *
+ * Règle métier Crew→Servicing: validée dans CertificatesService.assertCrewCanAccess()
+ * (séparation: guard = qui peut accéder, service = ce qu'il peut faire)
+ */
 @Controller()
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
 export class CertificatesController {
-  constructor(private readonly certsService: CertificatesService) {}
+  constructor(
+    private readonly certsService: CertificatesService,
+    private readonly alarmService: AlarmService,
+    private readonly auditService: AuditService,
+  ) {}
 
   @Get('vessels/:vesselId/certificates')
+  @UseGuards(CrewVesselGuard)
   async getByVessel(@Req() req: any, @Param('vesselId') vesselId: string) {
-    if (req.user.role === 'Crew' && req.user.vessel_id != vesselId) {
-      throw new ForbiddenException('Accès refusé pour ce navire');
-    }
-
     const certs = this.certsService.getByVessel(parseInt(vesselId));
     return certs.map((c) => ({
       ...c,
-      alarm_status: calculateAlarmStatus(c.due_date, c.expiration_date),
+      alarm_status: this.alarmService.calculate(c.due_date, c.expiration_date),
     }));
   }
 
   @Post('vessels/:vesselId/certificates')
+  @Roles('Admin', 'Crew')
+  @UseGuards(CrewVesselGuard)
   async create(
     @Req() req: any,
     @Param('vesselId') vesselId: string,
     @Body() body: any,
   ) {
-    if (req.user.role === 'Crew' && body.category !== 'Servicing') {
-      throw new ForbiddenException(
-        "Seuls les certificats d'entretien (Servicing) peuvent être gérés par l'équipage",
-      );
-    }
-    if (req.user.role === 'Partner' || req.user.role === 'Auditor') {
-      throw new ForbiddenException('Action en lecture seule');
-    }
-
     if (!body.name || !body.category) {
       throw new BadRequestException('Le nom et la catégorie sont requis');
     }
 
-    const alarm = calculateAlarmStatus(body.due_date, body.expiration_date);
+    // Règle métier: Crew ne peut créer que des certificats Servicing
+    this.certsService.assertCrewCanAccess(
+      req.user.role,
+      body.category,
+      'créer',
+    );
+
+    const alarm = this.alarmService.calculate(
+      body.due_date,
+      body.expiration_date,
+    );
     const certId = this.certsService.insert({
       vessel_id: parseInt(vesselId),
       name: body.name,
@@ -86,45 +93,87 @@ export class CertificatesController {
       remarks: body.remarks,
     });
 
+    this.auditService.log({
+      user_id: req.user.id,
+      user_email: req.user.email,
+      action: 'CREATE_CERTIFICATE',
+      target_type: 'certificate',
+      target_id: certId,
+      target_name: body.name,
+    });
+
     return { id: certId, alarm_status: alarm };
   }
 
   @Put('certificates/:id')
+  @Roles('Admin', 'Crew')
   async update(@Req() req: any, @Param('id') id: string, @Body() body: any) {
-    if (req.user.role === 'Partner' || req.user.role === 'Auditor') {
-      throw new ForbiddenException('Action en lecture seule');
-    }
-
     const prevCert = this.certsService.getById(parseInt(id));
     if (!prevCert) {
       throw new NotFoundException('Certificat non trouvé');
     }
 
-    if (req.user.role === 'Crew' && prevCert.category !== 'Servicing') {
-      throw new ForbiddenException(
-        "Seuls les certificats d'entretien (Servicing) peuvent être modifiés par l'équipage",
-      );
+    // Règle métier: Crew ne peut modifier que des certificats Servicing
+    this.certsService.assertCrewCanAccess(
+      req.user.role,
+      prevCert.category,
+      'modifier',
+    );
+
+    const alarm = this.alarmService.calculate(
+      body.due_date,
+      body.expiration_date,
+    );
+
+    // Construction du diff pour audit trail
+    const changes: Record<string, { from: unknown; to: unknown }> = {};
+    for (const field of [
+      'expiration_date',
+      'due_date',
+      'organization',
+      'remarks',
+      'window',
+    ] as const) {
+      if (body[field] !== undefined && body[field] !== prevCert[field]) {
+        changes[field] = { from: prevCert[field], to: body[field] };
+      }
     }
 
-    const alarm = calculateAlarmStatus(body.due_date, body.expiration_date);
-    this.certsService.update(parseInt(id), {
-      ...body,
-      alarm_status: alarm,
+    this.certsService.update(parseInt(id), { ...body, alarm_status: alarm });
+
+    this.auditService.log({
+      user_id: req.user.id,
+      user_email: req.user.email,
+      action: 'UPDATE_CERTIFICATE',
+      target_type: 'certificate',
+      target_id: parseInt(id),
+      target_name: prevCert.name,
+      changes: Object.keys(changes).length > 0 ? changes : undefined,
     });
 
     return { success: true, alarm_status: alarm };
   }
 
   @Delete('certificates/:id')
+  @Roles('Admin')
   async delete(@Req() req: any, @Param('id') id: string) {
-    if (req.user.role !== 'Admin') {
-      throw new ForbiddenException('Action interdite pour votre profil');
-    }
+    const cert = this.certsService.getById(parseInt(id));
     this.certsService.delete(parseInt(id));
+
+    this.auditService.log({
+      user_id: req.user.id,
+      user_email: req.user.email,
+      action: 'DELETE_CERTIFICATE',
+      target_type: 'certificate',
+      target_id: parseInt(id),
+      target_name: cert?.name,
+    });
+
     return { success: true };
   }
 
   @Post('certificates/:id/upload')
+  @Roles('Admin', 'Crew')
   @UseInterceptors(
     FileInterceptor('pdf', {
       storage: diskStorage({
@@ -136,12 +185,11 @@ export class CertificatesController {
           cb(null, uploadDir);
         },
         filename: (req, file, cb) => {
-          const uniqueSuffix =
-            Date.now() + '-' + Math.round(Math.random() * 1e9);
+          const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
           cb(null, `cert-${uniqueSuffix}${path.extname(file.originalname)}`);
         },
       }),
-      limits: { fileSize: 10 * 1024 * 1024 },
+      limits: { fileSize: 10 * 1024 * 1024 }, // 10MB max
       fileFilter: (req, file, cb) => {
         if (file.mimetype === 'application/pdf') {
           cb(null, true);
@@ -159,22 +207,22 @@ export class CertificatesController {
     @Param('id') id: string,
     @UploadedFile() file: any,
   ) {
-    if (req.user.role === 'Partner' || req.user.role === 'Auditor') {
-      if (file && fs.existsSync(file.path)) fs.unlinkSync(file.path);
-      throw new ForbiddenException('Action interdite pour votre profil');
-    }
-
     const cert = this.certsService.getById(parseInt(id));
     if (!cert) {
       if (file && fs.existsSync(file.path)) fs.unlinkSync(file.path);
       throw new NotFoundException('Certificat non trouvé');
     }
 
-    if (req.user.role === 'Crew' && cert.category !== 'Servicing') {
-      if (file && fs.existsSync(file.path)) fs.unlinkSync(file.path);
-      throw new ForbiddenException(
-        "L'équipage ne peut modifier que les PDF d'entretien",
+    // Règle métier: Crew ne peut uploader que sur des certificats Servicing
+    try {
+      this.certsService.assertCrewCanAccess(
+        req.user.role,
+        cert.category,
+        'uploader un PDF',
       );
+    } catch (err) {
+      if (file && fs.existsSync(file.path)) fs.unlinkSync(file.path);
+      throw err;
     }
 
     if (!file) {
@@ -183,6 +231,15 @@ export class CertificatesController {
 
     const relativePath = `/uploads/pdf/${file.filename}`;
     this.certsService.updatePdfUrl(parseInt(id), relativePath);
+
+    this.auditService.log({
+      user_id: req.user.id,
+      user_email: req.user.email,
+      action: 'UPLOAD_PDF',
+      target_type: 'certificate',
+      target_id: parseInt(id),
+      target_name: cert.name,
+    });
 
     return { success: true, pdf_url: relativePath };
   }
