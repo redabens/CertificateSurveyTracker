@@ -428,10 +428,10 @@ h1, h2, h3, h4, .logo-text, .tv-logo-text {
 }
 
 /* Status colors borders - simplified to flat cards */
-.stat-total { border-top: 2px solid var(--primary-color); }
-.stat-red { border-top: 2px solid var(--status-red); }
-.stat-yellow { border-top: 2px solid var(--status-yellow); }
-.stat-green { border-top: 2px solid var(--status-green); }
+.stat-total { border-color: rgba(204, 164, 59, 0.3); }
+.stat-red { border-color: rgba(214, 79, 62, 0.3); }
+.stat-yellow { border-color: rgba(229, 155, 60, 0.3); }
+.stat-green { border-color: rgba(72, 163, 126, 0.3); }
 
 /* CHARTS & LISTS GRID */
 .dashboard-charts-grid {
@@ -526,24 +526,15 @@ h1, h2, h3, h4, .logo-text, .tv-logo-text {
   overflow: hidden;
 }
 
-.vessel-card::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 4px;
-  background: var(--status-normal);
-}
-
-.vessel-card.status-Imminent::after { background: var(--status-red); }
-.vessel-card.status-Attention::after { background: var(--status-yellow); }
-.vessel-card.status-Suivi::after { background: var(--status-green); }
+.vessel-card.status-Imminent { border-color: rgba(214, 79, 62, 0.3); }
+.vessel-card.status-Attention { border-color: rgba(229, 155, 60, 0.3); }
+.vessel-card.status-Suivi { border-color: rgba(72, 163, 126, 0.3); }
+.vessel-card.status-Normal { border-color: rgba(204, 164, 59, 0.3); }
 
 .vessel-card:hover {
   transform: translateY(-3px);
   box-shadow: var(--shadow-lg);
-  border-color: rgba(255, 255, 255, 0.15);
+  border-color: var(--primary-color);
 }
 
 .vessel-card-header {
