@@ -33,7 +33,8 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3000
-      DATA_DIR: /data
+      # PostgreSQL Database URL
+      DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:root@db:5432/vessel_tracker}
       # Auth
       JWT_SECRET: ${JWT_SECRET:-CHANGER_EN_PRODUCTION_32_CHARS_MIN}
       # Email — Brevo (recommandé) ou SMTP générique
@@ -52,11 +53,11 @@ services:
       MINIO_BUCKET: ${MINIO_BUCKET:-certificates}
       MINIO_USE_SSL: "false"
     volumes:
-      # Base de données SQLite — persistante
-      - cnan-db-data:/data
       # Uploads PDF locaux — persistants (utilisé si STORAGE_PROVIDER=local)
       - cnan-uploads:/app/uploads
     depends_on:
+      db:
+        condition: service_healthy
       minio:
         condition: service_healthy
     networks:
@@ -106,6 +107,28 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+
+  # ─── PostgreSQL Database ───────────────────────────────────────────────────
+  db:
+    image: postgres:15-alpine
+    container_name: cnan-db
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-root}
+      POSTGRES_DB: ${DB_NAME:-vessel_tracker}
+    volumes:
+      # Use cnan-db-data persistent volume but map it to standard PG data path
+      - cnan-db-data:/var/lib/postgresql/data
+    networks:
+      - cnan-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
 # ─── Volumes nommés (persistants) ─────────────────────────────────────────────
 volumes:

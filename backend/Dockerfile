@@ -9,9 +9,11 @@ RUN apk add --no-cache python3 py3-pip py3-openpyxl
 
 WORKDIR /app
 
-# Copier package files en premier pour profiter du cache Docker layers
+# Copier package files et prisma schema en premier pour profiter du cache Docker layers
 COPY package*.json ./
+COPY prisma ./prisma
 RUN npm ci
+RUN npx prisma generate
 
 # Copier les sources et builder NestJS
 COPY . .
@@ -24,9 +26,11 @@ RUN apk add --no-cache python3 py3-pip py3-openpyxl
 
 WORKDIR /app
 
-# Copier uniquement les dépendances de production et le build
+# Copier package files et prisma schema pour générer le client de production
 COPY package*.json ./
+COPY prisma ./prisma
 RUN npm ci --only=production
+RUN npx prisma generate
 
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/helpers ./helpers
