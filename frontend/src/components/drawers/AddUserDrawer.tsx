@@ -76,7 +76,7 @@ export function AddUserDrawer({
             </div>
           ) : (
             /* Creation form */
-            <form onSubmit={onSubmit} className="flex-column" style={{ height: '100%' }}>
+            <form onSubmit={onSubmit} className="flex-column" style={{ flexGrow: 1, minHeight: 0, overflow: 'hidden' }}>
               <div className="form-group" style={{ marginBottom: '16px' }}>
                 <label>{t('label_full_name')} *</label>
                 <input type="text" required maxLength={100} className="input-field" placeholder="Ex. Amine Benamar" value={userForm.fullName} onChange={(e) => set({ fullName: e.target.value })} />

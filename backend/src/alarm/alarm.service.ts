@@ -88,7 +88,8 @@ export class AlarmService {
       if (windowValStr.startsWith('[')) {
         try {
           const windows = JSON.parse(windowValStr) as any[];
-          const windowDeadlines = windows.map((w) => {
+          const windowDeadlines = windows
+            .map((w) => {
               if (w.mode === 'custom') {
                 const endD = new Date(w.endDate);
                 return isNaN(endD.getTime()) ? null : endD;

@@ -4,22 +4,34 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { DatabaseService } from '../database/database.service';
+import { PrismaService } from '../database/prisma.service';
 import { EmailService } from '../email/email.service';
 import * as bcrypt from 'bcryptjs';
 
 @Injectable()
 export class AuthService {
   constructor(
-    private readonly dbService: DatabaseService,
+    private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
     private readonly emailService: EmailService,
   ) {}
 
+  private mapUserToResponse(user: any) {
+    return {
+      id: user.id,
+      email: user.email,
+      full_name: user.fullName,
+      role: user.role,
+      company_id: user.companyId,
+      vessel_id: user.vesselId,
+      must_change_password: user.mustChangePassword,
+    };
+  }
+
   async login(email: string, pass: string) {
-    const user = await this.dbService.queryOne('SELECT * FROM users WHERE email = ?', [
-      email.toLowerCase().trim(),
-    ]);
+    const user = await this.prisma.user.findUnique({
+      where: { email: email.toLowerCase().trim() },
+    });
     if (!user) {
       throw new UnauthorizedException('Identifiants incorrects');
     }
@@ -33,8 +45,8 @@ export class AuthService {
       id: user.id,
       email: user.email,
       role: user.role,
-      companyId: user.company_id,
-      vessel_id: user.vessel_id,
+      companyId: user.companyId,
+      vessel_id: user.vesselId,
     };
     const token = this.jwtService.sign(payload);
 
@@ -42,18 +54,17 @@ export class AuthService {
       token,
       user: {
         email: user.email,
-        full_name: user.full_name,
+        full_name: user.fullName,
         role: user.role,
-        vessel_id: user.vessel_id,
-        mustChangePassword: !!user.must_change_password,
+        vessel_id: user.vesselId,
+        mustChangePassword: !!user.mustChangePassword,
       },
     };
   }
 
   async getUsers() {
-    return this.dbService.query(
-      'SELECT id, email, full_name, role, company_id, vessel_id, must_change_password FROM users',
-    );
+    const users = await this.prisma.user.findMany();
+    return users.map((u) => this.mapUserToResponse(u));
   }
 
   async createUser(
@@ -64,9 +75,9 @@ export class AuthService {
     vesselId: number | null,
   ) {
     const cleanEmail = email.toLowerCase().trim();
-    const existing = await this.dbService.queryOne('SELECT * FROM users WHERE email = ?', [
-      cleanEmail,
-    ]);
+    const existing = await this.prisma.user.findUnique({
+      where: { email: cleanEmail },
+    });
     if (existing) {
       throw new BadRequestException(
         'Un utilisateur avec cet e-mail existe déjà',
@@ -78,13 +89,17 @@ export class AuthService {
     const salt = bcrypt.genSaltSync(10);
     const passHash = bcrypt.hashSync(otp, salt);
 
-    await this.dbService.execute(
-      `
-      INSERT INTO users (email, password, full_name, role, company_id, vessel_id, must_change_password)
-      VALUES (?, ?, ?, ?, ?, ?, 1)
-    `,
-      [cleanEmail, passHash, fullName, role, companyId, vesselId],
-    );
+    await this.prisma.user.create({
+      data: {
+        email: cleanEmail,
+        password: passHash,
+        fullName,
+        role,
+        companyId,
+        vesselId,
+        mustChangePassword: 1,
+      },
+    });
 
     await this.emailService.sendUserInvitationEmail(cleanEmail, fullName, otp);
 
@@ -106,10 +121,13 @@ export class AuthService {
     const salt = bcrypt.genSaltSync(10);
     const passHash = bcrypt.hashSync(newPass, salt);
 
-    await this.dbService.execute(
-      'UPDATE users SET password = ?, must_change_password = 0 WHERE id = ?',
-      [passHash, userId],
-    );
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        password: passHash,
+        mustChangePassword: 0,
+      },
+    });
 
     return { success: true };
   }
@@ -124,26 +142,30 @@ export class AuthService {
     const salt = bcrypt.genSaltSync(10);
     const passHash = bcrypt.hashSync(newPass, salt);
 
-    await this.dbService.execute(
-      'UPDATE users SET password = ?, must_change_password = 1 WHERE id = ?',
-      [passHash, userId],
-    );
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        password: passHash,
+        mustChangePassword: 1,
+      },
+    });
 
     return { success: true };
   }
 
   async deleteUser(userId: number) {
-    const user = await this.dbService.queryOne('SELECT * FROM users WHERE id = ?', [userId]);
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
 
     if (!user) {
       throw new BadRequestException('Utilisateur introuvable');
     }
 
     if (user.role === 'Admin') {
-      const result = await this.dbService.queryOne(
-        "SELECT COUNT(*) as cnt FROM users WHERE role = 'Admin'",
-      );
-      const adminCount = result ? parseInt(result.cnt || '0') : 0;
+      const adminCount = await this.prisma.user.count({
+        where: { role: 'Admin' },
+      });
       if (adminCount <= 1) {
         throw new BadRequestException(
           'Impossible de supprimer le dernier administrateur',
@@ -151,7 +173,9 @@ export class AuthService {
       }
     }
 
-    await this.dbService.execute('DELETE FROM users WHERE id = ?', [userId]);
+    await this.prisma.user.delete({
+      where: { id: userId },
+    });
     return { success: true };
   }
 }

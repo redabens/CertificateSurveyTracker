@@ -37,3 +37,7 @@ Epic/
 # Raw generated images
 frontend/public/Generated Image*
 
+# Build output and uploads
+backend/dist/
+backend/uploads/
+

@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ActionableService } from './actionable.service';
 import { DatabaseService } from '../database/database.service';
+import { PrismaService } from '../database/prisma.service';
 
 describe('ActionableService', () => {
   let service: ActionableService;
@@ -10,12 +11,12 @@ describe('ActionableService', () => {
     process.env.NODE_ENV = 'test';
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [ActionableService, DatabaseService],
+      providers: [ActionableService, DatabaseService, PrismaService],
     }).compile();
 
     service = module.get<ActionableService>(ActionableService);
     dbService = module.get<DatabaseService>(DatabaseService);
-    await dbService.onModuleInit();
+    await dbService.seedData();
   });
 
   afterEach(() => {
@@ -57,5 +58,40 @@ describe('ActionableService', () => {
     const updated = items.find((x) => x.id === actId);
     expect(updated).toBeDefined();
     expect(updated.status).toBe('Completed');
+  });
+
+  it('should update actionable details', async () => {
+    const actId = await service.insert({
+      vessel_id: 1,
+      category: 'Old Category',
+      description: 'Old Description',
+    });
+
+    await service.update(actId, {
+      category: 'New Category',
+      description: 'New Description',
+      report_number: 'REP-NEW',
+    });
+
+    const items = await service.getByVessel(1);
+    const updated = items.find((x) => x.id === actId);
+    expect(updated).toBeDefined();
+    expect(updated.category).toBe('New Category');
+    expect(updated.description).toBe('New Description');
+  });
+
+  it('should delete actionable item', async () => {
+    const actId = await service.insert({
+      vessel_id: 1,
+      description: 'ToDelete',
+    });
+
+    let items = await service.getByVessel(1);
+    expect(items.some((x) => x.id === actId)).toBe(true);
+
+    await service.delete(actId);
+
+    items = await service.getByVessel(1);
+    expect(items.some((x) => x.id === actId)).toBe(false);
   });
 });

@@ -1,13 +1,13 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { AppController } from './app.controller';
 import { EmailService } from './email/email.service';
-import { DatabaseService } from './database/database.service';
+import { PrismaService } from './database/prisma.service';
 import { JwtService } from '@nestjs/jwt';
 
 describe('AppController', () => {
   let appController: AppController;
   let emailService: EmailService;
-  let databaseService: DatabaseService;
+  let prismaService: PrismaService;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -22,12 +22,11 @@ describe('AppController', () => {
           },
         },
         {
-          provide: DatabaseService,
+          provide: PrismaService,
           useValue: {
-            prepare: jest.fn().mockReturnValue({
-              all: jest.fn().mockReturnValue([]),
-            }),
-            query: jest.fn().mockResolvedValue([]),
+            emailLog: {
+              findMany: jest.fn().mockResolvedValue([]),
+            },
           },
         },
         {
@@ -41,7 +40,7 @@ describe('AppController', () => {
 
     appController = module.get<AppController>(AppController);
     emailService = module.get<EmailService>(EmailService);
-    databaseService = module.get<DatabaseService>(DatabaseService);
+    prismaService = module.get<PrismaService>(PrismaService);
   });
 
   it('should be defined', () => {
@@ -61,9 +60,9 @@ describe('AppController', () => {
   describe('getEmailLogs', () => {
     it('should query and return email logs', async () => {
       const result = await appController.getEmailLogs();
-      expect(databaseService.query).toHaveBeenCalledWith(
-        'SELECT * FROM email_logs ORDER BY id DESC',
-      );
+      expect(prismaService.emailLog.findMany).toHaveBeenCalledWith({
+        orderBy: { id: 'desc' },
+      });
       expect(result).toEqual([]);
     });
   });

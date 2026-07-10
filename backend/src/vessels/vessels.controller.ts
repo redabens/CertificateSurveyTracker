@@ -20,6 +20,7 @@ import { Roles } from '../auth/roles.decorator';
 import { AlarmService } from '../alarm/alarm.service';
 import { AuditService } from '../audit/audit.service';
 import { EmailService } from '../email/email.service';
+import { PrismaService } from '../database/prisma.service';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import * as fs from 'fs';
@@ -43,32 +44,35 @@ export class VesselsController {
     private readonly emailService: EmailService,
     private readonly alarmService: AlarmService,
     private readonly auditService: AuditService,
+    private readonly prisma: PrismaService,
   ) {}
 
   @Get()
   async getAll(@Req() req: any) {
-    const vessels = await this.vesselsService.getAll(req.user.id, req.user.role);
+    const vessels = await this.vesselsService.getAll(
+      req.user.id,
+      req.user.role,
+    );
 
     const results: any[] = [];
     for (const v of vessels) {
-      const certs = await this.vesselsService['db'].query(
-        'SELECT * FROM certificates WHERE vessel_id = ?',
-        [v.id],
-      );
+      const certs = await this.prisma.certificate.findMany({
+        where: { vesselId: v.id },
+      });
 
       // Synchronisation P1: recalcul et mise à jour DB si alarm_status diverge
       const alarmLevels: any[] = [];
       for (const c of certs) {
         const computed = this.alarmService.calculate(
-          c.due_date,
-          c.expiration_date,
+          c.dueDate,
+          c.expirationDate,
           c.window,
         );
-        if (this.alarmService.hasChanged(c.alarm_status, computed)) {
-          await this.vesselsService['db'].execute(
-            'UPDATE certificates SET alarm_status = ? WHERE id = ?',
-            [computed, c.id],
-          );
+        if (this.alarmService.hasChanged(c.alarmStatus, computed)) {
+          await this.prisma.certificate.update({
+            where: { id: c.id },
+            data: { alarmStatus: computed },
+          });
         }
         alarmLevels.push(computed);
       }
@@ -98,10 +102,20 @@ export class VesselsController {
       throw new BadRequestException('Le nom du navire est requis');
     }
     const id = await this.vesselsService.insert(body);
-    await this.vesselsService['db'].execute(
-      'INSERT OR IGNORE INTO vessel_emails (vessel_id, email, is_verified) VALUES (?, ?, 1)',
-      [id, req.user.email],
-    );
+    await this.prisma.vesselEmail.upsert({
+      where: {
+        vesselId_email: {
+          vesselId: id,
+          email: req.user.email,
+        },
+      },
+      update: {},
+      create: {
+        vesselId: id,
+        email: req.user.email,
+        isVerified: 1,
+      },
+    });
 
     await this.auditService.log({
       user_id: req.user.id,
@@ -196,46 +210,55 @@ export class VesselsController {
         status: vInfo.overall_status,
       });
 
-      await this.vesselsService['db'].execute(
-        'INSERT OR IGNORE INTO vessel_emails (vessel_id, email, is_verified) VALUES (?, ?, 1)',
-        [vesselId, req.user.email],
-      );
+      await this.prisma.vesselEmail.upsert({
+        where: {
+          vesselId_email: {
+            vesselId,
+            email: req.user.email,
+          },
+        },
+        update: {},
+        create: {
+          vesselId,
+          email: req.user.email,
+          isVerified: 1,
+        },
+      });
 
       for (const c of certs) {
+        const parsedWindow = parseImportedWindow(c.window);
         const alarm = this.alarmService.calculate(
           c.due_date,
           c.expiration_date,
-          c.window,
+          parsedWindow,
         );
-        await this.vesselsService['db'].execute(`
-          INSERT INTO certificates (vessel_id, name, category, organization, issuing_date, expiration_date, due_date, window, alarm_status, remarks)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `, [
-          vesselId,
-          c.name,
-          c.category,
-          c.organization,
-          c.issuing_date,
-          c.expiration_date,
-          c.due_date,
-          c.window,
-          alarm,
-          c.remarks,
-        ]);
+        await this.prisma.certificate.create({
+          data: {
+            vesselId,
+            name: c.name,
+            category: c.category,
+            organization: c.organization,
+            issuingDate: c.issuing_date,
+            expirationDate: c.expiration_date,
+            dueDate: c.due_date,
+            window: parsedWindow,
+            alarmStatus: alarm,
+            remarks: c.remarks,
+          },
+        });
       }
 
       for (const a of actionable) {
-        await this.vesselsService['db'].execute(`
-          INSERT INTO actionable_items (vessel_id, imposed_date, category, report_number, due_date, description)
-          VALUES (?, ?, ?, ?, ?, ?)
-        `, [
-          vesselId,
-          a.imposed_date,
-          a.category,
-          a.report_number,
-          a.due_date,
-          a.description,
-        ]);
+        await this.prisma.actionableItem.create({
+          data: {
+            vesselId,
+            imposedDate: a.imposed_date,
+            category: a.category,
+            reportNumber: a.report_number,
+            dueDate: a.due_date,
+            description: a.description,
+          },
+        });
       }
 
       fs.unlinkSync(file.path);
@@ -251,6 +274,7 @@ export class VesselsController {
 
       return { success: true, vesselId, name: vInfo.name };
     } catch (err) {
+      console.error('[vessels.controller] importExcel error:', err);
       if (file && fs.existsSync(file.path)) fs.unlinkSync(file.path);
       throw new BadRequestException(
         'Erreur lors du traitement du fichier Excel: ' + (err as Error).message,
@@ -259,8 +283,14 @@ export class VesselsController {
   }
 
   @Get(':id/export')
-  async exportExcel(@Req() req: any, @Param('id') id: string, @Res() res: any) {
-    const lang = req.query.lang || 'en';
+  async exportExcel(
+    @Res() res: any,
+    @Param('id') id: string,
+    @Query('lang') langFromQuery: string,
+    @Req() req: any,
+  ) {
+    const queryLang = langFromQuery || req.query.lang;
+    const lang = queryLang || 'en';
     const { excelPath, jsonPath, fileName } =
       await this.vesselsService.generateExcelExport(parseInt(id), lang);
 
@@ -273,10 +303,19 @@ export class VesselsController {
 
   @Get(':id/emails')
   async getEmails(@Param('id') vesselId: string) {
-    return this.vesselsService['db'].query(
-      'SELECT vessel_id, email, is_verified FROM vessel_emails WHERE vessel_id = ?',
-      [parseInt(vesselId)],
-    );
+    const rows = await this.prisma.vesselEmail.findMany({
+      where: { vesselId: parseInt(vesselId) },
+      select: {
+        vesselId: true,
+        email: true,
+        isVerified: true,
+      },
+    });
+    return rows.map((r) => ({
+      vessel_id: r.vesselId,
+      email: r.email,
+      is_verified: r.isVerified,
+    }));
   }
 
   @Post(':id/emails')
@@ -294,11 +333,26 @@ export class VesselsController {
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const expires = new Date(Date.now() + 15 * 60 * 1000).toISOString();
 
-    await this.vesselsService['db'].execute(
-      `INSERT OR REPLACE INTO vessel_emails (vessel_id, email, is_verified, otp_code, otp_expires)
-       VALUES (?, ?, 0, ?, ?)`,
-      [parseInt(vesselId), email, otp, expires],
-    );
+    await this.prisma.vesselEmail.upsert({
+      where: {
+        vesselId_email: {
+          vesselId: parseInt(vesselId),
+          email,
+        },
+      },
+      update: {
+        isVerified: 0,
+        otpCode: otp,
+        otpExpires: expires,
+      },
+      create: {
+        vesselId: parseInt(vesselId),
+        email,
+        isVerified: 0,
+        otpCode: otp,
+        otpExpires: expires,
+      },
+    });
 
     await this.emailService.sendOtpEmail(email, otp);
 
@@ -336,30 +390,43 @@ export class VesselsController {
     const email = body.email.toLowerCase().trim();
     const code = body.code.trim();
 
-    const record = await this.vesselsService['db'].queryOne(
-      'SELECT * FROM vessel_emails WHERE vessel_id = ? AND email = ?',
-      [parseInt(vesselId), email],
-    );
+    const record = await this.prisma.vesselEmail.findUnique({
+      where: {
+        vesselId_email: {
+          vesselId: parseInt(vesselId),
+          email,
+        },
+      },
+    });
 
     if (!record) {
       throw new BadRequestException(
         'Adresse e-mail non trouvée pour ce navire',
       );
     }
-    if (record.is_verified) {
+    if (record.isVerified) {
       return { success: true, message: 'E-mail déjà vérifié' };
     }
-    if (record.otp_code !== code) {
+    if (record.otpCode !== code) {
       throw new BadRequestException('Code de vérification incorrect');
     }
-    if (record.otp_expires && new Date(record.otp_expires) < new Date()) {
+    if (record.otpExpires && new Date(record.otpExpires) < new Date()) {
       throw new BadRequestException('Code de vérification expiré');
     }
 
-    await this.vesselsService['db'].execute(
-      'UPDATE vessel_emails SET is_verified = 1, otp_code = NULL, otp_expires = NULL WHERE vessel_id = ? AND email = ?',
-      [parseInt(vesselId), email],
-    );
+    await this.prisma.vesselEmail.update({
+      where: {
+        vesselId_email: {
+          vesselId: parseInt(vesselId),
+          email,
+        },
+      },
+      data: {
+        isVerified: 1,
+        otpCode: null,
+        otpExpires: null,
+      },
+    });
 
     return { success: true };
   }
@@ -378,10 +445,14 @@ export class VesselsController {
     }
 
     const email = emailToDelete.toLowerCase().trim();
-    await this.vesselsService['db'].execute(
-      'DELETE FROM vessel_emails WHERE vessel_id = ? AND email = ?',
-      [parseInt(vesselId), email],
-    );
+    await this.prisma.vesselEmail.delete({
+      where: {
+        vesselId_email: {
+          vesselId: parseInt(vesselId),
+          email,
+        },
+      },
+    });
 
     await this.auditService.log({
       user_id: req.user.id,
@@ -418,4 +489,97 @@ export class VesselsController {
 
     return { success: true, ...result };
   }
+}
+
+export function parseImportedWindow(
+  rawWindow: string | null | undefined,
+): string {
+  if (!rawWindow) {
+    return '[]';
+  }
+  const clean = rawWindow.trim();
+  if (clean.startsWith('[')) {
+    return clean;
+  }
+
+  // Try to parse as single number
+  const singleNum = parseInt(clean, 10);
+  if (!isNaN(singleNum) && String(singleNum) === clean) {
+    return JSON.stringify([
+      {
+        type: 'AS window',
+        mode: 'predefined',
+        offsetMonths: singleNum,
+        startDate: '',
+        endDate: '',
+      },
+    ]);
+  }
+
+  // Parse structured semicolon-separated string
+  // E.g. "AS window: 03 Nov 2025 - 01 May 2026; Special renewal: 02 Nov 2028 - 01 Feb 2029"
+  try {
+    const parts = clean.split(';');
+    const results: any[] = [];
+
+    for (const part of parts) {
+      const trimmedPart = part.trim();
+      if (!trimmedPart) continue;
+
+      let type = 'AS window';
+      let dateRangeStr = trimmedPart;
+
+      if (trimmedPart.includes(':')) {
+        const colonIdx = trimmedPart.indexOf(':');
+        type = trimmedPart.substring(0, colonIdx).trim();
+        dateRangeStr = trimmedPart.substring(colonIdx + 1).trim();
+      }
+
+      if (dateRangeStr.includes('-')) {
+        const dateParts = dateRangeStr.split('-');
+        if (dateParts.length === 2) {
+          const start = new Date(dateParts[0].trim());
+          const end = new Date(dateParts[1].trim());
+
+          if (!isNaN(start.getTime()) && !isNaN(end.getTime())) {
+            results.push({
+              type,
+              mode: 'custom',
+              offsetMonths: 3,
+              startDate: start.toISOString().substring(0, 10),
+              endDate: end.toISOString().substring(0, 10),
+            });
+            continue;
+          }
+        }
+      }
+
+      // If we couldn't parse the dates properly, keep it as legacyText
+      results.push({
+        type,
+        mode: 'custom',
+        offsetMonths: 3,
+        startDate: '',
+        endDate: '',
+        legacyText: trimmedPart,
+      });
+    }
+
+    if (results.length > 0) {
+      return JSON.stringify(results);
+    }
+  } catch (err) {
+    console.error('[vessels.controller] parseImportedWindow error:', err);
+  }
+
+  return JSON.stringify([
+    {
+      type: 'AS window',
+      mode: 'custom',
+      offsetMonths: 3,
+      startDate: '',
+      endDate: '',
+      legacyText: clean,
+    },
+  ]);
 }

@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { DatabaseService } from '../database/database.service';
+import { PrismaService } from '../database/prisma.service';
 import { execFile } from 'child_process';
 import * as path from 'path';
 import * as fs from 'fs';
@@ -21,81 +21,152 @@ const PYTHON_TIMEOUT_MS = 30_000; // 30 secondes
  */
 @Injectable()
 export class VesselsService {
-  constructor(private readonly db: DatabaseService) {}
+  constructor(private readonly prisma: PrismaService) {}
+
+  private mapVesselToResponse(v: any) {
+    return {
+      id: v.id,
+      company_id: v.companyId,
+      name: v.name,
+      imo_number: v.imoNumber,
+      flag: v.flag,
+      asset_type: v.assetType,
+      owner: v.owner,
+      manager: v.manager,
+      gross_tonnage: v.grossTonnage,
+      deadweight_tonnage: v.deadweightTonnage,
+      port_of_registry: v.portOfRegistry,
+      call_sign: v.callSign,
+      year_built: v.yearBuilt,
+      class_society: v.classSociety,
+      status: v.status,
+    };
+  }
+
+  private mapCertificateToResponse(c: any) {
+    return {
+      id: c.id,
+      vessel_id: c.vesselId,
+      name: c.name,
+      category: c.category,
+      organization: c.organization,
+      issuing_date: c.issuingDate,
+      expiration_date: c.expirationDate,
+      due_date: c.dueDate,
+      window: c.window,
+      alarm_status: c.alarmStatus,
+      pdf_url: c.pdfUrl,
+      remarks: c.remarks,
+    };
+  }
+
+  private mapActionableItemToResponse(a: any) {
+    return {
+      id: a.id,
+      vessel_id: a.vesselId,
+      item_id: a.itemId,
+      imposed_date: a.imposedDate,
+      category: a.category,
+      report_number: a.reportNumber,
+      due_date: a.dueDate,
+      description: a.description,
+      status: a.status,
+    };
+  }
 
   async getAll(userId: number, role: string): Promise<any[]> {
+    let vessels: any[] = [];
     if (role === 'Admin') {
-      return this.db.query('SELECT * FROM vessels');
+      vessels = await this.prisma.vessel.findMany();
     } else if (role === 'Crew') {
-      const user = await this.db.queryOne('SELECT vessel_id FROM users WHERE id = ?', [userId]);
-      if (!user || !user.vessel_id) return [];
-      return this.db.query('SELECT * FROM vessels WHERE id = ?', [user.vessel_id]);
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+      });
+      if (!user || !user.vesselId) return [];
+      vessels = await this.prisma.vessel.findMany({
+        where: { id: user.vesselId },
+      });
     } else if (role === 'Partner') {
-      return this.db.query(
-        'SELECT * FROM vessels WHERE company_id = 1 OR manager = \'Verital Marine Services\'',
-      );
+      vessels = await this.prisma.vessel.findMany({
+        where: {
+          OR: [{ companyId: 1 }, { manager: 'Verital Marine Services' }],
+        },
+      });
     } else {
-      // Auditor — accès à tous les navires
-      return this.db.query('SELECT * FROM vessels');
+      // Auditor
+      vessels = await this.prisma.vessel.findMany();
     }
+    return vessels.map((v) => this.mapVesselToResponse(v));
   }
 
   async getById(id: number): Promise<any> {
-    const vessel = await this.db.queryOne('SELECT * FROM vessels WHERE id = ?', [id]);
+    const vessel = await this.prisma.vessel.findUnique({
+      where: { id },
+    });
     if (!vessel) throw new NotFoundException('Navire non trouvé');
-    return vessel;
+    return this.mapVesselToResponse(vessel);
   }
 
   async getByName(name: string): Promise<any> {
-    return this.db.queryOne('SELECT * FROM vessels WHERE name = ?', [name]);
+    const vessel = await this.prisma.vessel.findFirst({
+      where: { name },
+    });
+    return vessel ? this.mapVesselToResponse(vessel) : null;
   }
 
   async getByImo(imo: string): Promise<any> {
-    return this.db.queryOne('SELECT * FROM vessels WHERE imo_number = ?', [imo]);
+    const vessel = await this.prisma.vessel.findUnique({
+      where: { imoNumber: imo },
+    });
+    return vessel ? this.mapVesselToResponse(vessel) : null;
   }
 
   async insert(v: any): Promise<number> {
-    const row = await this.db.queryOne<{ id: number }>(`
-      INSERT INTO vessels (company_id, name, imo_number, flag, asset_type, owner, manager, gross_tonnage, deadweight_tonnage, port_of_registry, call_sign, status)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      RETURNING id
-    `, [
-      v.company_id ?? 2,
-      v.name ?? null,
-      v.imo_number ?? null,
-      v.flag ?? null,
-      v.asset_type ?? null,
-      v.owner ?? null,
-      v.manager ?? null,
-      v.gross_tonnage ?? 0,
-      v.deadweight_tonnage ?? 0,
-      v.port_of_registry ?? null,
-      v.call_sign ?? null,
-      v.status ?? 'Normal',
-    ]);
-    return row ? row.id : 0;
+    const vessel = await this.prisma.vessel.create({
+      data: {
+        companyId: v.company_id ?? 2,
+        name: v.name,
+        imoNumber: v.imo_number ?? null,
+        flag: v.flag ?? null,
+        assetType: v.asset_type ?? null,
+        owner: v.owner ?? null,
+        manager: v.manager ?? null,
+        grossTonnage: v.gross_tonnage ?? 0,
+        deadweightTonnage: v.deadweight_tonnage ?? 0,
+        portOfRegistry: v.port_of_registry ?? null,
+        callSign: v.call_sign ?? null,
+        status: v.status ?? 'Normal',
+      },
+    });
+    return vessel.id;
   }
 
   async updateStatus(id: number, status: string): Promise<void> {
-    await this.db.execute('UPDATE vessels SET status = ? WHERE id = ?', [status, id]);
+    await this.prisma.vessel.update({
+      where: { id },
+      data: { status },
+    });
   }
 
   async delete(id: number): Promise<void> {
-    await this.db.execute('DELETE FROM vessels WHERE id = ?', [id]);
+    await this.prisma.vessel.delete({
+      where: { id },
+    });
   }
 
   // ─── Exécution sécurisée du script Python ─────────────────────────────────
 
-  /**
-   * Vérifie qu'un chemin de fichier est bien dans le répertoire uploads autorisé.
-   * Protège contre les attaques path traversal (ex: ../../etc/passwd).
-   */
   private sanitizeUploadPath(filePath: string): string {
     const resolved = path.resolve(filePath);
     const uploadsResolved = path.resolve(UPLOADS_DIR);
+    const templateResolved = path.resolve(
+      process.cwd(),
+      'MT_TREND_Certificate_Survey_Tracker_Updated_01052026-2.xlsx',
+    );
     if (
       !resolved.startsWith(uploadsResolved + path.sep) &&
-      resolved !== uploadsResolved
+      resolved !== uploadsResolved &&
+      resolved !== templateResolved
     ) {
       throw new Error(
         `Sécurité: chemin de fichier invalide (hors du répertoire uploads): ${filePath}`,
@@ -104,27 +175,16 @@ export class VesselsService {
     return resolved;
   }
 
-  /**
-   * Exécute le script Python excel_handler.py de façon sécurisée.
-   *
-   * Sécurité: utilise execFile() (PAS exec()) → les arguments sont passés
-   * comme tableau, jamais interpolés dans un shell.
-   * Cela empêche toute injection de commande shell.
-   */
   runPythonScript(args: string[]): Promise<string> {
     return new Promise((resolve, reject) => {
-      // Détection automatique du binaire Python selon l'OS
       const pythonCmd = process.platform === 'win32' ? 'python' : 'python3';
-
       const scriptPath = path.resolve(
         process.cwd(),
         'helpers',
         'excel_handler.py',
       );
-
-      // Valider et sanitizer tous les chemins de fichiers dans les arguments
       const safeArgs = args.map((arg, index) => {
-        if (index === 0) return arg; // La commande (parse/format) est une constante
+        if (index === 0) return arg;
         if (path.isAbsolute(arg) && fs.existsSync(arg)) {
           return this.sanitizeUploadPath(arg);
         }
@@ -155,9 +215,22 @@ export class VesselsService {
   ): Promise<{ excelPath: string; jsonPath: string; fileName: string }> {
     const vessel = await this.getById(vesselId);
 
-    const certificates = await this.db.query('SELECT * FROM certificates WHERE vessel_id = ?', [vesselId]);
-    const actionableItems = await this.db.query('SELECT * FROM actionable_items WHERE vessel_id = ?', [vesselId]);
-    const emailRows = await this.db.query('SELECT email FROM vessel_emails WHERE vessel_id = ?', [vesselId]);
+    const rawCerts = await this.prisma.certificate.findMany({
+      where: { vesselId },
+    });
+    const certificates = rawCerts.map((c) => this.mapCertificateToResponse(c));
+
+    const rawActions = await this.prisma.actionableItem.findMany({
+      where: { vesselId },
+    });
+    const actionableItems = rawActions.map((a) =>
+      this.mapActionableItemToResponse(a),
+    );
+
+    const emailRows = await this.prisma.vesselEmail.findMany({
+      where: { vesselId },
+      select: { email: true },
+    });
     const emailsList = emailRows.map((r) => r.email);
 
     const formattedCertificates = certificates.map((cert) => {

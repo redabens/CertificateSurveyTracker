@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import * as nodemailer from 'nodemailer';
-import { DatabaseService } from '../database/database.service';
+import { PrismaService } from '../database/prisma.service';
 
 export interface MailOptions {
   to: string | string[];
@@ -54,7 +54,7 @@ export class EmailTransportService {
   private readonly fromAddress: string;
   private readonly isMock: boolean;
 
-  constructor(private readonly db: DatabaseService) {
+  constructor(private readonly prisma: PrismaService) {
     this.fromAddress =
       process.env.SMTP_FROM || '"Portail CNAN NORD" <alerts@cnan-nord.com>';
     this.initTransporter();
@@ -139,17 +139,15 @@ export class EmailTransportService {
 
     if (logMeta) {
       try {
-        await this.db.execute(
-          `INSERT INTO email_logs (vessel_name, certificate_name, alarm_level, sent_to, sent_at)
-           VALUES (?, ?, ?, ?, ?)`,
-          [
-            logMeta.vessel_name,
-            logMeta.certificate_name,
-            logMeta.alarm_level,
-            sentToDisplay,
-            new Date().toISOString().substring(0, 10),
-          ],
-        );
+        await this.prisma.emailLog.create({
+          data: {
+            vesselName: logMeta.vessel_name,
+            certificateName: logMeta.certificate_name,
+            alarmLevel: logMeta.alarm_level,
+            sentTo: sentToDisplay,
+            sentAt: new Date().toISOString().substring(0, 10),
+          },
+        });
       } catch (dbErr) {
         this.logger.error('[EmailTransport] Failed to write email_log:', dbErr);
       }

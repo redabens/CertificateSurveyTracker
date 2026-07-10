@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { DatabaseService } from '../database/database.service';
+import { PrismaService } from '../database/prisma.service';
 import { AlarmService, ALARM_LEVELS } from '../alarm/alarm.service';
 import { EmailTransportService } from './email-transport.service';
 import { EmailTemplateService } from './email-template.service';
@@ -19,11 +19,48 @@ export class EmailService {
   private readonly logger = new Logger(EmailService.name);
 
   constructor(
-    private readonly db: DatabaseService,
+    private readonly prisma: PrismaService,
     private readonly alarmService: AlarmService,
     private readonly transport: EmailTransportService,
     private readonly templates: EmailTemplateService,
   ) {}
+
+  private mapVesselToResponse(v: any) {
+    return {
+      id: v.id,
+      company_id: v.companyId,
+      name: v.name,
+      imo_number: v.imoNumber,
+      flag: v.flag,
+      asset_type: v.assetType,
+      owner: v.owner,
+      manager: v.manager,
+      gross_tonnage: v.grossTonnage,
+      deadweight_tonnage: v.deadweightTonnage,
+      port_of_registry: v.portOfRegistry,
+      call_sign: v.callSign,
+      year_built: v.yearBuilt,
+      class_society: v.classSociety,
+      status: v.status,
+    };
+  }
+
+  private mapCertificateToResponse(c: any) {
+    return {
+      id: c.id,
+      vessel_id: c.vesselId,
+      name: c.name,
+      category: c.category,
+      organization: c.organization,
+      issuing_date: c.issuingDate,
+      expiration_date: c.expirationDate,
+      due_date: c.dueDate,
+      window: c.window,
+      alarm_status: c.alarmStatus,
+      pdf_url: c.pdfUrl,
+      remarks: c.remarks,
+    };
+  }
 
   /** Envoie une alerte de changement d'état sur un certificat */
   async sendCertificateAlert(
@@ -77,31 +114,27 @@ export class EmailService {
    * Pour chaque certificat dont l'alarm_status a changé → met à jour la DB + envoie alerte.
    * Appelé par EmailScheduler via @Cron.
    */
-  /**
-   * Contrôle de conformité quotidien: vérifie tous les certificats de tous les navires.
-   * Pour chaque certificat dont l'alarm_status a changé → met à jour la DB + envoie alerte.
-   * Appelé par EmailScheduler via @Cron.
-   */
   async performCertificateStatusCheck(): Promise<{
     checked: number;
     alerts: number;
   }> {
     this.logger.log('Démarrage du contrôle de conformité des certificats...');
-    const vessels = await this.db.query('SELECT * FROM vessels');
+    const rawVessels = await this.prisma.vessel.findMany();
+    const vessels = rawVessels.map((v) => this.mapVesselToResponse(v));
     let totalChecked = 0;
     let totalAlertsSent = 0;
 
     for (const vessel of vessels) {
-      const emailRows = await this.db.query(
-        'SELECT email FROM vessel_emails WHERE vessel_id = ? AND is_verified = 1',
-        [vessel.id],
-      );
+      const emailRows = await this.prisma.vesselEmail.findMany({
+        where: { vesselId: vessel.id, isVerified: 1 },
+        select: { email: true },
+      });
       const emails = emailRows.map((r) => r.email);
 
-      const certs = await this.db.query(
-        'SELECT * FROM certificates WHERE vessel_id = ?',
-        [vessel.id],
-      );
+      const rawCerts = await this.prisma.certificate.findMany({
+        where: { vesselId: vessel.id },
+      });
+      const certs = rawCerts.map((c) => this.mapCertificateToResponse(c));
 
       for (const cert of certs) {
         const prevAlarm = cert.alarm_status;
@@ -113,10 +146,10 @@ export class EmailService {
         totalChecked++;
 
         if (this.alarmService.hasChanged(prevAlarm, newAlarm)) {
-          await this.db.execute(
-            'UPDATE certificates SET alarm_status = ? WHERE id = ?',
-            [newAlarm, cert.id],
-          );
+          await this.prisma.certificate.update({
+            where: { id: cert.id },
+            data: { alarmStatus: newAlarm },
+          });
 
           await this.sendCertificateAlert(
             vessel,
@@ -161,23 +194,24 @@ export class EmailService {
         statusFilter || 'ALL'
       }`,
     );
-    const vessels = await this.db.query('SELECT * FROM vessels');
+    const rawVessels = await this.prisma.vessel.findMany();
+    const vessels = rawVessels.map((v) => this.mapVesselToResponse(v));
     let totalChecked = 0;
     let totalAlertsSent = 0;
 
     for (const vessel of vessels) {
-      const emailRows = await this.db.query(
-        'SELECT email FROM vessel_emails WHERE vessel_id = ? AND is_verified = 1',
-        [vessel.id],
-      );
+      const emailRows = await this.prisma.vesselEmail.findMany({
+        where: { vesselId: vessel.id, isVerified: 1 },
+        select: { email: true },
+      });
       const emails = emailRows.map((r) => r.email);
 
       if (emails.length === 0) continue;
 
-      const certs = await this.db.query(
-        'SELECT * FROM certificates WHERE vessel_id = ?',
-        [vessel.id],
-      );
+      const rawCerts = await this.prisma.certificate.findMany({
+        where: { vesselId: vessel.id },
+      });
+      const certs = rawCerts.map((c) => this.mapCertificateToResponse(c));
 
       for (const cert of certs) {
         const alarm = this.alarmService.calculate(
@@ -221,25 +255,28 @@ export class EmailService {
         statusFilter || 'ALL'
       }`,
     );
-    const vessel = await this.db.queryOne('SELECT * FROM vessels WHERE id = ?', [vesselId]);
-    if (!vessel) {
+    const rawVessel = await this.prisma.vessel.findUnique({
+      where: { id: vesselId },
+    });
+    if (!rawVessel) {
       throw new Error('Navire introuvable');
     }
+    const vessel = this.mapVesselToResponse(rawVessel);
 
-    const emailRows = await this.db.query(
-      'SELECT email FROM vessel_emails WHERE vessel_id = ? AND is_verified = 1',
-      [vesselId],
-    );
+    const emailRows = await this.prisma.vesselEmail.findMany({
+      where: { vesselId, isVerified: 1 },
+      select: { email: true },
+    });
     const emails = emailRows.map((r) => r.email);
 
     if (emails.length === 0) {
       return { alerts: 0 };
     }
 
-    const certs = await this.db.query(
-      'SELECT * FROM certificates WHERE vessel_id = ?',
-      [vesselId],
-    );
+    const rawCerts = await this.prisma.certificate.findMany({
+      where: { vesselId },
+    });
+    const certs = rawCerts.map((c) => this.mapCertificateToResponse(c));
 
     let totalAlertsSent = 0;
     for (const cert of certs) {

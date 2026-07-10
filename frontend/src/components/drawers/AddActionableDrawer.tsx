@@ -4,6 +4,7 @@ import React from 'react';
 import { CloseIcon } from '../Icons';
 
 export interface ActionableFormState {
+  id?: string;
   imposed_date: string;
   category: string;
   report_number: string;
@@ -39,12 +40,12 @@ export function AddActionableDrawer({
       <div className="drawer-backdrop" onClick={onClose} />
       <div className="drawer">
         <div className="drawer-header">
-          <h2>{t('btn_add_rec')}</h2>
+          <h2>{actionableForm.id ? "Modifier la Recommandation" : t('btn_add_rec')}</h2>
           <span className="close-btn icon-svg" onClick={onClose}>
             <CloseIcon size={18} />
           </span>
         </div>
-        <form onSubmit={onSubmit} className="flex-column" style={{ height: '100%' }}>
+        <form onSubmit={onSubmit} className="flex-column" style={{ flexGrow: 1, minHeight: 0, overflow: 'hidden' }}>
           <div className="drawer-body">
             <div className="form-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
               <div className="form-group">

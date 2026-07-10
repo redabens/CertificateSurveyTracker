@@ -4,6 +4,7 @@ import { AlarmService } from '../alarm/alarm.service';
 import { EmailTransportService } from './email-transport.service';
 import { EmailTemplateService } from './email-template.service';
 import { DatabaseService } from '../database/database.service';
+import { PrismaService } from '../database/prisma.service';
 
 describe('EmailService', () => {
   let service: EmailService;
@@ -16,6 +17,7 @@ describe('EmailService', () => {
       providers: [
         EmailService,
         DatabaseService,
+        PrismaService,
         AlarmService,
         {
           provide: EmailTransportService,
@@ -56,7 +58,7 @@ describe('EmailService', () => {
 
     service = module.get<EmailService>(EmailService);
     dbService = module.get<DatabaseService>(DatabaseService);
-    await dbService.onModuleInit();
+    await dbService.seedData();
   });
 
   afterEach(() => {

@@ -145,7 +145,10 @@ export class CertificatesController {
       }
     }
 
-    await this.certsService.update(parseInt(id), { ...body, alarm_status: alarm });
+    await this.certsService.update(parseInt(id), {
+      ...body,
+      alarm_status: alarm,
+    });
 
     await this.auditService.log({
       user_id: req.user.id,

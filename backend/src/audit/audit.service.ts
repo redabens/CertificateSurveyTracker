@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { DatabaseService } from '../database/database.service';
+import { PrismaService } from '../database/prisma.service';
 
 /**
  * Types d'actions critiques auditables dans le système.
@@ -13,6 +13,8 @@ export type AuditAction =
   | 'DELETE_CERTIFICATE'
   | 'UPLOAD_PDF'
   | 'CREATE_ACTIONABLE'
+  | 'UPDATE_ACTIONABLE'
+  | 'DELETE_ACTIONABLE'
   | 'UPDATE_ACTIONABLE_STATUS'
   | 'CREATE_USER'
   | 'DELETE_USER'
@@ -53,7 +55,7 @@ export interface AuditLogEntry {
  */
 @Injectable()
 export class AuditService {
-  constructor(private readonly db: DatabaseService) {}
+  constructor(private readonly prisma: PrismaService) {}
 
   /**
    * Enregistre une entrée d'audit en base de données.
@@ -61,21 +63,18 @@ export class AuditService {
    */
   async log(entry: AuditLogEntry): Promise<void> {
     try {
-      await this.db.execute(
-        `INSERT INTO audit_logs 
-          (user_id, user_email, action, target_type, target_id, target_name, changes, timestamp)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-          entry.user_id,
-          entry.user_email,
-          entry.action,
-          entry.target_type,
-          entry.target_id ?? null,
-          entry.target_name ?? null,
-          entry.changes ? JSON.stringify(entry.changes) : null,
-          new Date().toISOString(),
-        ],
-      );
+      await this.prisma.auditLog.create({
+        data: {
+          userId: entry.user_id,
+          userEmail: entry.user_email,
+          action: entry.action,
+          targetType: entry.target_type,
+          targetId: entry.target_id ?? null,
+          targetName: entry.target_name ?? null,
+          changes: entry.changes ? JSON.stringify(entry.changes) : null,
+          timestamp: new Date().toISOString(),
+        },
+      });
     } catch (err) {
       // Ne jamais bloquer l'opération principale à cause d'un échec d'audit
       console.error('[AuditService] Failed to write audit log:', err);
@@ -87,6 +86,20 @@ export class AuditService {
    * @param limit Nombre maximum d'entrées à retourner (défaut: 200)
    */
   async getAll(limit = 200): Promise<any[]> {
-    return this.db.query('SELECT * FROM audit_logs ORDER BY id DESC LIMIT ?', [limit]);
+    const logs = await this.prisma.auditLog.findMany({
+      orderBy: { id: 'desc' },
+      take: limit,
+    });
+    return logs.map((log) => ({
+      id: log.id,
+      user_id: log.userId,
+      user_email: log.userEmail,
+      action: log.action,
+      target_type: log.targetType,
+      target_id: log.targetId,
+      target_name: log.targetName,
+      changes: log.changes ? JSON.parse(log.changes) : null,
+      timestamp: log.timestamp,
+    }));
   }
 }

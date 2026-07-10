@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { VesselsService } from './vessels.service';
 import { DatabaseService } from '../database/database.service';
+import { PrismaService } from '../database/prisma.service';
 
 describe('VesselsService', () => {
   let service: VesselsService;
@@ -10,12 +11,12 @@ describe('VesselsService', () => {
     process.env.NODE_ENV = 'test';
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [VesselsService, DatabaseService],
+      providers: [VesselsService, DatabaseService, PrismaService],
     }).compile();
 
     service = module.get<VesselsService>(VesselsService);
     dbService = module.get<DatabaseService>(DatabaseService);
-    await dbService.onModuleInit();
+    await dbService.seedData();
   });
 
   afterEach(() => {

@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Put,
+  Delete,
   Param,
   Body,
   UseGuards,
@@ -92,6 +93,49 @@ export class ActionableController {
       target_type: 'actionable_item',
       target_id: parseInt(id),
       changes: { status: { from: 'previous', to: body.status } },
+    });
+
+    return { success: true };
+  }
+
+  @Put('actionable-items/:id')
+  @Roles('Admin')
+  async update(@Req() req: any, @Param('id') id: string, @Body() body: any) {
+    if (!body.description) {
+      throw new BadRequestException('La description est requise');
+    }
+
+    await this.actionableService.update(parseInt(id), {
+      imposed_date: body.imposed_date,
+      category: body.category,
+      report_number: body.report_number,
+      due_date: body.due_date,
+      description: body.description,
+    });
+
+    await this.auditService.log({
+      user_id: req.user.id,
+      user_email: req.user.email,
+      action: 'UPDATE_ACTIONABLE',
+      target_type: 'actionable_item',
+      target_id: parseInt(id),
+      target_name: body.description?.substring(0, 80),
+    });
+
+    return { success: true };
+  }
+
+  @Delete('actionable-items/:id')
+  @Roles('Admin')
+  async delete(@Req() req: any, @Param('id') id: string) {
+    await this.actionableService.delete(parseInt(id));
+
+    await this.auditService.log({
+      user_id: req.user.id,
+      user_email: req.user.email,
+      action: 'DELETE_ACTIONABLE',
+      target_type: 'actionable_item',
+      target_id: parseInt(id),
     });
 
     return { success: true };

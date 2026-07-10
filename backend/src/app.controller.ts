@@ -1,13 +1,13 @@
 import { Controller, Get, Post, Query, UseGuards } from '@nestjs/common';
 import { EmailService } from './email/email.service';
 import { JwtAuthGuard } from './auth/jwt-auth.guard';
-import { DatabaseService } from './database/database.service';
+import { PrismaService } from './database/prisma.service';
 
 @Controller()
 export class AppController {
   constructor(
     private readonly emailService: EmailService,
-    private readonly db: DatabaseService,
+    private readonly prisma: PrismaService,
   ) {}
 
   @Post('trigger-notifications')
@@ -19,6 +19,16 @@ export class AppController {
   @Get('email-logs')
   @UseGuards(JwtAuthGuard)
   async getEmailLogs() {
-    return this.db.query('SELECT * FROM email_logs ORDER BY id DESC');
+    const logs = await this.prisma.emailLog.findMany({
+      orderBy: { id: 'desc' },
+    });
+    return logs.map((log) => ({
+      id: log.id,
+      vessel_name: log.vesselName,
+      certificate_name: log.certificateName,
+      alarm_level: log.alarmLevel,
+      sent_to: log.sentTo,
+      sent_at: log.sentAt,
+    }));
   }
 }

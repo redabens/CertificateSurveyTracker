@@ -1,5 +1,5 @@
 import { ForbiddenException, Injectable } from '@nestjs/common';
-import { DatabaseService } from '../database/database.service';
+import { PrismaService } from '../database/prisma.service';
 
 /**
  * CertificatesService — Accès aux données des certificats.
@@ -15,61 +15,85 @@ import { DatabaseService } from '../database/database.service';
  */
 @Injectable()
 export class CertificatesService {
-  constructor(private readonly db: DatabaseService) {}
+  constructor(private readonly prisma: PrismaService) {}
+
+  private mapCertificateToResponse(c: any) {
+    return {
+      id: c.id,
+      vessel_id: c.vesselId,
+      name: c.name,
+      category: c.category,
+      organization: c.organization,
+      issuing_date: c.issuingDate,
+      expiration_date: c.expirationDate,
+      due_date: c.dueDate,
+      window: c.window,
+      alarm_status: c.alarmStatus,
+      pdf_url: c.pdfUrl,
+      remarks: c.remarks,
+    };
+  }
 
   async getByVessel(vesselId: number): Promise<any[]> {
-    return this.db.query('SELECT * FROM certificates WHERE vessel_id = ?', [vesselId]);
+    const certs = await this.prisma.certificate.findMany({
+      where: { vesselId },
+    });
+    return certs.map((c) => this.mapCertificateToResponse(c));
   }
 
   async getById(id: number): Promise<any> {
-    return this.db.queryOne('SELECT * FROM certificates WHERE id = ?', [id]);
+    const cert = await this.prisma.certificate.findUnique({
+      where: { id },
+    });
+    return cert ? this.mapCertificateToResponse(cert) : null;
   }
 
   async insert(c: any): Promise<number> {
-    const row = await this.db.queryOne<{ id: number }>(`
-      INSERT INTO certificates (vessel_id, name, category, organization, issuing_date, expiration_date, due_date, window, alarm_status, remarks)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      RETURNING id
-    `, [
-      c.vessel_id ?? null,
-      c.name ?? null,
-      c.category ?? null,
-      c.organization ?? null,
-      c.issuing_date ?? null,
-      c.expiration_date ?? null,
-      c.due_date ?? null,
-      c.window ?? null,
-      c.alarm_status ?? 'N/A',
-      c.remarks ?? null,
-    ]);
-    return row ? row.id : 0;
+    const cert = await this.prisma.certificate.create({
+      data: {
+        vesselId: c.vessel_id,
+        name: c.name,
+        category: c.category,
+        organization: c.organization ?? null,
+        issuingDate: c.issuing_date ?? null,
+        expirationDate: c.expiration_date ?? null,
+        dueDate: c.due_date ?? null,
+        window: c.window ?? null,
+        alarmStatus: c.alarm_status ?? 'N/A',
+        remarks: c.remarks ?? null,
+      },
+    });
+    return cert.id;
   }
 
   async update(id: number, c: any): Promise<void> {
-    await this.db.execute(
-      `UPDATE certificates
-       SET organization = ?, issuing_date = ?, expiration_date = ?, due_date = ?,
-           window = ?, alarm_status = ?, remarks = ?
-       WHERE id = ?`,
-      [
-        c.organization ?? null,
-        c.issuing_date ?? null,
-        c.expiration_date ?? null,
-        c.due_date ?? null,
-        c.window ?? null,
-        c.alarm_status ?? 'N/A',
-        c.remarks ?? null,
-        id,
-      ],
-    );
+    await this.prisma.certificate.update({
+      where: { id },
+      data: {
+        organization: c.organization ?? null,
+        issuingDate: c.issuing_date ?? null,
+        expirationDate: c.expiration_date ?? null,
+        dueDate: c.due_date ?? null,
+        window: c.window ?? null,
+        alarmStatus: c.alarm_status ?? 'N/A',
+        remarks: c.remarks ?? null,
+      },
+    });
   }
 
   async updatePdfUrl(id: number, pdfUrl: string): Promise<void> {
-    await this.db.execute('UPDATE certificates SET pdf_url = ? WHERE id = ?', [pdfUrl, id]);
+    await this.prisma.certificate.update({
+      where: { id },
+      data: {
+        pdfUrl,
+      },
+    });
   }
 
   async delete(id: number): Promise<void> {
-    await this.db.execute('DELETE FROM certificates WHERE id = ?', [id]);
+    await this.prisma.certificate.delete({
+      where: { id },
+    });
   }
 
   /**

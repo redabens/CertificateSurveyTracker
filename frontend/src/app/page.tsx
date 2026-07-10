@@ -27,7 +27,8 @@ import {
   AlertIcon,
   WarningIcon,
   CheckIcon,
-  TrashIcon
+  TrashIcon,
+  EditIcon
 } from '../components/Icons';
 
 export default function Dashboard() {
@@ -105,6 +106,8 @@ export default function Dashboard() {
     handleEditCertSubmit,
     handleDeleteCert,
     handleActionableSubmit,
+    handleEditActionableOpen,
+    handleDeleteActionable,
     toggleActionableStatus,
     handleEmailSettingsOpen,
     handleAddEmailSubmit,
@@ -419,11 +422,12 @@ export default function Dashboard() {
                                       <th>{t('rec_col_due')}</th>
                                       <th>{t('rec_col_desc')}</th>
                                       <th>{t('rec_col_status')}</th>
+                                      {user.role === 'Admin' && <th>Actions</th>}
                                     </tr>
                                   </thead>
                                   <tbody>
                                     {actionableItems.length === 0 ? (
-                                      <tr><td colSpan={7} className="placeholder-text">{t('no_recommendations')}</td></tr>
+                                      <tr><td colSpan={user.role === 'Admin' ? 8 : 7} className="placeholder-text">{t('no_recommendations')}</td></tr>
                                     ) : (
                                       actionableItems.map(a => {
                                         const isCompleted = a.status === 'Completed';
@@ -448,6 +452,28 @@ export default function Dashboard() {
                                                 </span>
                                               )}
                                             </td>
+                                            {user.role === 'Admin' && (
+                                              <td>
+                                                <div style={{ display: 'flex', gap: '8px' }}>
+                                                  <button 
+                                                    className="btn btn-sm btn-outline"
+                                                    onClick={() => handleEditActionableOpen(a)}
+                                                    style={{ padding: '6px 8px', height: 'auto', minWidth: 'auto', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+                                                    title="Modifier"
+                                                  >
+                                                    <EditIcon size={14} />
+                                                  </button>
+                                                  <button 
+                                                    className="btn btn-sm btn-outline"
+                                                    onClick={() => handleDeleteActionable(a.id)}
+                                                    style={{ padding: '6px 8px', height: 'auto', minWidth: 'auto', color: '#ff4d4f', borderColor: 'rgba(255, 77, 79, 0.2)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+                                                    title="Supprimer"
+                                                  >
+                                                    <TrashIcon size={14} />
+                                                  </button>
+                                                </div>
+                                              </td>
+                                            )}
                                           </tr>
                                         );
                                       })

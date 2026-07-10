@@ -1,31 +1,65 @@
 import { Injectable } from '@nestjs/common';
-import { DatabaseService } from '../database/database.service';
+import { PrismaService } from '../database/prisma.service';
 
 @Injectable()
 export class ActionableService {
-  constructor(private readonly db: DatabaseService) {}
+  constructor(private readonly prisma: PrismaService) {}
 
   async getByVessel(vesselId: number): Promise<any[]> {
-    return this.db.query('SELECT * FROM actionable_items WHERE vessel_id = ?', [vesselId]);
+    const items = await this.prisma.actionableItem.findMany({
+      where: { vesselId },
+    });
+    return items.map((a) => ({
+      id: a.id,
+      vessel_id: a.vesselId,
+      item_id: a.itemId,
+      imposed_date: a.imposedDate,
+      category: a.category,
+      report_number: a.reportNumber,
+      due_date: a.dueDate,
+      description: a.description,
+      status: a.status,
+    }));
   }
 
   async insert(a: any): Promise<number> {
-    const row = await this.db.queryOne<{ id: number }>(`
-      INSERT INTO actionable_items (vessel_id, imposed_date, category, report_number, due_date, description)
-      VALUES (?, ?, ?, ?, ?, ?)
-      RETURNING id
-    `, [
-      a.vessel_id ?? null,
-      a.imposed_date ?? null,
-      a.category ?? null,
-      a.report_number ?? null,
-      a.due_date ?? null,
-      a.description ?? null,
-    ]);
-    return row ? row.id : 0;
+    const item = await this.prisma.actionableItem.create({
+      data: {
+        vesselId: a.vessel_id,
+        imposedDate: a.imposed_date ?? null,
+        category: a.category ?? null,
+        reportNumber: a.report_number ?? null,
+        dueDate: a.due_date ?? null,
+        description: a.description,
+        status: a.status ?? 'Pending',
+      },
+    });
+    return item.id;
   }
 
   async updateStatus(id: number, status: string): Promise<void> {
-    await this.db.execute('UPDATE actionable_items SET status = ? WHERE id = ?', [status, id]);
+    await this.prisma.actionableItem.update({
+      where: { id },
+      data: { status },
+    });
+  }
+
+  async update(id: number, a: any): Promise<void> {
+    await this.prisma.actionableItem.update({
+      where: { id },
+      data: {
+        imposedDate: a.imposed_date ?? null,
+        category: a.category ?? null,
+        reportNumber: a.report_number ?? null,
+        dueDate: a.due_date ?? null,
+        description: a.description,
+      },
+    });
+  }
+
+  async delete(id: number): Promise<void> {
+    await this.prisma.actionableItem.delete({
+      where: { id },
+    });
   }
 }

@@ -6,6 +6,7 @@ import { AuditService } from '../audit/audit.service';
 import { JwtService } from '@nestjs/jwt';
 import { BadRequestException } from '@nestjs/common';
 import { EmailService } from '../email/email.service';
+import { PrismaService } from '../database/prisma.service';
 
 describe('VesselsController', () => {
   let controller: VesselsController;
@@ -24,15 +25,21 @@ describe('VesselsController', () => {
             getByName: jest.fn(),
             getById: jest.fn().mockReturnValue({ id: 1, name: 'Vessel 1' }),
             updateStatus: jest.fn(),
-            db: {
-              prepare: jest.fn().mockReturnValue({
-                all: jest.fn().mockReturnValue([]),
-                get: jest.fn().mockReturnValue({ email1: '' }),
-                run: jest.fn(),
-              }),
-              query: jest.fn().mockResolvedValue([]),
-              queryOne: jest.fn().mockResolvedValue({ email: '' }),
-              execute: jest.fn().mockResolvedValue(undefined),
+          },
+        },
+        {
+          provide: PrismaService,
+          useValue: {
+            certificate: {
+              findMany: jest.fn().mockResolvedValue([]),
+              update: jest.fn(),
+            },
+            vesselEmail: {
+              upsert: jest.fn(),
+              findMany: jest.fn().mockResolvedValue([]),
+              findUnique: jest.fn().mockResolvedValue({ email: '' }),
+              update: jest.fn(),
+              delete: jest.fn(),
             },
           },
         },

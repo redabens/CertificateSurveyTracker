@@ -45,7 +45,7 @@ export function AddVesselDrawer({
             <CloseIcon size={18} />
           </span>
         </div>
-        <form onSubmit={onSubmit} className="flex-column" style={{ height: '100%' }}>
+        <form onSubmit={onSubmit} className="flex-column" style={{ flexGrow: 1, minHeight: 0, overflow: 'hidden' }}>
           <div className="drawer-body">
             <div className="form-grid" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <div className="form-group">

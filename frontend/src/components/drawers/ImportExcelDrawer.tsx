@@ -34,7 +34,7 @@ export function ImportExcelDrawer({
             <CloseIcon size={18} />
           </span>
         </div>
-        <form onSubmit={onSubmit} className="flex-column" style={{ height: '100%' }}>
+        <form onSubmit={onSubmit} className="flex-column" style={{ flexGrow: 1, minHeight: 0, overflow: 'hidden' }}>
           <div className="drawer-body">
             <div className="form-group">
                <label>{t('label_select_excel')}</label>

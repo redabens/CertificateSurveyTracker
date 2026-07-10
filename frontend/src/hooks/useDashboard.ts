@@ -51,6 +51,7 @@ export interface CertFormState {
 }
 
 export interface ActionableFormState {
+  id?: string;
   imposed_date: string;
   category: string;
   report_number: string;
@@ -783,14 +784,26 @@ export function useDashboard(chartRef: RefObject<HTMLCanvasElement | null>) {
     if (isSubmitting) return;
     setIsSubmitting(true);
     try {
-      const res = await apiFetch(`/vessels/${selectedVesselId}/actionable-items`, {
-        method: 'POST',
-        body: JSON.stringify(actionableForm)
+      const isEdit = !!actionableForm.id;
+      const url = isEdit 
+        ? `/actionable-items/${actionableForm.id}`
+        : `/vessels/${selectedVesselId}/actionable-items`;
+      const method = isEdit ? 'PUT' : 'POST';
+
+      const res = await apiFetch(url, {
+        method,
+        body: JSON.stringify({
+          imposed_date: actionableForm.imposed_date,
+          category: actionableForm.category,
+          report_number: actionableForm.report_number,
+          due_date: actionableForm.due_date,
+          description: actionableForm.description,
+        })
       });
       if (res.ok) {
-        showToast(t('toast_recommendation_added'), 'success');
+        showToast(isEdit ? 'Recommandation mise à jour avec succès' : t('toast_recommendation_added'), 'success');
         setShowAddActionableModal(false);
-        setActionableForm({ imposed_date: '', category: '', report_number: '', due_date: '', description: '' });
+        setActionableForm({ id: undefined, imposed_date: '', category: '', report_number: '', due_date: '', description: '' });
         if (selectedVesselId) void loadVesselDetails(selectedVesselId);
       }
     } catch (err) {
@@ -800,6 +813,36 @@ export function useDashboard(chartRef: RefObject<HTMLCanvasElement | null>) {
       showToast(t('toast_add_error').replace('{error}', errMsg), 'error');
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleEditActionableOpen = (item: any) => {
+    setActionableForm({
+      id: String(item.id),
+      imposed_date: item.imposed_date || '',
+      category: item.category || '',
+      report_number: item.report_number || '',
+      due_date: item.due_date || '',
+      description: item.description || '',
+    });
+    setShowAddActionableModal(true);
+  };
+
+  const handleDeleteActionable = async (id: number) => {
+    if (!window.confirm('Voulez-vous vraiment supprimer cette recommandation ?')) return;
+    try {
+      const res = await apiFetch(`/actionable-items/${id}`, {
+        method: 'DELETE',
+      });
+      if (res.ok) {
+        showToast('Recommandation supprimée avec succès', 'success');
+        if (selectedVesselId) void loadVesselDetails(selectedVesselId);
+      }
+    } catch (err) {
+      if (err instanceof Error && err.message === 'Unauthorized') return;
+      console.error(err);
+      const errMsg = err instanceof Error ? err.message : String(err);
+      showToast(t('toast_delete_error').replace('{error}', errMsg), 'error');
     }
   };
 
@@ -1185,6 +1228,8 @@ export function useDashboard(chartRef: RefObject<HTMLCanvasElement | null>) {
     handleEditCertSubmit,
     handleDeleteCert,
     handleActionableSubmit,
+    handleEditActionableOpen,
+    handleDeleteActionable,
     toggleActionableStatus,
     handleEmailSettingsOpen,
     handleAddEmailSubmit,

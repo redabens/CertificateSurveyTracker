@@ -305,10 +305,9 @@ def cmd_format(template_path, output_path, data_json_path):
     sheet['F5'] = vessel.get('port_of_registry', '')
     sheet['H5'] = vessel.get('call_sign', '')
 
-    # Write emails in row 6 (cells B6, C6, D6)
-    for idx, email in enumerate(emails[:3]):
-        col = ['B', 'C', 'D'][idx]
-        sheet[f'{col}6'] = email
+    # Write emails in row 6 (write to the top-left of the merged A6:G6 range)
+    if emails:
+        sheet['A6'] = f"Reminder Emails: {', '.join(emails)}"
 
     # Style fills and fonts
     red_fill = PatternFill(start_color="FFC7CE", end_color="FFC7CE", fill_type="solid")

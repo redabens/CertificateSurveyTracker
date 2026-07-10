@@ -1,0 +1,129 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Company {
+  id      Int      @id @default(autoincrement())
+  name    String
+  role    String
+  users   User[]
+  vessels Vessel[]
+
+  @@map("companies")
+}
+
+model Vessel {
+  id                 Int              @id @default(autoincrement())
+  companyId          Int?             @map("company_id")
+  name               String
+  imoNumber          String?          @unique @map("imo_number")
+  flag               String?
+  assetType          String?          @map("asset_type")
+  owner              String?
+  manager            String?
+  grossTonnage       Int?             @map("gross_tonnage")
+  deadweightTonnage  Int?             @map("deadweight_tonnage")
+  portOfRegistry     String?          @map("port_of_registry")
+  callSign           String?          @map("call_sign")
+  yearBuilt          Int?             @map("year_built")
+  classSociety       String?          @map("class_society")
+  status             String           @default("Normal")
+  company            Company?         @relation(fields: [companyId], references: [id])
+  certificates       Certificate[]
+  actionableItems    ActionableItem[]
+  vesselEmails       VesselEmail[]
+  users              User[]
+
+  @@map("vessels")
+}
+
+model Certificate {
+  id             Int      @id @default(autoincrement())
+  vesselId       Int      @map("vessel_id")
+  name           String
+  category       String
+  organization   String?
+  issuingDate    String?  @map("issuing_date")
+  expirationDate String?  @map("expiration_date")
+  dueDate        String?  @map("due_date")
+  window         String?
+  alarmStatus    String   @default("N/A") @map("alarm_status")
+  pdfUrl         String?  @map("pdf_url")
+  remarks        String?
+  vessel         Vessel   @relation(fields: [vesselId], references: [id], onDelete: Cascade)
+
+  @@map("certificates")
+}
+
+model ActionableItem {
+  id           Int      @id @default(autoincrement())
+  vesselId     Int      @map("vessel_id")
+  itemId       String?  @map("item_id")
+  imposedDate  String?  @map("imposed_date")
+  category     String?
+  reportNumber String?  @map("report_number")
+  dueDate      String?  @map("due_date")
+  description  String
+  status       String   @default("Pending")
+  vessel       Vessel   @relation(fields: [vesselId], references: [id], onDelete: Cascade)
+
+  @@map("actionable_items")
+}
+
+model AuditLog {
+  id         Int     @id @default(autoincrement())
+  userId     Int     @map("user_id")
+  userEmail  String  @map("user_email")
+  action     String
+  targetType String  @map("target_type")
+  targetId   Int?    @map("target_id")
+  targetName String? @map("target_name")
+  changes    String?
+  timestamp  String
+
+  @@map("audit_logs")
+}
+
+model EmailLog {
+  id              Int    @id @default(autoincrement())
+  vesselName      String @map("vessel_name")
+  certificateName String @map("certificate_name")
+  alarmLevel      String @map("alarm_level")
+  sentTo          String @map("sent_to")
+  sentAt          String @map("sent_at")
+
+  @@map("email_logs")
+}
+
+model User {
+  id                  Int      @id @default(autoincrement())
+  email               String   @unique
+  password            String
+  fullName            String   @map("full_name")
+  role                String
+  companyId           Int?     @map("company_id")
+  vesselId            Int?     @map("vessel_id")
+  mustChangePassword Int      @default(1) @map("must_change_password")
+  company             Company? @relation(fields: [companyId], references: [id])
+  vessel              Vessel?  @relation(fields: [vesselId], references: [id])
+
+  @@map("users")
+}
+
+model VesselEmail {
+  id         Int     @id @default(autoincrement())
+  vesselId   Int     @map("vessel_id")
+  email      String
+  isVerified Int     @default(0) @map("is_verified")
+  otpCode    String? @map("otp_code")
+  otpExpires String? @map("otp_expires")
+  vessel     Vessel  @relation(fields: [vesselId], references: [id], onDelete: Cascade)
+
+  @@unique([vesselId, email])
+  @@map("vessel_emails")
+}

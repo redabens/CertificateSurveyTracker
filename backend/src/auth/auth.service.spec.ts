@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { AuthService } from './auth.service';
 import { DatabaseService } from '../database/database.service';
+import { PrismaService } from '../database/prisma.service';
 import { JwtService } from '@nestjs/jwt';
 import { UnauthorizedException } from '@nestjs/common';
 import { EmailService } from '../email/email.service';
@@ -16,6 +17,7 @@ describe('AuthService', () => {
       providers: [
         AuthService,
         DatabaseService,
+        PrismaService,
         {
           provide: JwtService,
           useValue: {
@@ -34,7 +36,7 @@ describe('AuthService', () => {
 
     service = module.get<AuthService>(AuthService);
     dbService = module.get<DatabaseService>(DatabaseService);
-    await dbService.onModuleInit(); // initialize seed data in-memory
+    await dbService.seedData(); // initialize seed data in test database
   });
 
   afterEach(() => {

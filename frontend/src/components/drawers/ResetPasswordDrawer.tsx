@@ -36,7 +36,7 @@ export function ResetPasswordDrawer({
             <CloseIcon size={18} />
           </span>
         </div>
-        <form onSubmit={onSubmit} className="flex-column" style={{ height: '100%' }}>
+        <form onSubmit={onSubmit} className="flex-column" style={{ flexGrow: 1, minHeight: 0, overflow: 'hidden' }}>
           <div className="drawer-body">
             <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginBottom: 16 }}>
               {t('desc_reset_password').replace('{name}', userName)}

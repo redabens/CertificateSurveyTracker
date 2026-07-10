@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { CloseIcon, TrashIcon } from '../Icons';
+import { CloseIcon, TrashIcon, WarningIcon } from '../Icons';
 
 export interface CertFormState {
   id: string;
@@ -189,7 +189,7 @@ export function EditCertificateDrawer({
             <CloseIcon size={18} />
           </span>
         </div>
-        <form onSubmit={onSubmit} className="flex-column" style={{ height: '100%' }}>
+        <form onSubmit={onSubmit} className="flex-column" style={{ flexGrow: 1, minHeight: 0, overflow: 'hidden' }}>
           <div className="drawer-body">
             {/* Name */}
             <div className="form-group" style={{ marginBottom: '16px' }}>
@@ -272,7 +272,6 @@ export function EditCertificateDrawer({
                     style={{ padding: '6px 12px', fontSize: '12px', height: 'auto', display: 'flex', alignItems: 'center', gap: '6px' }}
                     onClick={handleAutoFill}
                   >
-                    <span>🪄</span>
                     <span>{t('btn_auto_fill_dates')}</span>
                   </button>
                 </div>
@@ -435,8 +434,8 @@ export function EditCertificateDrawer({
                     )}
 
                     {w.legacyText && (
-                      <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '6px', fontStyle: 'italic' }}>
-                        ⚠️ {t('label_raw_imported_data')} "{w.legacyText}"
+                      <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '6px', fontStyle: 'italic', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <WarningIcon size={12} style={{ color: 'var(--alarm-yellow)' }} /> {t('label_raw_imported_data')} "{w.legacyText}"
                       </div>
                     )}
                   </div>
