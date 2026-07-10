@@ -139,18 +139,17 @@ export class EmailTransportService {
 
     if (logMeta) {
       try {
-        this.db
-          .prepare(
-            `INSERT INTO email_logs (vessel_name, certificate_name, alarm_level, sent_to, sent_at)
-             VALUES (?, ?, ?, ?, ?)`,
-          )
-          .run(
+        await this.db.execute(
+          `INSERT INTO email_logs (vessel_name, certificate_name, alarm_level, sent_to, sent_at)
+           VALUES (?, ?, ?, ?, ?)`,
+          [
             logMeta.vessel_name,
             logMeta.certificate_name,
             logMeta.alarm_level,
             sentToDisplay,
             new Date().toISOString().substring(0, 10),
-          );
+          ],
+        );
       } catch (dbErr) {
         this.logger.error('[EmailTransport] Failed to write email_log:', dbErr);
       }

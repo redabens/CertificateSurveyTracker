@@ -59,15 +59,13 @@ export class AuditService {
    * Enregistre une entrée d'audit en base de données.
    * Non-bloquant: les erreurs sont silencieuses pour ne pas perturber le flux principal.
    */
-  log(entry: AuditLogEntry): void {
+  async log(entry: AuditLogEntry): Promise<void> {
     try {
-      this.db
-        .prepare(
-          `INSERT INTO audit_logs
-            (user_id, user_email, action, target_type, target_id, target_name, changes, timestamp)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        )
-        .run(
+      await this.db.execute(
+        `INSERT INTO audit_logs 
+          (user_id, user_email, action, target_type, target_id, target_name, changes, timestamp)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
           entry.user_id,
           entry.user_email,
           entry.action,
@@ -76,7 +74,8 @@ export class AuditService {
           entry.target_name ?? null,
           entry.changes ? JSON.stringify(entry.changes) : null,
           new Date().toISOString(),
-        );
+        ],
+      );
     } catch (err) {
       // Ne jamais bloquer l'opération principale à cause d'un échec d'audit
       console.error('[AuditService] Failed to write audit log:', err);
@@ -87,9 +86,7 @@ export class AuditService {
    * Récupère les dernières entrées d'audit (tri décroissant).
    * @param limit Nombre maximum d'entrées à retourner (défaut: 200)
    */
-  getAll(limit = 200): any[] {
-    return this.db
-      .prepare('SELECT * FROM audit_logs ORDER BY id DESC LIMIT ?')
-      .all(limit) as any[];
+  async getAll(limit = 200): Promise<any[]> {
+    return this.db.query('SELECT * FROM audit_logs ORDER BY id DESC LIMIT ?', [limit]);
   }
 }

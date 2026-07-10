@@ -14,7 +14,7 @@ describe('DatabaseService', () => {
 
     service = module.get<DatabaseService>(DatabaseService);
     // Explicitly call lifecycle hook for testing
-    service.onModuleInit();
+    await service.onModuleInit();
   });
 
   afterEach(() => {
@@ -25,32 +25,28 @@ describe('DatabaseService', () => {
     expect(service).toBeDefined();
   });
 
-  it('should initialize SQLite tables and seed data', () => {
+  it('should initialize SQLite tables and seed data', async () => {
     // Check seeded companies
-    const companies = service.prepare('SELECT * FROM companies').all() as any[];
+    const companies = await service.query('SELECT * FROM companies');
     expect(companies.length).toBeGreaterThanOrEqual(3);
     expect(companies[0].name).toBe('CNAN NORD');
 
     // Check seeded vessels
-    const vessels = service.prepare('SELECT * FROM vessels').all() as any[];
+    const vessels = await service.query('SELECT * FROM vessels');
     expect(vessels.length).toBeGreaterThanOrEqual(1);
     expect(vessels[0].name).toBe('BABOR ALGERIEN');
 
     // Check seeded users
-    const users = service.prepare('SELECT * FROM users').all() as any[];
+    const users = await service.query('SELECT * FROM users');
     expect(users.length).toBeGreaterThanOrEqual(4);
     expect(users.find((u) => u.email === 'admin@babor.com')).toBeDefined();
   });
 
-  it('should allow executing queries via exec and prepare wrappers', () => {
-    service.exec('CREATE TABLE test_table (id INTEGER, val TEXT)');
-    service
-      .prepare('INSERT INTO test_table (id, val) VALUES (?, ?)')
-      .run(10, 'hello');
+  it('should allow executing queries via exec and prepare wrappers', async () => {
+    await service.execute('CREATE TABLE test_table (id INTEGER, val TEXT)');
+    await service.execute('INSERT INTO test_table (id, val) VALUES (?, ?)', [10, 'hello']);
 
-    const result = service
-      .prepare('SELECT * FROM test_table WHERE id = ?')
-      .get(10) as any;
+    const result = await service.queryOne('SELECT * FROM test_table WHERE id = ?', [10]);
     expect(result).toBeDefined();
     expect(result.val).toBe('hello');
   });

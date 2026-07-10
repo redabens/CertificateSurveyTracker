@@ -19,6 +19,6 @@ export class AppController {
   @Get('email-logs')
   @UseGuards(JwtAuthGuard)
   async getEmailLogs() {
-    return this.db.prepare('SELECT * FROM email_logs ORDER BY id DESC').all();
+    return this.db.query('SELECT * FROM email_logs ORDER BY id DESC');
   }
 }

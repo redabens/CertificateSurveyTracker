@@ -8,5 +8,5 @@ export declare class AppController {
         checked: number;
         alerts: number;
     }>;
-    getEmailLogs(): Promise<Record<string, import("node:sqlite").SQLOutputValue>[]>;
+    getEmailLogs(): Promise<any[]>;
 }

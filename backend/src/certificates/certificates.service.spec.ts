@@ -15,7 +15,7 @@ describe('CertificatesService', () => {
 
     service = module.get<CertificatesService>(CertificatesService);
     dbService = module.get<DatabaseService>(DatabaseService);
-    dbService.onModuleInit();
+    await dbService.onModuleInit();
   });
 
   afterEach(() => {
@@ -26,9 +26,9 @@ describe('CertificatesService', () => {
     expect(service).toBeDefined();
   });
 
-  it('should insert and fetch certificates for a vessel', () => {
+  it('should insert and fetch certificates for a vessel', async () => {
     // Vessel ID 1 is seeded by default
-    const certId = service.insert({
+    const certId = await service.insert({
       vessel_id: 1,
       name: 'Test Class Certificate',
       category: 'Class',
@@ -43,21 +43,21 @@ describe('CertificatesService', () => {
 
     expect(certId).toBeDefined();
 
-    const certs = service.getByVessel(1);
+    const certs = await service.getByVessel(1);
     expect(certs.length).toBeGreaterThanOrEqual(1);
 
-    const cert = service.getById(certId);
+    const cert = await service.getById(certId);
     expect(cert.name).toBe('Test Class Certificate');
   });
 
-  it('should update certificate details and PDF URL', () => {
-    const certId = service.insert({
+  it('should update certificate details and PDF URL', async () => {
+    const certId = await service.insert({
       vessel_id: 1,
       name: 'Initial Cert',
       category: 'Flag',
     });
 
-    service.update(certId, {
+    await service.update(certId, {
       organization: 'Verital',
       issuing_date: '2026-02-02',
       expiration_date: '2028-02-02',
@@ -67,26 +67,26 @@ describe('CertificatesService', () => {
       remarks: 'Updated',
     });
 
-    const updated = service.getById(certId);
+    const updated = await service.getById(certId);
     expect(updated.organization).toBe('Verital');
     expect(updated.alarm_status).toBe('YELLOW');
 
-    service.updatePdfUrl(certId, '/uploads/pdf/test.pdf');
-    const withPdf = service.getById(certId);
+    await service.updatePdfUrl(certId, '/uploads/pdf/test.pdf');
+    const withPdf = await service.getById(certId);
     expect(withPdf.pdf_url).toBe('/uploads/pdf/test.pdf');
   });
 
-  it('should delete a certificate', () => {
-    const certId = service.insert({
+  it('should delete a certificate', async () => {
+    const certId = await service.insert({
       vessel_id: 1,
       name: 'To Delete',
       category: 'Servicing',
     });
 
-    expect(service.getById(certId)).toBeDefined();
+    expect(await service.getById(certId)).toBeDefined();
 
-    service.delete(certId);
+    await service.delete(certId);
 
-    expect(service.getById(certId)).toBeUndefined();
+    expect(await service.getById(certId)).toBeNull();
   });
 });

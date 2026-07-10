@@ -50,7 +50,7 @@ export class CertificatesController {
   @Get('vessels/:vesselId/certificates')
   @UseGuards(CrewVesselGuard)
   async getByVessel(@Req() req: any, @Param('vesselId') vesselId: string) {
-    const certs = this.certsService.getByVessel(parseInt(vesselId));
+    const certs = await this.certsService.getByVessel(parseInt(vesselId));
     return certs.map((c) => ({
       ...c,
       alarm_status: this.alarmService.calculate(
@@ -85,7 +85,7 @@ export class CertificatesController {
       body.expiration_date,
       body.window,
     );
-    const certId = this.certsService.insert({
+    const certId = await this.certsService.insert({
       vessel_id: parseInt(vesselId),
       name: body.name,
       category: body.category,
@@ -98,7 +98,7 @@ export class CertificatesController {
       remarks: body.remarks,
     });
 
-    this.auditService.log({
+    await this.auditService.log({
       user_id: req.user.id,
       user_email: req.user.email,
       action: 'CREATE_CERTIFICATE',
@@ -113,7 +113,7 @@ export class CertificatesController {
   @Put('certificates/:id')
   @Roles('Admin', 'Crew')
   async update(@Req() req: any, @Param('id') id: string, @Body() body: any) {
-    const prevCert = this.certsService.getById(parseInt(id));
+    const prevCert = await this.certsService.getById(parseInt(id));
     if (!prevCert) {
       throw new NotFoundException('Certificat non trouvé');
     }
@@ -145,9 +145,9 @@ export class CertificatesController {
       }
     }
 
-    this.certsService.update(parseInt(id), { ...body, alarm_status: alarm });
+    await this.certsService.update(parseInt(id), { ...body, alarm_status: alarm });
 
-    this.auditService.log({
+    await this.auditService.log({
       user_id: req.user.id,
       user_email: req.user.email,
       action: 'UPDATE_CERTIFICATE',
@@ -163,10 +163,10 @@ export class CertificatesController {
   @Delete('certificates/:id')
   @Roles('Admin')
   async delete(@Req() req: any, @Param('id') id: string) {
-    const cert = this.certsService.getById(parseInt(id));
-    this.certsService.delete(parseInt(id));
+    const cert = await this.certsService.getById(parseInt(id));
+    await this.certsService.delete(parseInt(id));
 
-    this.auditService.log({
+    await this.auditService.log({
       user_id: req.user.id,
       user_email: req.user.email,
       action: 'DELETE_CERTIFICATE',
@@ -213,7 +213,7 @@ export class CertificatesController {
     @Param('id') id: string,
     @UploadedFile() file: any,
   ) {
-    const cert = this.certsService.getById(parseInt(id));
+    const cert = await this.certsService.getById(parseInt(id));
     if (!cert) {
       if (file && fs.existsSync(file.path)) fs.unlinkSync(file.path);
       throw new NotFoundException('Certificat non trouvé');
@@ -236,9 +236,9 @@ export class CertificatesController {
     }
 
     const relativePath = `/uploads/pdf/${file.filename}`;
-    this.certsService.updatePdfUrl(parseInt(id), relativePath);
+    await this.certsService.updatePdfUrl(parseInt(id), relativePath);
 
-    this.auditService.log({
+    await this.auditService.log({
       user_id: req.user.id,
       user_email: req.user.email,
       action: 'UPLOAD_PDF',

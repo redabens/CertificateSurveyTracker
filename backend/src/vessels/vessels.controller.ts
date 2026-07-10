@@ -47,30 +47,34 @@ export class VesselsController {
 
   @Get()
   async getAll(@Req() req: any) {
-    const vessels = this.vesselsService.getAll(req.user.id, req.user.role);
+    const vessels = await this.vesselsService.getAll(req.user.id, req.user.role);
 
-    return vessels.map((v) => {
-      const certs = this.vesselsService['db']
-        .prepare('SELECT * FROM certificates WHERE vessel_id = ?')
-        .all(v.id) as any[];
+    const results: any[] = [];
+    for (const v of vessels) {
+      const certs = await this.vesselsService['db'].query(
+        'SELECT * FROM certificates WHERE vessel_id = ?',
+        [v.id],
+      );
 
       // Synchronisation P1: recalcul et mise à jour DB si alarm_status diverge
-      const alarmLevels = certs.map((c) => {
+      const alarmLevels: any[] = [];
+      for (const c of certs) {
         const computed = this.alarmService.calculate(
           c.due_date,
           c.expiration_date,
           c.window,
         );
         if (this.alarmService.hasChanged(c.alarm_status, computed)) {
-          this.vesselsService['db']
-            .prepare('UPDATE certificates SET alarm_status = ? WHERE id = ?')
-            .run(computed, c.id);
+          await this.vesselsService['db'].execute(
+            'UPDATE certificates SET alarm_status = ? WHERE id = ?',
+            [computed, c.id],
+          );
         }
-        return computed;
-      });
+        alarmLevels.push(computed);
+      }
 
       const overall = this.alarmService.computeVesselStatus(alarmLevels);
-      this.vesselsService.updateStatus(v.id, overall);
+      await this.vesselsService.updateStatus(v.id, overall);
 
       const overdue = alarmLevels.filter((a) => a.includes('OVERDUE')).length;
       const red = alarmLevels.filter((a) => a.includes('RED')).length;
@@ -78,12 +82,13 @@ export class VesselsController {
       const green = alarmLevels.filter((a) => a.includes('GREEN')).length;
       const normal = alarmLevels.filter((a) => a.includes('MONITOR')).length;
 
-      return {
+      results.push({
         ...v,
         status: overall,
         counts: { overdue, red, yellow, green, normal, total: certs.length },
-      };
-    });
+      });
+    }
+    return results;
   }
 
   @Post('manual')
@@ -92,14 +97,13 @@ export class VesselsController {
     if (!body.name) {
       throw new BadRequestException('Le nom du navire est requis');
     }
-    const id = this.vesselsService.insert(body);
-    this.vesselsService['db']
-      .prepare(
-        'INSERT OR IGNORE INTO vessel_emails (vessel_id, email, is_verified) VALUES (?, ?, 1)',
-      )
-      .run(id, req.user.email);
+    const id = await this.vesselsService.insert(body);
+    await this.vesselsService['db'].execute(
+      'INSERT OR IGNORE INTO vessel_emails (vessel_id, email, is_verified) VALUES (?, ?, 1)',
+      [id, req.user.email],
+    );
 
-    this.auditService.log({
+    await this.auditService.log({
       user_id: req.user.id,
       user_email: req.user.email,
       action: 'CREATE_VESSEL',
@@ -114,10 +118,10 @@ export class VesselsController {
   @Delete(':id')
   @Roles('Admin')
   async delete(@Req() req: any, @Param('id') id: string) {
-    const vessel = this.vesselsService.getById(parseInt(id));
-    this.vesselsService.delete(parseInt(id));
+    const vessel = await this.vesselsService.getById(parseInt(id));
+    await this.vesselsService.delete(parseInt(id));
 
-    this.auditService.log({
+    await this.auditService.log({
       user_id: req.user.id,
       user_email: req.user.email,
       action: 'DELETE_VESSEL',
@@ -157,7 +161,7 @@ export class VesselsController {
       const certs = parsed.certificates;
       const actionable = parsed.actionable_items;
 
-      const existing = this.vesselsService.getByName(vInfo.name);
+      const existing = await this.vesselsService.getByName(vInfo.name);
       if (existing) {
         fs.unlinkSync(file.path);
         throw new BadRequestException(
@@ -166,7 +170,7 @@ export class VesselsController {
       }
 
       if (vInfo.imo_number) {
-        const existingImo = this.vesselsService.getByImo(
+        const existingImo = await this.vesselsService.getByImo(
           String(vInfo.imo_number),
         );
         if (existingImo) {
@@ -177,7 +181,7 @@ export class VesselsController {
         }
       }
 
-      const vesselId = this.vesselsService.insert({
+      const vesselId = await this.vesselsService.insert({
         company_id: 2,
         name: vInfo.name,
         imo_number: vInfo.imo_number,
@@ -192,23 +196,21 @@ export class VesselsController {
         status: vInfo.overall_status,
       });
 
-      this.vesselsService['db']
-        .prepare(
-          'INSERT OR IGNORE INTO vessel_emails (vessel_id, email, is_verified) VALUES (?, ?, 1)',
-        )
-        .run(vesselId, req.user.email);
+      await this.vesselsService['db'].execute(
+        'INSERT OR IGNORE INTO vessel_emails (vessel_id, email, is_verified) VALUES (?, ?, 1)',
+        [vesselId, req.user.email],
+      );
 
-      const insertCert = this.vesselsService['db'].prepare(`
-        INSERT INTO certificates (vessel_id, name, category, organization, issuing_date, expiration_date, due_date, window, alarm_status, remarks)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `);
       for (const c of certs) {
         const alarm = this.alarmService.calculate(
           c.due_date,
           c.expiration_date,
           c.window,
         );
-        insertCert.run(
+        await this.vesselsService['db'].execute(`
+          INSERT INTO certificates (vessel_id, name, category, organization, issuing_date, expiration_date, due_date, window, alarm_status, remarks)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `, [
           vesselId,
           c.name,
           c.category,
@@ -219,27 +221,26 @@ export class VesselsController {
           c.window,
           alarm,
           c.remarks,
-        );
+        ]);
       }
 
-      const insertAct = this.vesselsService['db'].prepare(`
-        INSERT INTO actionable_items (vessel_id, imposed_date, category, report_number, due_date, description)
-        VALUES (?, ?, ?, ?, ?, ?)
-      `);
       for (const a of actionable) {
-        insertAct.run(
+        await this.vesselsService['db'].execute(`
+          INSERT INTO actionable_items (vessel_id, imposed_date, category, report_number, due_date, description)
+          VALUES (?, ?, ?, ?, ?, ?)
+        `, [
           vesselId,
           a.imposed_date,
           a.category,
           a.report_number,
           a.due_date,
           a.description,
-        );
+        ]);
       }
 
       fs.unlinkSync(file.path);
 
-      this.auditService.log({
+      await this.auditService.log({
         user_id: req.user.id,
         user_email: req.user.email,
         action: 'IMPORT_VESSEL',
@@ -272,11 +273,10 @@ export class VesselsController {
 
   @Get(':id/emails')
   async getEmails(@Param('id') vesselId: string) {
-    return this.vesselsService['db']
-      .prepare(
-        'SELECT vessel_id, email, is_verified FROM vessel_emails WHERE vessel_id = ?',
-      )
-      .all(parseInt(vesselId)) as any[];
+    return this.vesselsService['db'].query(
+      'SELECT vessel_id, email, is_verified FROM vessel_emails WHERE vessel_id = ?',
+      [parseInt(vesselId)],
+    );
   }
 
   @Post(':id/emails')
@@ -294,16 +294,15 @@ export class VesselsController {
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const expires = new Date(Date.now() + 15 * 60 * 1000).toISOString();
 
-    this.vesselsService['db']
-      .prepare(
-        `INSERT OR REPLACE INTO vessel_emails (vessel_id, email, is_verified, otp_code, otp_expires)
-         VALUES (?, ?, 0, ?, ?)`,
-      )
-      .run(parseInt(vesselId), email, otp, expires);
+    await this.vesselsService['db'].execute(
+      `INSERT OR REPLACE INTO vessel_emails (vessel_id, email, is_verified, otp_code, otp_expires)
+       VALUES (?, ?, 0, ?, ?)`,
+      [parseInt(vesselId), email, otp, expires],
+    );
 
     await this.emailService.sendOtpEmail(email, otp);
 
-    this.auditService.log({
+    await this.auditService.log({
       user_id: req.user.id,
       user_email: req.user.email,
       action: 'ADD_VESSEL_EMAIL',
@@ -337,9 +336,10 @@ export class VesselsController {
     const email = body.email.toLowerCase().trim();
     const code = body.code.trim();
 
-    const record = this.vesselsService['db']
-      .prepare('SELECT * FROM vessel_emails WHERE vessel_id = ? AND email = ?')
-      .get(parseInt(vesselId), email) as any;
+    const record = await this.vesselsService['db'].queryOne(
+      'SELECT * FROM vessel_emails WHERE vessel_id = ? AND email = ?',
+      [parseInt(vesselId), email],
+    );
 
     if (!record) {
       throw new BadRequestException(
@@ -356,11 +356,10 @@ export class VesselsController {
       throw new BadRequestException('Code de vérification expiré');
     }
 
-    this.vesselsService['db']
-      .prepare(
-        'UPDATE vessel_emails SET is_verified = 1, otp_code = NULL, otp_expires = NULL WHERE vessel_id = ? AND email = ?',
-      )
-      .run(parseInt(vesselId), email);
+    await this.vesselsService['db'].execute(
+      'UPDATE vessel_emails SET is_verified = 1, otp_code = NULL, otp_expires = NULL WHERE vessel_id = ? AND email = ?',
+      [parseInt(vesselId), email],
+    );
 
     return { success: true };
   }
@@ -379,11 +378,12 @@ export class VesselsController {
     }
 
     const email = emailToDelete.toLowerCase().trim();
-    this.vesselsService['db']
-      .prepare('DELETE FROM vessel_emails WHERE vessel_id = ? AND email = ?')
-      .run(parseInt(vesselId), email);
+    await this.vesselsService['db'].execute(
+      'DELETE FROM vessel_emails WHERE vessel_id = ? AND email = ?',
+      [parseInt(vesselId), email],
+    );
 
-    this.auditService.log({
+    await this.auditService.log({
       user_id: req.user.id,
       user_email: req.user.email,
       action: 'REMOVE_VESSEL_EMAIL',
@@ -407,7 +407,7 @@ export class VesselsController {
       status,
     );
 
-    this.auditService.log({
+    await this.auditService.log({
       user_id: req.user.id,
       user_email: req.user.email,
       action: 'TRIGGER_MANUAL_NOTIFICATION',

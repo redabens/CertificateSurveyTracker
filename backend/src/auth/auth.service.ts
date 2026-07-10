@@ -17,9 +17,9 @@ export class AuthService {
   ) {}
 
   async login(email: string, pass: string) {
-    const user = this.dbService
-      .prepare('SELECT * FROM users WHERE email = ?')
-      .get(email.toLowerCase().trim()) as any;
+    const user = await this.dbService.queryOne('SELECT * FROM users WHERE email = ?', [
+      email.toLowerCase().trim(),
+    ]);
     if (!user) {
       throw new UnauthorizedException('Identifiants incorrects');
     }
@@ -51,11 +51,9 @@ export class AuthService {
   }
 
   async getUsers() {
-    return this.dbService
-      .prepare(
-        'SELECT id, email, full_name, role, company_id, vessel_id, must_change_password FROM users',
-      )
-      .all() as any[];
+    return this.dbService.query(
+      'SELECT id, email, full_name, role, company_id, vessel_id, must_change_password FROM users',
+    );
   }
 
   async createUser(
@@ -66,9 +64,9 @@ export class AuthService {
     vesselId: number | null,
   ) {
     const cleanEmail = email.toLowerCase().trim();
-    const existing = this.dbService
-      .prepare('SELECT * FROM users WHERE email = ?')
-      .get(cleanEmail);
+    const existing = await this.dbService.queryOne('SELECT * FROM users WHERE email = ?', [
+      cleanEmail,
+    ]);
     if (existing) {
       throw new BadRequestException(
         'Un utilisateur avec cet e-mail existe déjà',
@@ -80,14 +78,13 @@ export class AuthService {
     const salt = bcrypt.genSaltSync(10);
     const passHash = bcrypt.hashSync(otp, salt);
 
-    this.dbService
-      .prepare(
-        `
+    await this.dbService.execute(
+      `
       INSERT INTO users (email, password, full_name, role, company_id, vessel_id, must_change_password)
       VALUES (?, ?, ?, ?, ?, ?, 1)
     `,
-      )
-      .run(cleanEmail, passHash, fullName, role, companyId, vesselId);
+      [cleanEmail, passHash, fullName, role, companyId, vesselId],
+    );
 
     await this.emailService.sendUserInvitationEmail(cleanEmail, fullName, otp);
 
@@ -109,11 +106,10 @@ export class AuthService {
     const salt = bcrypt.genSaltSync(10);
     const passHash = bcrypt.hashSync(newPass, salt);
 
-    this.dbService
-      .prepare(
-        'UPDATE users SET password = ?, must_change_password = 0 WHERE id = ?',
-      )
-      .run(passHash, userId);
+    await this.dbService.execute(
+      'UPDATE users SET password = ?, must_change_password = 0 WHERE id = ?',
+      [passHash, userId],
+    );
 
     return { success: true };
   }
@@ -128,30 +124,26 @@ export class AuthService {
     const salt = bcrypt.genSaltSync(10);
     const passHash = bcrypt.hashSync(newPass, salt);
 
-    this.dbService
-      .prepare(
-        'UPDATE users SET password = ?, must_change_password = 1 WHERE id = ?',
-      )
-      .run(passHash, userId);
+    await this.dbService.execute(
+      'UPDATE users SET password = ?, must_change_password = 1 WHERE id = ?',
+      [passHash, userId],
+    );
 
     return { success: true };
   }
 
   async deleteUser(userId: number) {
-    const user = this.dbService
-      .prepare('SELECT * FROM users WHERE id = ?')
-      .get(userId) as any;
+    const user = await this.dbService.queryOne('SELECT * FROM users WHERE id = ?', [userId]);
 
     if (!user) {
       throw new BadRequestException('Utilisateur introuvable');
     }
 
     if (user.role === 'Admin') {
-      const adminCount = (
-        this.dbService
-          .prepare("SELECT COUNT(*) as cnt FROM users WHERE role = 'Admin'")
-          .get() as any
-      ).cnt;
+      const result = await this.dbService.queryOne(
+        "SELECT COUNT(*) as cnt FROM users WHERE role = 'Admin'",
+      );
+      const adminCount = result ? parseInt(result.cnt || '0') : 0;
       if (adminCount <= 1) {
         throw new BadRequestException(
           'Impossible de supprimer le dernier administrateur',
@@ -159,7 +151,7 @@ export class AuthService {
       }
     }
 
-    this.dbService.prepare('DELETE FROM users WHERE id = ?').run(userId);
+    await this.dbService.execute('DELETE FROM users WHERE id = ?', [userId]);
     return { success: true };
   }
 }

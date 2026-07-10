@@ -6,6 +6,22 @@ import { useLanguage } from '../context/LanguageContext';
 import { useRouter } from 'next/navigation';
 import { Chart } from 'chart.js/auto';
 
+const getApiBaseUrl = () => {
+  return process.env.NEXT_PUBLIC_API_URL || (typeof window !== 'undefined'
+    ? (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+      ? 'http://localhost:3000/api'
+      : `${window.location.origin}/api`)
+    : 'http://localhost:3000/api');
+};
+
+const getBackendBaseUrl = () => {
+  return process.env.NEXT_PUBLIC_BACKEND_URL || (typeof window !== 'undefined'
+    ? (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+      ? 'http://localhost:3000'
+      : window.location.origin)
+    : 'http://localhost:3000');
+};
+
 // ─── Shared Types ────────────────────────────────────────────────────────────
 
 export type ToastMsg = { id: number; text: string; type: 'success' | 'error' | 'info' };
@@ -719,7 +735,7 @@ export function useDashboard(chartRef: RefObject<HTMLCanvasElement | null>) {
         if (certPdfFile) {
           const formData = new FormData();
           formData.append('pdf', certPdfFile);
-          const uploadRes = await fetch(`http://localhost:3000/api/certificates/${certId}/upload`, {
+          const uploadRes = await fetch(`${getApiBaseUrl()}/certificates/${certId}/upload`, {
             method: 'POST',
             headers: { 'Authorization': `Bearer ${token}` },
             body: formData
@@ -1052,13 +1068,13 @@ export function useDashboard(chartRef: RefObject<HTMLCanvasElement | null>) {
 
   const handleExcelExport = () => {
     if (!selectedVesselId) return;
-    const url = `http://localhost:3000/api/vessels/${selectedVesselId}/export?token=${encodeURIComponent(token || '')}&lang=${lang}`;
+    const url = `${getApiBaseUrl()}/vessels/${selectedVesselId}/export?token=${encodeURIComponent(token || '')}&lang=${lang}`;
     window.open(url);
     showToast(t('toast_download_started'), 'success');
   };
 
   const openPdfViewer = (url: string, name: string) => {
-    setPdfViewerUrl(`http://localhost:3000${url}`);
+    setPdfViewerUrl(`${getBackendBaseUrl()}${url}`);
     setPdfViewerName(name);
     setShowPdfModal(true);
   };

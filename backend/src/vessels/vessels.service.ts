@@ -23,55 +23,43 @@ const PYTHON_TIMEOUT_MS = 30_000; // 30 secondes
 export class VesselsService {
   constructor(private readonly db: DatabaseService) {}
 
-  getAll(userId: number, role: string): any[] {
+  async getAll(userId: number, role: string): Promise<any[]> {
     if (role === 'Admin') {
-      return this.db.prepare('SELECT * FROM vessels').all() as any[];
+      return this.db.query('SELECT * FROM vessels');
     } else if (role === 'Crew') {
-      const user = this.db
-        .prepare('SELECT vessel_id FROM users WHERE id = ?')
-        .get(userId) as any;
+      const user = await this.db.queryOne('SELECT vessel_id FROM users WHERE id = ?', [userId]);
       if (!user || !user.vessel_id) return [];
-      return this.db
-        .prepare('SELECT * FROM vessels WHERE id = ?')
-        .all(user.vessel_id) as any[];
+      return this.db.query('SELECT * FROM vessels WHERE id = ?', [user.vessel_id]);
     } else if (role === 'Partner') {
-      return this.db
-        .prepare(
-          'SELECT * FROM vessels WHERE company_id = 1 OR manager = "Verital Marine Services"',
-        )
-        .all() as any[];
+      return this.db.query(
+        'SELECT * FROM vessels WHERE company_id = 1 OR manager = \'Verital Marine Services\'',
+      );
     } else {
       // Auditor — accès à tous les navires
-      return this.db.prepare('SELECT * FROM vessels').all() as any[];
+      return this.db.query('SELECT * FROM vessels');
     }
   }
 
-  getById(id: number) {
-    const vessel = this.db
-      .prepare('SELECT * FROM vessels WHERE id = ?')
-      .get(id) as any;
+  async getById(id: number): Promise<any> {
+    const vessel = await this.db.queryOne('SELECT * FROM vessels WHERE id = ?', [id]);
     if (!vessel) throw new NotFoundException('Navire non trouvé');
     return vessel;
   }
 
-  getByName(name: string) {
-    return this.db
-      .prepare('SELECT * FROM vessels WHERE name = ?')
-      .get(name) as any;
+  async getByName(name: string): Promise<any> {
+    return this.db.queryOne('SELECT * FROM vessels WHERE name = ?', [name]);
   }
 
-  getByImo(imo: string) {
-    return this.db
-      .prepare('SELECT * FROM vessels WHERE imo_number = ?')
-      .get(imo) as any;
+  async getByImo(imo: string): Promise<any> {
+    return this.db.queryOne('SELECT * FROM vessels WHERE imo_number = ?', [imo]);
   }
 
-  insert(v: any): number {
-    const stmt = this.db.prepare(`
+  async insert(v: any): Promise<number> {
+    const row = await this.db.queryOne<{ id: number }>(`
       INSERT INTO vessels (company_id, name, imo_number, flag, asset_type, owner, manager, gross_tonnage, deadweight_tonnage, port_of_registry, call_sign, status)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-    const info = stmt.run(
+      RETURNING id
+    `, [
       v.company_id ?? 2,
       v.name ?? null,
       v.imo_number ?? null,
@@ -84,18 +72,16 @@ export class VesselsService {
       v.port_of_registry ?? null,
       v.call_sign ?? null,
       v.status ?? 'Normal',
-    ) as any;
-    return info.lastInsertRowid;
+    ]);
+    return row ? row.id : 0;
   }
 
-  updateStatus(id: number, status: string) {
-    this.db
-      .prepare('UPDATE vessels SET status = ? WHERE id = ?')
-      .run(status, id);
+  async updateStatus(id: number, status: string): Promise<void> {
+    await this.db.execute('UPDATE vessels SET status = ? WHERE id = ?', [status, id]);
   }
 
-  delete(id: number) {
-    this.db.prepare('DELETE FROM vessels WHERE id = ?').run(id);
+  async delete(id: number): Promise<void> {
+    await this.db.execute('DELETE FROM vessels WHERE id = ?', [id]);
   }
 
   // ─── Exécution sécurisée du script Python ─────────────────────────────────
@@ -167,19 +153,12 @@ export class VesselsService {
     vesselId: number,
     lang: string,
   ): Promise<{ excelPath: string; jsonPath: string; fileName: string }> {
-    const vessel = this.getById(vesselId);
+    const vessel = await this.getById(vesselId);
 
-    const certificates = this.db
-      .prepare('SELECT * FROM certificates WHERE vessel_id = ?')
-      .all(vesselId) as any[];
-    const actionableItems = this.db
-      .prepare('SELECT * FROM actionable_items WHERE vessel_id = ?')
-      .all(vesselId) as any[];
-    const emailsList = (
-      this.db
-        .prepare('SELECT email FROM vessel_emails WHERE vessel_id = ?')
-        .all(vesselId) as any[]
-    ).map((r) => r.email);
+    const certificates = await this.db.query('SELECT * FROM certificates WHERE vessel_id = ?', [vesselId]);
+    const actionableItems = await this.db.query('SELECT * FROM actionable_items WHERE vessel_id = ?', [vesselId]);
+    const emailRows = await this.db.query('SELECT email FROM vessel_emails WHERE vessel_id = ?', [vesselId]);
+    const emailsList = emailRows.map((r) => r.email);
 
     const formattedCertificates = certificates.map((cert) => {
       let windowText = cert.window;

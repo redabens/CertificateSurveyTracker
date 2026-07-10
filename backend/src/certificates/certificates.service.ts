@@ -17,24 +17,20 @@ import { DatabaseService } from '../database/database.service';
 export class CertificatesService {
   constructor(private readonly db: DatabaseService) {}
 
-  getByVessel(vesselId: number): any[] {
-    return this.db
-      .prepare('SELECT * FROM certificates WHERE vessel_id = ?')
-      .all(vesselId) as any[];
+  async getByVessel(vesselId: number): Promise<any[]> {
+    return this.db.query('SELECT * FROM certificates WHERE vessel_id = ?', [vesselId]);
   }
 
-  getById(id: number) {
-    return this.db
-      .prepare('SELECT * FROM certificates WHERE id = ?')
-      .get(id) as any;
+  async getById(id: number): Promise<any> {
+    return this.db.queryOne('SELECT * FROM certificates WHERE id = ?', [id]);
   }
 
-  insert(c: any): number {
-    const stmt = this.db.prepare(`
+  async insert(c: any): Promise<number> {
+    const row = await this.db.queryOne<{ id: number }>(`
       INSERT INTO certificates (vessel_id, name, category, organization, issuing_date, expiration_date, due_date, window, alarm_status, remarks)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-    const info = stmt.run(
+      RETURNING id
+    `, [
       c.vessel_id ?? null,
       c.name ?? null,
       c.category ?? null,
@@ -45,19 +41,17 @@ export class CertificatesService {
       c.window ?? null,
       c.alarm_status ?? 'N/A',
       c.remarks ?? null,
-    ) as any;
-    return info.lastInsertRowid;
+    ]);
+    return row ? row.id : 0;
   }
 
-  update(id: number, c: any) {
-    this.db
-      .prepare(
-        `UPDATE certificates
-         SET organization = ?, issuing_date = ?, expiration_date = ?, due_date = ?,
-             window = ?, alarm_status = ?, remarks = ?
-         WHERE id = ?`,
-      )
-      .run(
+  async update(id: number, c: any): Promise<void> {
+    await this.db.execute(
+      `UPDATE certificates
+       SET organization = ?, issuing_date = ?, expiration_date = ?, due_date = ?,
+           window = ?, alarm_status = ?, remarks = ?
+       WHERE id = ?`,
+      [
         c.organization ?? null,
         c.issuing_date ?? null,
         c.expiration_date ?? null,
@@ -66,17 +60,16 @@ export class CertificatesService {
         c.alarm_status ?? 'N/A',
         c.remarks ?? null,
         id,
-      );
+      ],
+    );
   }
 
-  updatePdfUrl(id: number, pdfUrl: string) {
-    this.db
-      .prepare('UPDATE certificates SET pdf_url = ? WHERE id = ?')
-      .run(pdfUrl, id);
+  async updatePdfUrl(id: number, pdfUrl: string): Promise<void> {
+    await this.db.execute('UPDATE certificates SET pdf_url = ? WHERE id = ?', [pdfUrl, id]);
   }
 
-  delete(id: number) {
-    this.db.prepare('DELETE FROM certificates WHERE id = ?').run(id);
+  async delete(id: number): Promise<void> {
+    await this.db.execute('DELETE FROM certificates WHERE id = ?', [id]);
   }
 
   /**

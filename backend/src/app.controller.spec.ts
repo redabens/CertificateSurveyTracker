@@ -27,6 +27,7 @@ describe('AppController', () => {
             prepare: jest.fn().mockReturnValue({
               all: jest.fn().mockReturnValue([]),
             }),
+            query: jest.fn().mockResolvedValue([]),
           },
         },
         {
@@ -60,7 +61,7 @@ describe('AppController', () => {
   describe('getEmailLogs', () => {
     it('should query and return email logs', async () => {
       const result = await appController.getEmailLogs();
-      expect(databaseService.prepare).toHaveBeenCalledWith(
+      expect(databaseService.query).toHaveBeenCalledWith(
         'SELECT * FROM email_logs ORDER BY id DESC',
       );
       expect(result).toEqual([]);

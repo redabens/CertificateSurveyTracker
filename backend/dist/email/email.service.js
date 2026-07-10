@@ -50,24 +50,19 @@ let EmailService = EmailService_1 = class EmailService {
     }
     async performCertificateStatusCheck() {
         this.logger.log('Démarrage du contrôle de conformité des certificats...');
-        const vessels = this.db.prepare('SELECT * FROM vessels').all();
+        const vessels = await this.db.query('SELECT * FROM vessels');
         let totalChecked = 0;
         let totalAlertsSent = 0;
         for (const vessel of vessels) {
-            const emails = this.db
-                .prepare('SELECT email FROM vessel_emails WHERE vessel_id = ? AND is_verified = 1')
-                .all(vessel.id).map((r) => r.email);
-            const certs = this.db
-                .prepare('SELECT * FROM certificates WHERE vessel_id = ?')
-                .all(vessel.id);
+            const emailRows = await this.db.query('SELECT email FROM vessel_emails WHERE vessel_id = ? AND is_verified = 1', [vessel.id]);
+            const emails = emailRows.map((r) => r.email);
+            const certs = await this.db.query('SELECT * FROM certificates WHERE vessel_id = ?', [vessel.id]);
             for (const cert of certs) {
                 const prevAlarm = cert.alarm_status;
                 const newAlarm = this.alarmService.calculate(cert.due_date, cert.expiration_date, cert.window);
                 totalChecked++;
                 if (this.alarmService.hasChanged(prevAlarm, newAlarm)) {
-                    this.db
-                        .prepare('UPDATE certificates SET alarm_status = ? WHERE id = ?')
-                        .run(newAlarm, cert.id);
+                    await this.db.execute('UPDATE certificates SET alarm_status = ? WHERE id = ?', [newAlarm, cert.id]);
                     await this.sendCertificateAlert(vessel, emails, { ...cert, alarm_status: newAlarm }, prevAlarm);
                     totalAlertsSent++;
                 }
@@ -92,18 +87,15 @@ let EmailService = EmailService_1 = class EmailService {
     }
     async sendManualFleetNotifications(statusFilter) {
         this.logger.log(`Démarrage de l'envoi manuel d'alertes pour la flotte. Filtre: ${statusFilter || 'ALL'}`);
-        const vessels = this.db.prepare('SELECT * FROM vessels').all();
+        const vessels = await this.db.query('SELECT * FROM vessels');
         let totalChecked = 0;
         let totalAlertsSent = 0;
         for (const vessel of vessels) {
-            const emails = this.db
-                .prepare('SELECT email FROM vessel_emails WHERE vessel_id = ? AND is_verified = 1')
-                .all(vessel.id).map((r) => r.email);
+            const emailRows = await this.db.query('SELECT email FROM vessel_emails WHERE vessel_id = ? AND is_verified = 1', [vessel.id]);
+            const emails = emailRows.map((r) => r.email);
             if (emails.length === 0)
                 continue;
-            const certs = this.db
-                .prepare('SELECT * FROM certificates WHERE vessel_id = ?')
-                .all(vessel.id);
+            const certs = await this.db.query('SELECT * FROM certificates WHERE vessel_id = ?', [vessel.id]);
             for (const cert of certs) {
                 const alarm = this.alarmService.calculate(cert.due_date, cert.expiration_date, cert.window);
                 totalChecked++;
@@ -120,21 +112,16 @@ let EmailService = EmailService_1 = class EmailService {
     }
     async sendManualVesselNotifications(vesselId, statusFilter) {
         this.logger.log(`Envoi manuel d'alertes pour le navire ${vesselId}. Filtre: ${statusFilter || 'ALL'}`);
-        const vessel = this.db
-            .prepare('SELECT * FROM vessels WHERE id = ?')
-            .get(vesselId);
+        const vessel = await this.db.queryOne('SELECT * FROM vessels WHERE id = ?', [vesselId]);
         if (!vessel) {
             throw new Error('Navire introuvable');
         }
-        const emails = this.db
-            .prepare('SELECT email FROM vessel_emails WHERE vessel_id = ? AND is_verified = 1')
-            .all(vesselId).map((r) => r.email);
+        const emailRows = await this.db.query('SELECT email FROM vessel_emails WHERE vessel_id = ? AND is_verified = 1', [vesselId]);
+        const emails = emailRows.map((r) => r.email);
         if (emails.length === 0) {
             return { alerts: 0 };
         }
-        const certs = this.db
-            .prepare('SELECT * FROM certificates WHERE vessel_id = ?')
-            .all(vesselId);
+        const certs = await this.db.query('SELECT * FROM certificates WHERE vessel_id = ?', [vesselId]);
         let totalAlertsSent = 0;
         for (const cert of certs) {
             const alarm = this.alarmService.calculate(cert.due_date, cert.expiration_date, cert.window);

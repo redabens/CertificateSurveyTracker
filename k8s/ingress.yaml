@@ -1,0 +1,39 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: certificatsurvey-ingress
+  namespace: certificatsurvey
+  annotations:
+    kubernetes.io/ingress.class: traefik
+    # Optionnel: Redirection HTTP -> HTTPS si TLS est configuré
+    # ingress.kubernetes.io/ssl-redirect: "true"
+spec:
+  # tls:
+  #   - hosts:
+  #       - certificatsurvey.vexaaiplus.com
+  #     secretName: certificatsurvey-tls-cert
+  rules:
+    - host: certificatsurvey.vexaaiplus.com
+      http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: backend-service
+                port:
+                  number: 3000
+          - path: /uploads
+            pathType: Prefix
+            backend:
+              service:
+                name: backend-service
+                port:
+                  number: 3000
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend-service
+                port:
+                  number: 3001

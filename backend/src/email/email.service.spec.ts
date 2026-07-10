@@ -26,18 +26,17 @@ describe('EmailService', () => {
                   ? options.to.join(', ')
                   : options.to;
                 // Insérer dans email_logs comme le vrai transporteur
-                dbService
-                  .prepare(
-                    `INSERT INTO email_logs (vessel_name, certificate_name, alarm_level, sent_to, sent_at)
-                     VALUES (?, ?, ?, ?, ?)`,
-                  )
-                  .run(
+                await dbService.execute(
+                  `INSERT INTO email_logs (vessel_name, certificate_name, alarm_level, sent_to, sent_at)
+                   VALUES (?, ?, ?, ?, ?)`,
+                  [
                     logMeta.vessel_name,
                     logMeta.certificate_name,
                     logMeta.alarm_level,
                     toStr,
                     new Date().toISOString().substring(0, 10),
-                  );
+                  ],
+                );
               }
             }),
           },
@@ -57,7 +56,7 @@ describe('EmailService', () => {
 
     service = module.get<EmailService>(EmailService);
     dbService = module.get<DatabaseService>(DatabaseService);
-    dbService.onModuleInit();
+    await dbService.onModuleInit();
   });
 
   afterEach(() => {
@@ -71,28 +70,27 @@ describe('EmailService', () => {
   describe('performCertificateStatusCheck', () => {
     it('should run compliance updates and insert email logs when statuses change', async () => {
       // Clear existing certificates and add test certs
-      dbService.exec('DELETE FROM certificates');
+      await dbService.execute('DELETE FROM certificates');
 
       const futureDate = new Date();
       futureDate.setDate(futureDate.getDate() + 15); // RED status
       const futureDateStr = futureDate.toISOString().substring(0, 10);
 
       // Insert certificate with different previous status 'MONITOR'
-      dbService
-        .prepare(
-          `
+      await dbService.execute(
+        `
         INSERT INTO certificates (vessel_id, name, category, alarm_status, due_date)
         VALUES (1, 'Test Cert Alarm', 'Class', 'MONITOR >6 MONTHS', ?)
       `,
-        )
-        .run(futureDateStr);
+        [futureDateStr],
+      );
 
       const result = await service.performCertificateStatusCheck();
       expect(result.checked).toBe(1);
       expect(result.alerts).toBe(1); // status changed from MONITOR to RED, alert triggered
 
       // Verify email logs row is inserted
-      const logs = dbService.prepare('SELECT * FROM email_logs').all() as any[];
+      const logs = await dbService.query('SELECT * FROM email_logs');
       expect(logs.length).toBeGreaterThanOrEqual(1);
       expect(logs[0].certificate_name).toBe('Test Cert Alarm');
       expect(logs[0].alarm_level).toBe('RED - <1 MONTH');
@@ -101,22 +99,21 @@ describe('EmailService', () => {
 
   describe('sendManualFleetNotifications', () => {
     it('should send alerts for warning states regardless of previous state', async () => {
-      dbService.exec('DELETE FROM certificates');
-      dbService.exec('DELETE FROM email_logs');
+      await dbService.execute('DELETE FROM certificates');
+      await dbService.execute('DELETE FROM email_logs');
 
       const futureDate = new Date();
       futureDate.setDate(futureDate.getDate() + 15); // RED status
       const futureDateStr = futureDate.toISOString().substring(0, 10);
 
       // Insert certificate with RED state already saved in DB
-      dbService
-        .prepare(
-          `
+      await dbService.execute(
+        `
         INSERT INTO certificates (vessel_id, name, category, alarm_status, due_date)
         VALUES (1, 'Manual Cert', 'Class', 'RED - <1 MONTH', ?)
       `,
-        )
-        .run(futureDateStr);
+        [futureDateStr],
+      );
 
       // performCertificateStatusCheck would send 0 alerts because state did not change
       const autoResult = await service.performCertificateStatusCheck();
@@ -127,7 +124,7 @@ describe('EmailService', () => {
       expect(manualResult.alerts).toBe(1);
 
       // Verify email logs row is inserted
-      const logs = dbService.prepare('SELECT * FROM email_logs').all() as any[];
+      const logs = await dbService.query('SELECT * FROM email_logs');
       expect(logs.length).toBe(1);
     });
   });

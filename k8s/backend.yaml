@@ -1,0 +1,120 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: backend-uploads-pvc
+  namespace: certificatsurvey
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: certificatsurvey
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+        - name: backend
+          image: certificatsurvey-backend:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 3000
+          env:
+            - name: NODE_ENV
+              value: "production"
+            - name: PORT
+              value: "3000"
+            - name: DB_HOST
+              value: "postgres-service"
+            - name: DB_PORT
+              value: "5432"
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: POSTGRES_USER
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: POSTGRES_PASSWORD
+            - name: DB_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: POSTGRES_DB
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: JWT_SECRET
+            - name: EMAIL_PROVIDER
+              value: "brevo"
+            - name: SMTP_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: SMTP_HOST
+            - name: SMTP_PORT
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: SMTP_PORT
+            - name: SMTP_FROM
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: SMTP_FROM
+            - name: SMTP_USER
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: SMTP_USER
+            - name: SMTP_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: SMTP_PASS
+          volumeMounts:
+            - name: uploads-volume
+              mountPath: /app/uploads
+          readinessProbe:
+            httpGet:
+              path: /api
+              port: 3000
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /api
+              port: 3000
+            initialDelaySeconds: 20
+            periodSeconds: 15
+      volumes:
+        - name: uploads-volume
+          persistentVolumeClaim:
+            claimName: backend-uploads-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-service
+  namespace: certificatsurvey
+spec:
+  ports:
+    - port: 3000
+      targetPort: 3000
+  selector:
+    app: backend

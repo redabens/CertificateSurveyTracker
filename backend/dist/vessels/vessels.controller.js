@@ -69,43 +69,40 @@ let VesselsController = class VesselsController {
         this.auditService = auditService;
     }
     async getAll(req) {
-        const vessels = this.vesselsService.getAll(req.user.id, req.user.role);
-        return vessels.map((v) => {
-            const certs = this.vesselsService['db']
-                .prepare('SELECT * FROM certificates WHERE vessel_id = ?')
-                .all(v.id);
-            const alarmLevels = certs.map((c) => {
+        const vessels = await this.vesselsService.getAll(req.user.id, req.user.role);
+        const results = [];
+        for (const v of vessels) {
+            const certs = await this.vesselsService['db'].query('SELECT * FROM certificates WHERE vessel_id = ?', [v.id]);
+            const alarmLevels = [];
+            for (const c of certs) {
                 const computed = this.alarmService.calculate(c.due_date, c.expiration_date, c.window);
                 if (this.alarmService.hasChanged(c.alarm_status, computed)) {
-                    this.vesselsService['db']
-                        .prepare('UPDATE certificates SET alarm_status = ? WHERE id = ?')
-                        .run(computed, c.id);
+                    await this.vesselsService['db'].execute('UPDATE certificates SET alarm_status = ? WHERE id = ?', [computed, c.id]);
                 }
-                return computed;
-            });
+                alarmLevels.push(computed);
+            }
             const overall = this.alarmService.computeVesselStatus(alarmLevels);
-            this.vesselsService.updateStatus(v.id, overall);
+            await this.vesselsService.updateStatus(v.id, overall);
             const overdue = alarmLevels.filter((a) => a.includes('OVERDUE')).length;
             const red = alarmLevels.filter((a) => a.includes('RED')).length;
             const yellow = alarmLevels.filter((a) => a.includes('YELLOW')).length;
             const green = alarmLevels.filter((a) => a.includes('GREEN')).length;
             const normal = alarmLevels.filter((a) => a.includes('MONITOR')).length;
-            return {
+            results.push({
                 ...v,
                 status: overall,
                 counts: { overdue, red, yellow, green, normal, total: certs.length },
-            };
-        });
+            });
+        }
+        return results;
     }
     async createManual(req, body) {
         if (!body.name) {
             throw new common_1.BadRequestException('Le nom du navire est requis');
         }
-        const id = this.vesselsService.insert(body);
-        this.vesselsService['db']
-            .prepare('INSERT OR IGNORE INTO vessel_emails (vessel_id, email, is_verified) VALUES (?, ?, 1)')
-            .run(id, req.user.email);
-        this.auditService.log({
+        const id = await this.vesselsService.insert(body);
+        await this.vesselsService['db'].execute('INSERT OR IGNORE INTO vessel_emails (vessel_id, email, is_verified) VALUES (?, ?, 1)', [id, req.user.email]);
+        await this.auditService.log({
             user_id: req.user.id,
             user_email: req.user.email,
             action: 'CREATE_VESSEL',
@@ -116,9 +113,9 @@ let VesselsController = class VesselsController {
         return { id, name: body.name };
     }
     async delete(req, id) {
-        const vessel = this.vesselsService.getById(parseInt(id));
-        this.vesselsService.delete(parseInt(id));
-        this.auditService.log({
+        const vessel = await this.vesselsService.getById(parseInt(id));
+        await this.vesselsService.delete(parseInt(id));
+        await this.auditService.log({
             user_id: req.user.id,
             user_email: req.user.email,
             action: 'DELETE_VESSEL',
@@ -141,19 +138,19 @@ let VesselsController = class VesselsController {
             const vInfo = parsed.vessel;
             const certs = parsed.certificates;
             const actionable = parsed.actionable_items;
-            const existing = this.vesselsService.getByName(vInfo.name);
+            const existing = await this.vesselsService.getByName(vInfo.name);
             if (existing) {
                 fs.unlinkSync(file.path);
                 throw new common_1.BadRequestException(`Le navire "${vInfo.name}" existe déjà dans le système`);
             }
             if (vInfo.imo_number) {
-                const existingImo = this.vesselsService.getByImo(String(vInfo.imo_number));
+                const existingImo = await this.vesselsService.getByImo(String(vInfo.imo_number));
                 if (existingImo) {
                     fs.unlinkSync(file.path);
                     throw new common_1.BadRequestException(`Le navire avec le numéro IMO "${vInfo.imo_number}" existe déjà ("${existingImo.name}")`);
                 }
             }
-            const vesselId = this.vesselsService.insert({
+            const vesselId = await this.vesselsService.insert({
                 company_id: 2,
                 name: vInfo.name,
                 imo_number: vInfo.imo_number,
@@ -167,26 +164,40 @@ let VesselsController = class VesselsController {
                 call_sign: vInfo.call_sign,
                 status: vInfo.overall_status,
             });
-            this.vesselsService['db']
-                .prepare('INSERT OR IGNORE INTO vessel_emails (vessel_id, email, is_verified) VALUES (?, ?, 1)')
-                .run(vesselId, req.user.email);
-            const insertCert = this.vesselsService['db'].prepare(`
-        INSERT INTO certificates (vessel_id, name, category, organization, issuing_date, expiration_date, due_date, window, alarm_status, remarks)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `);
+            await this.vesselsService['db'].execute('INSERT OR IGNORE INTO vessel_emails (vessel_id, email, is_verified) VALUES (?, ?, 1)', [vesselId, req.user.email]);
             for (const c of certs) {
                 const alarm = this.alarmService.calculate(c.due_date, c.expiration_date, c.window);
-                insertCert.run(vesselId, c.name, c.category, c.organization, c.issuing_date, c.expiration_date, c.due_date, c.window, alarm, c.remarks);
+                await this.vesselsService['db'].execute(`
+          INSERT INTO certificates (vessel_id, name, category, organization, issuing_date, expiration_date, due_date, window, alarm_status, remarks)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `, [
+                    vesselId,
+                    c.name,
+                    c.category,
+                    c.organization,
+                    c.issuing_date,
+                    c.expiration_date,
+                    c.due_date,
+                    c.window,
+                    alarm,
+                    c.remarks,
+                ]);
             }
-            const insertAct = this.vesselsService['db'].prepare(`
-        INSERT INTO actionable_items (vessel_id, imposed_date, category, report_number, due_date, description)
-        VALUES (?, ?, ?, ?, ?, ?)
-      `);
             for (const a of actionable) {
-                insertAct.run(vesselId, a.imposed_date, a.category, a.report_number, a.due_date, a.description);
+                await this.vesselsService['db'].execute(`
+          INSERT INTO actionable_items (vessel_id, imposed_date, category, report_number, due_date, description)
+          VALUES (?, ?, ?, ?, ?, ?)
+        `, [
+                    vesselId,
+                    a.imposed_date,
+                    a.category,
+                    a.report_number,
+                    a.due_date,
+                    a.description,
+                ]);
             }
             fs.unlinkSync(file.path);
-            this.auditService.log({
+            await this.auditService.log({
                 user_id: req.user.id,
                 user_email: req.user.email,
                 action: 'IMPORT_VESSEL',
@@ -215,9 +226,7 @@ let VesselsController = class VesselsController {
         });
     }
     async getEmails(vesselId) {
-        return this.vesselsService['db']
-            .prepare('SELECT vessel_id, email, is_verified FROM vessel_emails WHERE vessel_id = ?')
-            .all(parseInt(vesselId));
+        return this.vesselsService['db'].query('SELECT vessel_id, email, is_verified FROM vessel_emails WHERE vessel_id = ?', [parseInt(vesselId)]);
     }
     async addEmail(req, vesselId, body) {
         if (!body.email) {
@@ -226,12 +235,10 @@ let VesselsController = class VesselsController {
         const email = body.email.toLowerCase().trim();
         const otp = Math.floor(100000 + Math.random() * 900000).toString();
         const expires = new Date(Date.now() + 15 * 60 * 1000).toISOString();
-        this.vesselsService['db']
-            .prepare(`INSERT OR REPLACE INTO vessel_emails (vessel_id, email, is_verified, otp_code, otp_expires)
-         VALUES (?, ?, 0, ?, ?)`)
-            .run(parseInt(vesselId), email, otp, expires);
+        await this.vesselsService['db'].execute(`INSERT OR REPLACE INTO vessel_emails (vessel_id, email, is_verified, otp_code, otp_expires)
+       VALUES (?, ?, 0, ?, ?)`, [parseInt(vesselId), email, otp, expires]);
         await this.emailService.sendOtpEmail(email, otp);
-        this.auditService.log({
+        await this.auditService.log({
             user_id: req.user.id,
             user_email: req.user.email,
             action: 'ADD_VESSEL_EMAIL',
@@ -253,9 +260,7 @@ let VesselsController = class VesselsController {
         }
         const email = body.email.toLowerCase().trim();
         const code = body.code.trim();
-        const record = this.vesselsService['db']
-            .prepare('SELECT * FROM vessel_emails WHERE vessel_id = ? AND email = ?')
-            .get(parseInt(vesselId), email);
+        const record = await this.vesselsService['db'].queryOne('SELECT * FROM vessel_emails WHERE vessel_id = ? AND email = ?', [parseInt(vesselId), email]);
         if (!record) {
             throw new common_1.BadRequestException('Adresse e-mail non trouvée pour ce navire');
         }
@@ -268,9 +273,7 @@ let VesselsController = class VesselsController {
         if (record.otp_expires && new Date(record.otp_expires) < new Date()) {
             throw new common_1.BadRequestException('Code de vérification expiré');
         }
-        this.vesselsService['db']
-            .prepare('UPDATE vessel_emails SET is_verified = 1, otp_code = NULL, otp_expires = NULL WHERE vessel_id = ? AND email = ?')
-            .run(parseInt(vesselId), email);
+        await this.vesselsService['db'].execute('UPDATE vessel_emails SET is_verified = 1, otp_code = NULL, otp_expires = NULL WHERE vessel_id = ? AND email = ?', [parseInt(vesselId), email]);
         return { success: true };
     }
     async removeEmail(req, vesselId, emailFromQuery, body) {
@@ -279,10 +282,8 @@ let VesselsController = class VesselsController {
             throw new common_1.BadRequestException("L'e-mail à supprimer est requis");
         }
         const email = emailToDelete.toLowerCase().trim();
-        this.vesselsService['db']
-            .prepare('DELETE FROM vessel_emails WHERE vessel_id = ? AND email = ?')
-            .run(parseInt(vesselId), email);
-        this.auditService.log({
+        await this.vesselsService['db'].execute('DELETE FROM vessel_emails WHERE vessel_id = ? AND email = ?', [parseInt(vesselId), email]);
+        await this.auditService.log({
             user_id: req.user.id,
             user_email: req.user.email,
             action: 'REMOVE_VESSEL_EMAIL',
@@ -294,7 +295,7 @@ let VesselsController = class VesselsController {
     }
     async triggerVesselNotifications(req, vesselId, status) {
         const result = await this.emailService.sendManualVesselNotifications(parseInt(vesselId), status);
-        this.auditService.log({
+        await this.auditService.log({
             user_id: req.user.id,
             user_email: req.user.email,
             action: 'TRIGGER_MANUAL_NOTIFICATION',

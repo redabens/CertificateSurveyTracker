@@ -34,7 +34,7 @@ describe('AuthService', () => {
 
     service = module.get<AuthService>(AuthService);
     dbService = module.get<DatabaseService>(DatabaseService);
-    dbService.onModuleInit(); // initialize seed data in-memory
+    await dbService.onModuleInit(); // initialize seed data in-memory
   });
 
   afterEach(() => {

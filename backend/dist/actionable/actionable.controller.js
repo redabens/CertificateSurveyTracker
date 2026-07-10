@@ -28,13 +28,13 @@ let ActionableController = class ActionableController {
         this.auditService = auditService;
     }
     async getByVessel(vesselId) {
-        return this.actionableService.getByVessel(parseInt(vesselId));
+        return await this.actionableService.getByVessel(parseInt(vesselId));
     }
     async create(req, vesselId, body) {
         if (!body.description) {
             throw new common_1.BadRequestException('La description est requise');
         }
-        const id = this.actionableService.insert({
+        const id = await this.actionableService.insert({
             vessel_id: parseInt(vesselId),
             imposed_date: body.imposed_date,
             category: body.category,
@@ -42,7 +42,7 @@ let ActionableController = class ActionableController {
             due_date: body.due_date,
             description: body.description,
         });
-        this.auditService.log({
+        await this.auditService.log({
             user_id: req.user.id,
             user_email: req.user.email,
             action: 'CREATE_ACTIONABLE',
@@ -56,8 +56,8 @@ let ActionableController = class ActionableController {
         if (!body.status) {
             throw new common_1.BadRequestException('Le statut est requis');
         }
-        this.actionableService.updateStatus(parseInt(id), body.status);
-        this.auditService.log({
+        await this.actionableService.updateStatus(parseInt(id), body.status);
+        await this.auditService.log({
             user_id: req.user.id,
             user_email: req.user.email,
             action: 'UPDATE_ACTIONABLE_STATUS',

@@ -16,6 +16,6 @@ export interface AuditLogEntry {
 export declare class AuditService {
     private readonly db;
     constructor(db: DatabaseService);
-    log(entry: AuditLogEntry): void;
-    getAll(limit?: number): any[];
+    log(entry: AuditLogEntry): Promise<void>;
+    getAll(limit?: number): Promise<any[]>;
 }

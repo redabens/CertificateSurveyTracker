@@ -42,36 +42,56 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.DatabaseService = void 0;
 const common_1 = require("@nestjs/common");
 const node_sqlite_1 = require("node:sqlite");
+const pg_1 = require("pg");
 const path = __importStar(require("path"));
 const fs = __importStar(require("fs"));
 const bcrypt = __importStar(require("bcryptjs"));
 let DatabaseService = class DatabaseService {
-    db;
-    onModuleInit() {
+    sqlite;
+    pool;
+    useSqlite = false;
+    async onModuleInit() {
         const isTest = process.env.NODE_ENV === 'test';
-        const dataDir = process.env.DATA_DIR || process.cwd();
-        const dbPath = isTest ? ':memory:' : path.resolve(dataDir, 'vessels.db');
-        if (!isTest)
-            fs.mkdirSync(dataDir, { recursive: true });
-        const isNew = isTest || !fs.existsSync(dbPath);
-        this.db = new node_sqlite_1.DatabaseSync(dbPath);
-        this.createTables();
-        if (isNew || this.isEmptyUsers()) {
-            this.seedData();
+        const useSqliteEnv = process.env.USE_SQLITE === 'true';
+        this.useSqlite = isTest || useSqliteEnv || (!process.env.DB_HOST && !process.env.DATABASE_URL);
+        if (this.useSqlite) {
+            console.log('[Database] Initializing in SQLite mode...');
+            const dataDir = process.env.DATA_DIR || process.cwd();
+            const dbPath = isTest ? ':memory:' : path.resolve(dataDir, 'vessels.db');
+            if (!isTest)
+                fs.mkdirSync(dataDir, { recursive: true });
+            this.sqlite = new node_sqlite_1.DatabaseSync(dbPath);
         }
-        this.migrateEmailSettings();
+        else {
+            console.log('[Database] Initializing in PostgreSQL mode...');
+            const connectionString = process.env.DATABASE_URL;
+            this.pool = new pg_1.Pool(connectionString
+                ? { connectionString }
+                : {
+                    host: process.env.DB_HOST || 'localhost',
+                    port: parseInt(process.env.DB_PORT || '5432'),
+                    user: process.env.DB_USER || 'postgres',
+                    password: process.env.DB_PASSWORD || 'postgres',
+                    database: process.env.DB_NAME || 'vessel_tracker',
+                });
+        }
+        await this.createTables();
+        if (await this.isEmptyUsers()) {
+            await this.seedData();
+        }
+        await this.migrateEmailSettings();
     }
-    createTables() {
-        this.db.exec(`
+    async createTables() {
+        await this.exec(`
       CREATE TABLE IF NOT EXISTS companies (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id SERIAL PRIMARY KEY,
         name TEXT NOT NULL,
         role TEXT NOT NULL
       )
     `);
-        this.db.exec(`
+        await this.exec(`
       CREATE TABLE IF NOT EXISTS vessels (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id SERIAL PRIMARY KEY,
         company_id INTEGER,
         name TEXT NOT NULL,
         imo_number TEXT UNIQUE,
@@ -89,9 +109,9 @@ let DatabaseService = class DatabaseService {
         FOREIGN KEY (company_id) REFERENCES companies(id)
       )
     `);
-        this.db.exec(`
+        await this.exec(`
       CREATE TABLE IF NOT EXISTS certificates (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id SERIAL PRIMARY KEY,
         vessel_id INTEGER NOT NULL,
         name TEXT NOT NULL,
         category TEXT NOT NULL,
@@ -106,9 +126,9 @@ let DatabaseService = class DatabaseService {
         FOREIGN KEY (vessel_id) REFERENCES vessels(id) ON DELETE CASCADE
       )
     `);
-        this.db.exec(`
+        await this.exec(`
       CREATE TABLE IF NOT EXISTS actionable_items (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id SERIAL PRIMARY KEY,
         vessel_id INTEGER NOT NULL,
         item_id TEXT,
         imposed_date TEXT,
@@ -120,7 +140,7 @@ let DatabaseService = class DatabaseService {
         FOREIGN KEY (vessel_id) REFERENCES vessels(id) ON DELETE CASCADE
       )
     `);
-        this.db.exec(`
+        await this.exec(`
       CREATE TABLE IF NOT EXISTS email_settings (
         vessel_id INTEGER PRIMARY KEY,
         email1 TEXT,
@@ -129,9 +149,9 @@ let DatabaseService = class DatabaseService {
         FOREIGN KEY (vessel_id) REFERENCES vessels(id) ON DELETE CASCADE
       )
     `);
-        this.db.exec(`
+        await this.exec(`
       CREATE TABLE IF NOT EXISTS audit_logs (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id SERIAL PRIMARY KEY,
         user_id INTEGER NOT NULL,
         user_email TEXT NOT NULL,
         action TEXT NOT NULL,
@@ -142,9 +162,9 @@ let DatabaseService = class DatabaseService {
         timestamp TEXT NOT NULL
       )
     `);
-        this.db.exec(`
+        await this.exec(`
       CREATE TABLE IF NOT EXISTS email_logs (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id SERIAL PRIMARY KEY,
         vessel_name TEXT NOT NULL,
         certificate_name TEXT NOT NULL,
         alarm_level TEXT NOT NULL,
@@ -152,9 +172,9 @@ let DatabaseService = class DatabaseService {
         sent_at TEXT NOT NULL
       )
     `);
-        this.db.exec(`
+        await this.exec(`
       CREATE TABLE IF NOT EXISTS users (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id SERIAL PRIMARY KEY,
         email TEXT NOT NULL UNIQUE,
         password TEXT NOT NULL,
         full_name TEXT NOT NULL,
@@ -167,17 +187,17 @@ let DatabaseService = class DatabaseService {
       )
     `);
         try {
-            this.db.exec(`ALTER TABLE users ADD COLUMN must_change_password INTEGER DEFAULT 1`);
+            await this.exec(`ALTER TABLE users ADD COLUMN must_change_password INTEGER DEFAULT 1`);
         }
         catch (e) {
             const errMsg = e instanceof Error ? e.message : String(e);
-            if (!errMsg.includes('duplicate column name')) {
+            if (!errMsg.includes('duplicate column name') && !errMsg.includes('already exists') && !errMsg.includes('duplicate column')) {
                 console.warn(`[Database] Alert to check column 'must_change_password': ${errMsg}`);
             }
         }
-        this.db.exec(`
+        await this.exec(`
       CREATE TABLE IF NOT EXISTS vessel_emails (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id SERIAL PRIMARY KEY,
         vessel_id INTEGER NOT NULL,
         email TEXT NOT NULL,
         is_verified INTEGER DEFAULT 0,
@@ -188,63 +208,104 @@ let DatabaseService = class DatabaseService {
       )
     `);
     }
-    isEmptyUsers() {
-        const stmt = this.db.prepare('SELECT COUNT(*) as count FROM users');
-        const result = stmt.get();
-        return result.count === 0;
+    async isEmptyUsers() {
+        const result = await this.queryOne('SELECT COUNT(*) as count FROM users');
+        return !result || parseInt(result.count || '0') === 0;
     }
-    seedData() {
+    async seedData() {
         console.log('[Database] Seeding initial mock data...');
-        this.db.exec('DELETE FROM users');
-        this.db.exec('DELETE FROM email_settings');
-        this.db.exec('DELETE FROM companies');
-        this.db.exec('DELETE FROM vessels');
-        const insertCompany = this.db.prepare('INSERT INTO companies (name, role) VALUES (?, ?)');
-        insertCompany.run('CNAN NORD', 'Admin');
-        insertCompany.run('Verital Marine Services', 'Partner');
-        insertCompany.run('Lloyds Register Algiers', 'Auditor');
-        const insertVessel = this.db.prepare(`
+        await this.exec('DELETE FROM users');
+        await this.exec('DELETE FROM email_settings');
+        await this.exec('DELETE FROM companies');
+        await this.exec('DELETE FROM vessels');
+        await this.execute('INSERT INTO companies (name, role) VALUES (?, ?)', ['CNAN NORD', 'Admin']);
+        await this.execute('INSERT INTO companies (name, role) VALUES (?, ?)', ['Verital Marine Services', 'Partner']);
+        await this.execute('INSERT INTO companies (name, role) VALUES (?, ?)', ['Lloyds Register Algiers', 'Auditor']);
+        await this.execute(`
       INSERT INTO vessels (company_id, name, imo_number, flag, asset_type, owner, manager, gross_tonnage, deadweight_tonnage, port_of_registry, call_sign, status)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-        insertVessel.run(1, 'BABOR ALGERIEN', '9477189', 'Algeria', 'Products Tanker', 'CNAN', 'Verital Marine Services', 15000, 25000, 'Alger', '7TBC', 'Normal');
-        this.db
-            .prepare('INSERT INTO email_settings (vessel_id, email1, email2, email3) VALUES (?, ?, ?, ?)')
-            .run(1, 'captain@babor.com', 'manager@babor.com', 'notifications@babor.com');
-        const insertUser = this.db.prepare(`
-      INSERT INTO users (email, password, full_name, role, company_id, vessel_id, must_change_password)
-      VALUES (?, ?, ?, ?, ?, ?, 0)
-    `);
+    `, [
+            1,
+            'BABOR ALGERIEN',
+            '9477189',
+            'Algeria',
+            'Products Tanker',
+            'CNAN',
+            'Verital Marine Services',
+            15000,
+            25000,
+            'Alger',
+            '7TBC',
+            'Normal',
+        ]);
+        await this.execute('INSERT INTO email_settings (vessel_id, email1, email2, email3) VALUES (?, ?, ?, ?)', [
+            1,
+            'captain@babor.com',
+            'manager@babor.com',
+            'notifications@babor.com',
+        ]);
         const salt = bcrypt.genSaltSync(10);
         const adminHash = bcrypt.hashSync('admin123', salt);
         const captainHash = bcrypt.hashSync('captain123', salt);
         const partnerHash = bcrypt.hashSync('partner123', salt);
         const auditorHash = bcrypt.hashSync('auditor123', salt);
-        insertUser.run('admin@babor.com', adminHash, 'Mehdi', 'Admin', 1, null);
-        insertUser.run('captain@babor.com', captainHash, 'Cdt. Babor', 'Crew', 1, 1);
-        insertUser.run('partner@babor.com', partnerHash, 'Verital Marine Partner', 'Partner', 2, null);
-        insertUser.run('auditor@babor.com', auditorHash, 'Inspecteur LR', 'Auditor', 3, null);
+        await this.execute(`
+      INSERT INTO users (email, password, full_name, role, company_id, vessel_id, must_change_password)
+      VALUES (?, ?, ?, ?, ?, ?, 0)
+    `, ['admin@babor.com', adminHash, 'Mehdi', 'Admin', 1, null]);
+        await this.execute(`
+      INSERT INTO users (email, password, full_name, role, company_id, vessel_id, must_change_password)
+      VALUES (?, ?, ?, ?, ?, ?, 0)
+    `, [
+            'captain@babor.com',
+            captainHash,
+            'Cdt. Babor',
+            'Crew',
+            1,
+            1,
+        ]);
+        await this.execute(`
+      INSERT INTO users (email, password, full_name, role, company_id, vessel_id, must_change_password)
+      VALUES (?, ?, ?, ?, ?, ?, 0)
+    `, [
+            'partner@babor.com',
+            partnerHash,
+            'Verital Marine Partner',
+            'Partner',
+            2,
+            null,
+        ]);
+        await this.execute(`
+      INSERT INTO users (email, password, full_name, role, company_id, vessel_id, must_change_password)
+      VALUES (?, ?, ?, ?, ?, ?, 0)
+    `, [
+            'auditor@babor.com',
+            auditorHash,
+            'Inspecteur LR',
+            'Auditor',
+            3,
+            null,
+        ]);
         console.log('[Database] Seed complete.');
     }
-    migrateEmailSettings() {
+    async migrateEmailSettings() {
         try {
-            const count = this.db
-                .prepare('SELECT COUNT(*) as cnt FROM vessel_emails')
-                .get().cnt;
+            const res = await this.queryOne('SELECT COUNT(*) as cnt FROM vessel_emails');
+            const count = res ? parseInt(res.cnt || '0') : 0;
             if (count > 0) {
                 return;
             }
-            const rows = this.db
-                .prepare('SELECT * FROM email_settings')
-                .all();
-            const insert = this.db.prepare('INSERT OR IGNORE INTO vessel_emails (vessel_id, email, is_verified) VALUES (?, ?, 1)');
+            const rows = await this.query('SELECT * FROM email_settings');
             for (const row of rows) {
-                if (row.email1)
-                    insert.run(row.vessel_id, row.email1);
-                if (row.email2)
-                    insert.run(row.vessel_id, row.email2);
-                if (row.email3)
-                    insert.run(row.vessel_id, row.email3);
+                if (row.email1) {
+                    await this.execute('INSERT OR IGNORE INTO vessel_emails (vessel_id, email, is_verified) VALUES (?, ?, 1)', [row.vessel_id, row.email1]);
+                }
+                if (row.email2) {
+                    await this.execute('INSERT OR IGNORE INTO vessel_emails (vessel_id, email, is_verified) VALUES (?, ?, 1)', [row.vessel_id, row.email2]);
+                }
+                if (row.email3) {
+                    await this.execute('INSERT OR IGNORE INTO vessel_emails (vessel_id, email, is_verified) VALUES (?, ?, 1)', [row.vessel_id, row.email3]);
+                }
             }
         }
         catch (e) {
@@ -252,10 +313,117 @@ let DatabaseService = class DatabaseService {
         }
     }
     prepare(sql) {
-        return this.db.prepare(sql);
+        const self = this;
+        return {
+            all(...params) {
+                if (self.useSqlite) {
+                    const stmt = self.sqlite.prepare(self.translateSqlToSqlite(sql));
+                    return stmt.all(...params);
+                }
+                else {
+                    throw new Error('Synchronous .prepare().all() is not supported in PostgreSQL mode.');
+                }
+            },
+            get(...params) {
+                if (self.useSqlite) {
+                    const stmt = self.sqlite.prepare(self.translateSqlToSqlite(sql));
+                    return stmt.get(...params);
+                }
+                else {
+                    throw new Error('Synchronous .prepare().get() is not supported in PostgreSQL mode.');
+                }
+            },
+            run(...params) {
+                if (self.useSqlite) {
+                    const stmt = self.sqlite.prepare(self.translateSqlToSqlite(sql));
+                    return stmt.run(...params);
+                }
+                else {
+                    throw new Error('Synchronous .prepare().run() is not supported in PostgreSQL mode.');
+                }
+            }
+        };
     }
     exec(sql) {
-        return this.db.exec(sql);
+        if (this.useSqlite) {
+            this.sqlite.exec(this.translateSqlToSqlite(sql));
+        }
+        else {
+            throw new Error('Synchronous .exec() is not supported in PostgreSQL mode.');
+        }
+    }
+    async query(sql, params = []) {
+        if (this.useSqlite) {
+            const translatedSql = this.translateSqlToSqlite(sql);
+            try {
+                const stmt = this.sqlite.prepare(translatedSql);
+                const res = stmt.all(...params);
+                return res;
+            }
+            catch (err) {
+                console.error(`[SQLite Query Error] SQL: ${translatedSql}`, err);
+                throw err;
+            }
+        }
+        else {
+            const { translatedSql, translatedParams } = this.translateSqlToPostgres(sql, params);
+            try {
+                const res = await this.pool.query(translatedSql, translatedParams);
+                return res.rows;
+            }
+            catch (err) {
+                console.error(`[Postgres Query Error] SQL: ${translatedSql}`, err);
+                throw err;
+            }
+        }
+    }
+    async queryOne(sql, params = []) {
+        const rows = await this.query(sql, params);
+        return rows.length > 0 ? rows[0] : null;
+    }
+    async execute(sql, params = []) {
+        if (this.useSqlite) {
+            const translatedSql = this.translateSqlToSqlite(sql);
+            try {
+                const stmt = this.sqlite.prepare(translatedSql);
+                stmt.run(...params);
+            }
+            catch (err) {
+                console.error(`[SQLite Execute Error] SQL: ${translatedSql}`, err);
+                throw err;
+            }
+        }
+        else {
+            const { translatedSql, translatedParams } = this.translateSqlToPostgres(sql, params);
+            try {
+                await this.pool.query(translatedSql, translatedParams);
+            }
+            catch (err) {
+                console.error(`[Postgres Execute Error] SQL: ${translatedSql}`, err);
+                throw err;
+            }
+        }
+    }
+    translateSqlToSqlite(sql) {
+        return sql.replace(/SERIAL PRIMARY KEY/g, 'INTEGER PRIMARY KEY AUTOINCREMENT');
+    }
+    translateSqlToPostgres(sql, params) {
+        let translatedSql = sql;
+        if (translatedSql.includes('INSERT OR IGNORE INTO vessel_emails')) {
+            translatedSql = translatedSql.replace('INSERT OR IGNORE INTO vessel_emails', 'INSERT INTO vessel_emails');
+            translatedSql += ' ON CONFLICT (vessel_id, email) DO NOTHING';
+        }
+        if (translatedSql.includes('INSERT OR REPLACE INTO vessel_emails')) {
+            translatedSql = translatedSql.replace('INSERT OR REPLACE INTO vessel_emails', 'INSERT INTO vessel_emails');
+            translatedSql += ' ON CONFLICT (vessel_id, email) DO UPDATE SET is_verified = EXCLUDED.is_verified, otp_code = EXCLUDED.otp_code, otp_expires = EXCLUDED.otp_expires';
+        }
+        translatedSql = translatedSql.replace(/INTEGER PRIMARY KEY AUTOINCREMENT/g, 'SERIAL PRIMARY KEY');
+        let paramIndex = 1;
+        translatedSql = translatedSql.replace(/\?/g, () => `$${paramIndex++}`);
+        return {
+            translatedSql,
+            translatedParams: params,
+        };
     }
 };
 exports.DatabaseService = DatabaseService;

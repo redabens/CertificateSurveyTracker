@@ -28,7 +28,7 @@ let AppController = class AppController {
         return this.emailService.sendManualFleetNotifications(status);
     }
     async getEmailLogs() {
-        return this.db.prepare('SELECT * FROM email_logs ORDER BY id DESC').all();
+        return this.db.query('SELECT * FROM email_logs ORDER BY id DESC');
     }
 };
 exports.AppController = AppController;

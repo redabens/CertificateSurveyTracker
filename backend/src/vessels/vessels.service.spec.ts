@@ -15,7 +15,7 @@ describe('VesselsService', () => {
 
     service = module.get<VesselsService>(VesselsService);
     dbService = module.get<DatabaseService>(DatabaseService);
-    dbService.onModuleInit();
+    await dbService.onModuleInit();
   });
 
   afterEach(() => {
@@ -26,19 +26,19 @@ describe('VesselsService', () => {
     expect(service).toBeDefined();
   });
 
-  it('should get all vessels for Admin role', () => {
-    const list = service.getAll(1, 'Admin');
+  it('should get all vessels for Admin role', async () => {
+    const list = await service.getAll(1, 'Admin');
     expect(list.length).toBeGreaterThanOrEqual(1);
     expect(list[0].name).toBe('BABOR ALGERIEN');
   });
 
-  it('should get zero vessels for Crew role if no user vessel is assigned', () => {
-    const list = service.getAll(999, 'Crew');
+  it('should get zero vessels for Crew role if no user vessel is assigned', async () => {
+    const list = await service.getAll(999, 'Crew');
     expect(list.length).toBe(0);
   });
 
-  it('should insert and get vessel by ID and name', () => {
-    const vesselId = service.insert({
+  it('should insert and get vessel by ID and name', async () => {
+    const vesselId = await service.insert({
       name: 'TEST VESSEL',
       imo_number: '1234567',
       flag: 'France',
@@ -47,23 +47,23 @@ describe('VesselsService', () => {
 
     expect(vesselId).toBeDefined();
 
-    const byId = service.getById(vesselId);
+    const byId = await service.getById(vesselId);
     expect(byId.name).toBe('TEST VESSEL');
 
-    const byName = service.getByName('TEST VESSEL');
+    const byName = await service.getByName('TEST VESSEL');
     expect(byName.id).toBe(vesselId);
   });
 
-  it('should delete a vessel', () => {
-    const vesselId = service.insert({
+  it('should delete a vessel', async () => {
+    const vesselId = await service.insert({
       name: 'DELETE VESSEL',
       imo_number: '9999999',
     });
 
-    expect(service.getById(vesselId)).toBeDefined();
+    expect(await service.getById(vesselId)).toBeDefined();
 
-    service.delete(vesselId);
+    await service.delete(vesselId);
 
-    expect(() => service.getById(vesselId)).toThrow();
+    await expect(service.getById(vesselId)).rejects.toThrow();
   });
 });

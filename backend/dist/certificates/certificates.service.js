@@ -17,39 +17,51 @@ let CertificatesService = class CertificatesService {
     constructor(db) {
         this.db = db;
     }
-    getByVessel(vesselId) {
-        return this.db
-            .prepare('SELECT * FROM certificates WHERE vessel_id = ?')
-            .all(vesselId);
+    async getByVessel(vesselId) {
+        return this.db.query('SELECT * FROM certificates WHERE vessel_id = ?', [vesselId]);
     }
-    getById(id) {
-        return this.db
-            .prepare('SELECT * FROM certificates WHERE id = ?')
-            .get(id);
+    async getById(id) {
+        return this.db.queryOne('SELECT * FROM certificates WHERE id = ?', [id]);
     }
-    insert(c) {
-        const stmt = this.db.prepare(`
+    async insert(c) {
+        const row = await this.db.queryOne(`
       INSERT INTO certificates (vessel_id, name, category, organization, issuing_date, expiration_date, due_date, window, alarm_status, remarks)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-        const info = stmt.run(c.vessel_id ?? null, c.name ?? null, c.category ?? null, c.organization ?? null, c.issuing_date ?? null, c.expiration_date ?? null, c.due_date ?? null, c.window ?? null, c.alarm_status ?? 'N/A', c.remarks ?? null);
-        return info.lastInsertRowid;
+      RETURNING id
+    `, [
+            c.vessel_id ?? null,
+            c.name ?? null,
+            c.category ?? null,
+            c.organization ?? null,
+            c.issuing_date ?? null,
+            c.expiration_date ?? null,
+            c.due_date ?? null,
+            c.window ?? null,
+            c.alarm_status ?? 'N/A',
+            c.remarks ?? null,
+        ]);
+        return row ? row.id : 0;
     }
-    update(id, c) {
-        this.db
-            .prepare(`UPDATE certificates
-         SET organization = ?, issuing_date = ?, expiration_date = ?, due_date = ?,
-             window = ?, alarm_status = ?, remarks = ?
-         WHERE id = ?`)
-            .run(c.organization ?? null, c.issuing_date ?? null, c.expiration_date ?? null, c.due_date ?? null, c.window ?? null, c.alarm_status ?? 'N/A', c.remarks ?? null, id);
+    async update(id, c) {
+        await this.db.execute(`UPDATE certificates
+       SET organization = ?, issuing_date = ?, expiration_date = ?, due_date = ?,
+           window = ?, alarm_status = ?, remarks = ?
+       WHERE id = ?`, [
+            c.organization ?? null,
+            c.issuing_date ?? null,
+            c.expiration_date ?? null,
+            c.due_date ?? null,
+            c.window ?? null,
+            c.alarm_status ?? 'N/A',
+            c.remarks ?? null,
+            id,
+        ]);
     }
-    updatePdfUrl(id, pdfUrl) {
-        this.db
-            .prepare('UPDATE certificates SET pdf_url = ? WHERE id = ?')
-            .run(pdfUrl, id);
+    async updatePdfUrl(id, pdfUrl) {
+        await this.db.execute('UPDATE certificates SET pdf_url = ? WHERE id = ?', [pdfUrl, id]);
     }
-    delete(id) {
-        this.db.prepare('DELETE FROM certificates WHERE id = ?').run(id);
+    async delete(id) {
+        await this.db.execute('DELETE FROM certificates WHERE id = ?', [id]);
     }
     assertCrewCanAccess(role, category, action) {
         if (role === 'Crew' && category !== 'Servicing') {

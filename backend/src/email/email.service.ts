@@ -77,27 +77,31 @@ export class EmailService {
    * Pour chaque certificat dont l'alarm_status a changé → met à jour la DB + envoie alerte.
    * Appelé par EmailScheduler via @Cron.
    */
+  /**
+   * Contrôle de conformité quotidien: vérifie tous les certificats de tous les navires.
+   * Pour chaque certificat dont l'alarm_status a changé → met à jour la DB + envoie alerte.
+   * Appelé par EmailScheduler via @Cron.
+   */
   async performCertificateStatusCheck(): Promise<{
     checked: number;
     alerts: number;
   }> {
     this.logger.log('Démarrage du contrôle de conformité des certificats...');
-    const vessels = this.db.prepare('SELECT * FROM vessels').all() as any[];
+    const vessels = await this.db.query('SELECT * FROM vessels');
     let totalChecked = 0;
     let totalAlertsSent = 0;
 
     for (const vessel of vessels) {
-      const emails = (
-        this.db
-          .prepare(
-            'SELECT email FROM vessel_emails WHERE vessel_id = ? AND is_verified = 1',
-          )
-          .all(vessel.id) as any[]
-      ).map((r) => r.email);
+      const emailRows = await this.db.query(
+        'SELECT email FROM vessel_emails WHERE vessel_id = ? AND is_verified = 1',
+        [vessel.id],
+      );
+      const emails = emailRows.map((r) => r.email);
 
-      const certs = this.db
-        .prepare('SELECT * FROM certificates WHERE vessel_id = ?')
-        .all(vessel.id) as any[];
+      const certs = await this.db.query(
+        'SELECT * FROM certificates WHERE vessel_id = ?',
+        [vessel.id],
+      );
 
       for (const cert of certs) {
         const prevAlarm = cert.alarm_status;
@@ -109,9 +113,10 @@ export class EmailService {
         totalChecked++;
 
         if (this.alarmService.hasChanged(prevAlarm, newAlarm)) {
-          this.db
-            .prepare('UPDATE certificates SET alarm_status = ? WHERE id = ?')
-            .run(newAlarm, cert.id);
+          await this.db.execute(
+            'UPDATE certificates SET alarm_status = ? WHERE id = ?',
+            [newAlarm, cert.id],
+          );
 
           await this.sendCertificateAlert(
             vessel,
@@ -156,24 +161,23 @@ export class EmailService {
         statusFilter || 'ALL'
       }`,
     );
-    const vessels = this.db.prepare('SELECT * FROM vessels').all() as any[];
+    const vessels = await this.db.query('SELECT * FROM vessels');
     let totalChecked = 0;
     let totalAlertsSent = 0;
 
     for (const vessel of vessels) {
-      const emails = (
-        this.db
-          .prepare(
-            'SELECT email FROM vessel_emails WHERE vessel_id = ? AND is_verified = 1',
-          )
-          .all(vessel.id) as any[]
-      ).map((r) => r.email);
+      const emailRows = await this.db.query(
+        'SELECT email FROM vessel_emails WHERE vessel_id = ? AND is_verified = 1',
+        [vessel.id],
+      );
+      const emails = emailRows.map((r) => r.email);
 
       if (emails.length === 0) continue;
 
-      const certs = this.db
-        .prepare('SELECT * FROM certificates WHERE vessel_id = ?')
-        .all(vessel.id) as any[];
+      const certs = await this.db.query(
+        'SELECT * FROM certificates WHERE vessel_id = ?',
+        [vessel.id],
+      );
 
       for (const cert of certs) {
         const alarm = this.alarmService.calculate(
@@ -217,28 +221,25 @@ export class EmailService {
         statusFilter || 'ALL'
       }`,
     );
-    const vessel = this.db
-      .prepare('SELECT * FROM vessels WHERE id = ?')
-      .get(vesselId) as any;
+    const vessel = await this.db.queryOne('SELECT * FROM vessels WHERE id = ?', [vesselId]);
     if (!vessel) {
       throw new Error('Navire introuvable');
     }
 
-    const emails = (
-      this.db
-        .prepare(
-          'SELECT email FROM vessel_emails WHERE vessel_id = ? AND is_verified = 1',
-        )
-        .all(vesselId) as any[]
-    ).map((r) => r.email);
+    const emailRows = await this.db.query(
+      'SELECT email FROM vessel_emails WHERE vessel_id = ? AND is_verified = 1',
+      [vesselId],
+    );
+    const emails = emailRows.map((r) => r.email);
 
     if (emails.length === 0) {
       return { alerts: 0 };
     }
 
-    const certs = this.db
-      .prepare('SELECT * FROM certificates WHERE vessel_id = ?')
-      .all(vesselId) as any[];
+    const certs = await this.db.query(
+      'SELECT * FROM certificates WHERE vessel_id = ?',
+      [vesselId],
+    );
 
     let totalAlertsSent = 0;
     for (const cert of certs) {

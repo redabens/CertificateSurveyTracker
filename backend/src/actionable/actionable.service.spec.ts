@@ -15,7 +15,7 @@ describe('ActionableService', () => {
 
     service = module.get<ActionableService>(ActionableService);
     dbService = module.get<DatabaseService>(DatabaseService);
-    dbService.onModuleInit();
+    await dbService.onModuleInit();
   });
 
   afterEach(() => {
@@ -26,8 +26,8 @@ describe('ActionableService', () => {
     expect(service).toBeDefined();
   });
 
-  it('should insert and fetch recommendations for a vessel', () => {
-    const actId = service.insert({
+  it('should insert and fetch recommendations for a vessel', async () => {
+    const actId = await service.insert({
       vessel_id: 1,
       imposed_date: '2026-03-03',
       category: 'Class Recommendation',
@@ -38,22 +38,22 @@ describe('ActionableService', () => {
 
     expect(actId).toBeDefined();
 
-    const items = service.getByVessel(1);
+    const items = await service.getByVessel(1);
     expect(items.length).toBeGreaterThanOrEqual(1);
-    expect(items[0].report_number).toBe('REP-101');
+    expect(items[items.length - 1].report_number).toBe('REP-101');
   });
 
-  it('should update actionable status', () => {
-    const actId = service.insert({
+  it('should update actionable status', async () => {
+    const actId = await service.insert({
       vessel_id: 1,
       category: 'Test status',
       description: 'Test Status Description',
     });
 
     // Default status in schema is 'Pending'
-    service.updateStatus(actId, 'Completed');
+    await service.updateStatus(actId, 'Completed');
 
-    const items = service.getByVessel(1);
+    const items = await service.getByVessel(1);
     const updated = items.find((x) => x.id === actId);
     expect(updated).toBeDefined();
     expect(updated.status).toBe('Completed');

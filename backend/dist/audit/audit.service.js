@@ -17,22 +17,27 @@ let AuditService = class AuditService {
     constructor(db) {
         this.db = db;
     }
-    log(entry) {
+    async log(entry) {
         try {
-            this.db
-                .prepare(`INSERT INTO audit_logs
-            (user_id, user_email, action, target_type, target_id, target_name, changes, timestamp)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
-                .run(entry.user_id, entry.user_email, entry.action, entry.target_type, entry.target_id ?? null, entry.target_name ?? null, entry.changes ? JSON.stringify(entry.changes) : null, new Date().toISOString());
+            await this.db.execute(`INSERT INTO audit_logs 
+          (user_id, user_email, action, target_type, target_id, target_name, changes, timestamp)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, [
+                entry.user_id,
+                entry.user_email,
+                entry.action,
+                entry.target_type,
+                entry.target_id ?? null,
+                entry.target_name ?? null,
+                entry.changes ? JSON.stringify(entry.changes) : null,
+                new Date().toISOString(),
+            ]);
         }
         catch (err) {
             console.error('[AuditService] Failed to write audit log:', err);
         }
     }
-    getAll(limit = 200) {
-        return this.db
-            .prepare('SELECT * FROM audit_logs ORDER BY id DESC LIMIT ?')
-            .all(limit);
+    async getAll(limit = 200) {
+        return this.db.query('SELECT * FROM audit_logs ORDER BY id DESC LIMIT ?', [limit]);
     }
 };
 exports.AuditService = AuditService;

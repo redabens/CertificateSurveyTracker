@@ -37,7 +37,7 @@ export class ActionableController {
   @Get('vessels/:vesselId/actionable-items')
   @UseGuards(CrewVesselGuard)
   async getByVessel(@Param('vesselId') vesselId: string) {
-    return this.actionableService.getByVessel(parseInt(vesselId));
+    return await this.actionableService.getByVessel(parseInt(vesselId));
   }
 
   @Post('vessels/:vesselId/actionable-items')
@@ -51,7 +51,7 @@ export class ActionableController {
       throw new BadRequestException('La description est requise');
     }
 
-    const id = this.actionableService.insert({
+    const id = await this.actionableService.insert({
       vessel_id: parseInt(vesselId),
       imposed_date: body.imposed_date,
       category: body.category,
@@ -60,7 +60,7 @@ export class ActionableController {
       description: body.description,
     });
 
-    this.auditService.log({
+    await this.auditService.log({
       user_id: req.user.id,
       user_email: req.user.email,
       action: 'CREATE_ACTIONABLE',
@@ -83,9 +83,9 @@ export class ActionableController {
       throw new BadRequestException('Le statut est requis');
     }
 
-    this.actionableService.updateStatus(parseInt(id), body.status);
+    await this.actionableService.updateStatus(parseInt(id), body.status);
 
-    this.auditService.log({
+    await this.auditService.log({
       user_id: req.user.id,
       user_email: req.user.email,
       action: 'UPDATE_ACTIONABLE_STATUS',

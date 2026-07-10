@@ -17,23 +17,26 @@ let ActionableService = class ActionableService {
     constructor(db) {
         this.db = db;
     }
-    getByVessel(vesselId) {
-        return this.db
-            .prepare('SELECT * FROM actionable_items WHERE vessel_id = ?')
-            .all(vesselId);
+    async getByVessel(vesselId) {
+        return this.db.query('SELECT * FROM actionable_items WHERE vessel_id = ?', [vesselId]);
     }
-    insert(a) {
-        const stmt = this.db.prepare(`
+    async insert(a) {
+        const row = await this.db.queryOne(`
       INSERT INTO actionable_items (vessel_id, imposed_date, category, report_number, due_date, description)
       VALUES (?, ?, ?, ?, ?, ?)
-    `);
-        const info = stmt.run(a.vessel_id ?? null, a.imposed_date ?? null, a.category ?? null, a.report_number ?? null, a.due_date ?? null, a.description ?? null);
-        return info.lastInsertRowid;
+      RETURNING id
+    `, [
+            a.vessel_id ?? null,
+            a.imposed_date ?? null,
+            a.category ?? null,
+            a.report_number ?? null,
+            a.due_date ?? null,
+            a.description ?? null,
+        ]);
+        return row ? row.id : 0;
     }
-    updateStatus(id, status) {
-        this.db
-            .prepare('UPDATE actionable_items SET status = ? WHERE id = ?')
-            .run(status, id);
+    async updateStatus(id, status) {
+        await this.db.execute('UPDATE actionable_items SET status = ? WHERE id = ?', [status, id]);
     }
 };
 exports.ActionableService = ActionableService;

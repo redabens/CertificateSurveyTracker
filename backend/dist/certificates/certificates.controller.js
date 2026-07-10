@@ -68,7 +68,7 @@ let CertificatesController = class CertificatesController {
         this.auditService = auditService;
     }
     async getByVessel(req, vesselId) {
-        const certs = this.certsService.getByVessel(parseInt(vesselId));
+        const certs = await this.certsService.getByVessel(parseInt(vesselId));
         return certs.map((c) => ({
             ...c,
             alarm_status: this.alarmService.calculate(c.due_date, c.expiration_date, c.window),
@@ -80,7 +80,7 @@ let CertificatesController = class CertificatesController {
         }
         this.certsService.assertCrewCanAccess(req.user.role, body.category, 'créer');
         const alarm = this.alarmService.calculate(body.due_date, body.expiration_date, body.window);
-        const certId = this.certsService.insert({
+        const certId = await this.certsService.insert({
             vessel_id: parseInt(vesselId),
             name: body.name,
             category: body.category,
@@ -92,7 +92,7 @@ let CertificatesController = class CertificatesController {
             alarm_status: alarm,
             remarks: body.remarks,
         });
-        this.auditService.log({
+        await this.auditService.log({
             user_id: req.user.id,
             user_email: req.user.email,
             action: 'CREATE_CERTIFICATE',
@@ -103,7 +103,7 @@ let CertificatesController = class CertificatesController {
         return { id: certId, alarm_status: alarm };
     }
     async update(req, id, body) {
-        const prevCert = this.certsService.getById(parseInt(id));
+        const prevCert = await this.certsService.getById(parseInt(id));
         if (!prevCert) {
             throw new common_1.NotFoundException('Certificat non trouvé');
         }
@@ -121,8 +121,8 @@ let CertificatesController = class CertificatesController {
                 changes[field] = { from: prevCert[field], to: body[field] };
             }
         }
-        this.certsService.update(parseInt(id), { ...body, alarm_status: alarm });
-        this.auditService.log({
+        await this.certsService.update(parseInt(id), { ...body, alarm_status: alarm });
+        await this.auditService.log({
             user_id: req.user.id,
             user_email: req.user.email,
             action: 'UPDATE_CERTIFICATE',
@@ -134,9 +134,9 @@ let CertificatesController = class CertificatesController {
         return { success: true, alarm_status: alarm };
     }
     async delete(req, id) {
-        const cert = this.certsService.getById(parseInt(id));
-        this.certsService.delete(parseInt(id));
-        this.auditService.log({
+        const cert = await this.certsService.getById(parseInt(id));
+        await this.certsService.delete(parseInt(id));
+        await this.auditService.log({
             user_id: req.user.id,
             user_email: req.user.email,
             action: 'DELETE_CERTIFICATE',
@@ -147,7 +147,7 @@ let CertificatesController = class CertificatesController {
         return { success: true };
     }
     async uploadPdf(req, id, file) {
-        const cert = this.certsService.getById(parseInt(id));
+        const cert = await this.certsService.getById(parseInt(id));
         if (!cert) {
             if (file && fs.existsSync(file.path))
                 fs.unlinkSync(file.path);
@@ -165,8 +165,8 @@ let CertificatesController = class CertificatesController {
             throw new common_1.BadRequestException('Aucun fichier PDF téléversé');
         }
         const relativePath = `/uploads/pdf/${file.filename}`;
-        this.certsService.updatePdfUrl(parseInt(id), relativePath);
-        this.auditService.log({
+        await this.certsService.updatePdfUrl(parseInt(id), relativePath);
+        await this.auditService.log({
             user_id: req.user.id,
             user_email: req.user.email,
             action: 'UPLOAD_PDF',
