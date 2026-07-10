@@ -3,7 +3,6 @@ import { LogoIcon } from '../Icons';
 import { TvScrollContainer } from '../TvAutoScroll';
 
 interface TvModeViewProps {
-  lang: string;
   vessels: any[];
   tvTime: string;
   tvDate: string;
@@ -14,7 +13,6 @@ interface TvModeViewProps {
 }
 
 export const TvModeView: React.FC<TvModeViewProps> = ({
-  lang,
   vessels,
   tvTime,
   tvDate,
@@ -82,7 +80,7 @@ export const TvModeView: React.FC<TvModeViewProps> = ({
             <TvScrollContainer itemCount={tvCerts.length}>
               {tvCerts.length === 0 ? (
                 <p className="placeholder-text" style={{ color: 'rgba(255,255,255,0.4)' }}>
-                  {lang === 'fr' ? 'Aucune alerte active dans la flotte. Statut conforme.' : 'No active alerts in fleet. Compliant status.'}
+                  {t('tv_no_alerts')}
                 </p>
               ) : (
                 tvCerts.map((item, idx) => (
@@ -90,9 +88,9 @@ export const TvModeView: React.FC<TvModeViewProps> = ({
                     <div className="tv-alert-item-left">
                       <span className="tv-alert-vessel">{item.vessel_name}</span>
                       <span className="tv-alert-name">{item.cert_name}</span>
-                      <span className="tv-alert-due">{lang === 'fr' ? 'Échéance' : 'Due'}: {item.due_date}</span>
+                      <span className="tv-alert-due">{t('label_due')}: {item.due_date}</span>
                     </div>
-                    <span className={`tv-alert-status ${item.level === 'red' ? 'text-red' : item.level === 'yellow' ? 'text-yellow' : 'text-green'}`}>
+                    <span className={`tv-alert-status ${item.level === 'red' ? 'text-red' : item.level === 'orange' ? 'text-orange' : item.level === 'yellow' ? 'text-yellow' : 'text-green'}`}>
                       {getAlarmLabel(item.alarm_status)}
                     </span>
                   </div>

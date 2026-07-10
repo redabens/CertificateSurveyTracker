@@ -59,6 +59,7 @@ export class VesselsController {
         const computed = this.alarmService.calculate(
           c.due_date,
           c.expiration_date,
+          c.window,
         );
         if (this.alarmService.hasChanged(c.alarm_status, computed)) {
           this.vesselsService['db']
@@ -71,17 +72,16 @@ export class VesselsController {
       const overall = this.alarmService.computeVesselStatus(alarmLevels);
       this.vesselsService.updateStatus(v.id, overall);
 
-      const red = alarmLevels.filter(
-        (a) => a.includes('RED') || a.includes('OVERDUE'),
-      ).length;
+      const overdue = alarmLevels.filter((a) => a.includes('OVERDUE')).length;
+      const red = alarmLevels.filter((a) => a.includes('RED')).length;
       const yellow = alarmLevels.filter((a) => a.includes('YELLOW')).length;
       const green = alarmLevels.filter((a) => a.includes('GREEN')).length;
-      const normal = alarmLevels.length - red - yellow - green;
+      const normal = alarmLevels.filter((a) => a.includes('MONITOR')).length;
 
       return {
         ...v,
         status: overall,
-        counts: { red, yellow, green, normal, total: certs.length },
+        counts: { overdue, red, yellow, green, normal, total: certs.length },
       };
     });
   }
@@ -206,6 +206,7 @@ export class VesselsController {
         const alarm = this.alarmService.calculate(
           c.due_date,
           c.expiration_date,
+          c.window,
         );
         insertCert.run(
           vesselId,
@@ -272,7 +273,9 @@ export class VesselsController {
   @Get(':id/emails')
   async getEmails(@Param('id') vesselId: string) {
     return this.vesselsService['db']
-      .prepare('SELECT * FROM vessel_emails WHERE vessel_id = ?')
+      .prepare(
+        'SELECT vessel_id, email, is_verified FROM vessel_emails WHERE vessel_id = ?',
+      )
       .all(parseInt(vesselId)) as any[];
   }
 
@@ -310,10 +313,11 @@ export class VesselsController {
     });
 
     const smtpConfigured = !!(process.env.SMTP_USER && process.env.SMTP_PASS);
+    const isProd = process.env.NODE_ENV === 'production';
     return {
       success: true,
       email,
-      devOtp: smtpConfigured ? undefined : otp,
+      devOtp: smtpConfigured || isProd ? undefined : otp,
     };
   }
 
@@ -389,5 +393,29 @@ export class VesselsController {
     });
 
     return { success: true };
+  }
+
+  @Post(':id/trigger-notifications')
+  @Roles('Admin')
+  async triggerVesselNotifications(
+    @Req() req: any,
+    @Param('id') vesselId: string,
+    @Query('status') status?: string,
+  ) {
+    const result = await this.emailService.sendManualVesselNotifications(
+      parseInt(vesselId),
+      status,
+    );
+
+    this.auditService.log({
+      user_id: req.user.id,
+      user_email: req.user.email,
+      action: 'TRIGGER_MANUAL_NOTIFICATION',
+      target_type: 'vessel',
+      target_id: parseInt(vesselId),
+      target_name: `Status filter: ${status || 'ALL'}`,
+    });
+
+    return { success: true, ...result };
   }
 }

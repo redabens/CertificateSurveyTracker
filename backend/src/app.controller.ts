@@ -1,4 +1,4 @@
-import { Controller, Get, Post, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Query, UseGuards } from '@nestjs/common';
 import { EmailService } from './email/email.service';
 import { JwtAuthGuard } from './auth/jwt-auth.guard';
 import { DatabaseService } from './database/database.service';
@@ -12,8 +12,8 @@ export class AppController {
 
   @Post('trigger-notifications')
   @UseGuards(JwtAuthGuard)
-  async triggerNotifications() {
-    return this.emailService.performCertificateStatusCheck();
+  async triggerNotifications(@Query('status') status?: string) {
+    return this.emailService.sendManualFleetNotifications(status);
   }
 
   @Get('email-logs')

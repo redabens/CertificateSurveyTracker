@@ -98,4 +98,37 @@ describe('EmailService', () => {
       expect(logs[0].alarm_level).toBe('RED - <1 MONTH');
     });
   });
+
+  describe('sendManualFleetNotifications', () => {
+    it('should send alerts for warning states regardless of previous state', async () => {
+      dbService.exec('DELETE FROM certificates');
+      dbService.exec('DELETE FROM email_logs');
+
+      const futureDate = new Date();
+      futureDate.setDate(futureDate.getDate() + 15); // RED status
+      const futureDateStr = futureDate.toISOString().substring(0, 10);
+
+      // Insert certificate with RED state already saved in DB
+      dbService
+        .prepare(
+          `
+        INSERT INTO certificates (vessel_id, name, category, alarm_status, due_date)
+        VALUES (1, 'Manual Cert', 'Class', 'RED - <1 MONTH', ?)
+      `,
+        )
+        .run(futureDateStr);
+
+      // performCertificateStatusCheck would send 0 alerts because state did not change
+      const autoResult = await service.performCertificateStatusCheck();
+      expect(autoResult.alerts).toBe(0);
+
+      // sendManualFleetNotifications should force send 1 alert
+      const manualResult = await service.sendManualFleetNotifications();
+      expect(manualResult.alerts).toBe(1);
+
+      // Verify email logs row is inserted
+      const logs = dbService.prepare('SELECT * FROM email_logs').all() as any[];
+      expect(logs.length).toBe(1);
+    });
+  });
 });

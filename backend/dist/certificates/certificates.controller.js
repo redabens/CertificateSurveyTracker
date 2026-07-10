@@ -71,7 +71,7 @@ let CertificatesController = class CertificatesController {
         const certs = this.certsService.getByVessel(parseInt(vesselId));
         return certs.map((c) => ({
             ...c,
-            alarm_status: this.alarmService.calculate(c.due_date, c.expiration_date),
+            alarm_status: this.alarmService.calculate(c.due_date, c.expiration_date, c.window),
         }));
     }
     async create(req, vesselId, body) {
@@ -79,7 +79,7 @@ let CertificatesController = class CertificatesController {
             throw new common_1.BadRequestException('Le nom et la catégorie sont requis');
         }
         this.certsService.assertCrewCanAccess(req.user.role, body.category, 'créer');
-        const alarm = this.alarmService.calculate(body.due_date, body.expiration_date);
+        const alarm = this.alarmService.calculate(body.due_date, body.expiration_date, body.window);
         const certId = this.certsService.insert({
             vessel_id: parseInt(vesselId),
             name: body.name,
@@ -108,7 +108,7 @@ let CertificatesController = class CertificatesController {
             throw new common_1.NotFoundException('Certificat non trouvé');
         }
         this.certsService.assertCrewCanAccess(req.user.role, prevCert.category, 'modifier');
-        const alarm = this.alarmService.calculate(body.due_date, body.expiration_date);
+        const alarm = this.alarmService.calculate(body.due_date, body.expiration_date, body.window);
         const changes = {};
         for (const field of [
             'expiration_date',

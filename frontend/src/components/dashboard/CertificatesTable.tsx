@@ -13,6 +13,7 @@ export interface Certificate {
   issuing_date?: string;
   expiration_date?: string;
   due_date?: string;
+  window?: string;
   alarm_status: string;
   remarks?: string;
   pdf_url?: string;
@@ -24,6 +25,7 @@ export interface CertificatesTableProps {
   lang: string;
   t: (key: string) => string;
   formatDateString: (dateStr: string) => string;
+  formatDueDateWithWindow: (dueStr: string | null | undefined, windowStr: string | null | undefined) => string;
   getAlarmBadgeClass: (status: string) => string;
   getAlarmLabel: (status: string) => string;
   handleEditCertOpen: (cert: Certificate) => void;
@@ -39,6 +41,7 @@ export function CertificatesTable({
   lang,
   t,
   formatDateString,
+  formatDueDateWithWindow,
   getAlarmBadgeClass,
   getAlarmLabel,
   handleEditCertOpen,
@@ -68,7 +71,7 @@ export function CertificatesTable({
           {filteredCerts.length === 0 ? (
             <tr>
               <td colSpan={9} className="placeholder-text">
-                {lang === 'fr' ? 'Aucun certificat trouvé.' : 'No certificates found.'}
+                {t('no_certs_found')}
               </td>
             </tr>
           ) : (
@@ -81,7 +84,7 @@ export function CertificatesTable({
                     <span
                       className="pdf-icon-btn icon-svg"
                       onClick={() => openPdfViewer(c.pdf_url!, c.name)}
-                      title={lang === 'fr' ? 'Voir le PDF' : 'View PDF'}
+                      title={t('view_pdf')}
                       style={{ marginLeft: 6, display: 'inline-flex', verticalAlign: 'middle' }}
                     >
                       <AttachmentIcon size={14} />
@@ -102,7 +105,7 @@ export function CertificatesTable({
                 <td>{c.organization || '-'}</td>
                 <td>{formatDateString(c.issuing_date ?? '')}</td>
                 <td>{formatDateString(c.expiration_date ?? '')}</td>
-                <td>{formatDateString(c.due_date ?? '')}</td>
+                <td>{formatDueDateWithWindow(c.due_date, c.window)}</td>
 
                 {/* Status badge */}
                 <td>
@@ -120,7 +123,7 @@ export function CertificatesTable({
                 <td>
                   {isReadOnly ? (
                     <span className="text-muted">
-                      {lang === 'fr' ? 'Lecture seule' : 'Read-only'}
+                      {t('readonly_label')}
                     </span>
                   ) : isCrew ? (
                     c.category === 'Servicing' ? (
@@ -128,26 +131,37 @@ export function CertificatesTable({
                         className="btn btn-sm btn-outline"
                         onClick={() => handleEditCertOpen(c)}
                       >
-                        {lang === 'fr' ? 'Mettre à jour' : 'Update'}
+                        {t('btn_update')}
                       </button>
                     ) : (
                       <span className="text-muted">
-                        {lang === 'fr' ? 'Restreint' : 'Restricted'}
+                        {t('restricted_label')}
                       </span>
                     )
                   ) : (
-                    <div style={{ display: 'flex', gap: 4 }}>
+                    <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                       <button
                         className="btn btn-sm btn-outline"
                         onClick={() => handleEditCertOpen(c)}
                       >
-                        {lang === 'fr' ? 'Modifier' : 'Edit'}
+                        {t('btn_edit')}
                       </button>
                       <button
-                        className="btn btn-sm btn-danger icon-svg"
+                        className="btn btn-danger icon-svg"
                         onClick={() => handleDeleteCert(c.id)}
-                        style={{ padding: '6px 10px' }}
-                        title={lang === 'fr' ? 'Supprimer' : 'Delete'}
+                        style={{
+                          width: '32px',
+                          height: '32px',
+                          padding: 0,
+                          borderRadius: '50%',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          boxShadow: 'var(--shadow-sm)',
+                          border: 'none',
+                          cursor: 'pointer'
+                        }}
+                        title={t('btn_delete')}
                       >
                         <TrashIcon size={14} />
                       </button>

@@ -33,16 +33,105 @@ export class AlarmService {
   calculate(
     dueDateStr: string | null | undefined,
     expirationDateStr: string | null | undefined,
+    windowVal?: string | number | null,
   ): AlarmLevel {
-    const target = dueDateStr || expirationDateStr;
+    let target = dueDateStr || expirationDateStr;
     if (!target) return ALARM_LEVELS.NA;
+
+    let isUsingDueDate = !!dueDateStr;
+
+    // Parse JSON array of dates if multiple surveys are scheduled
+    if (dueDateStr && dueDateStr.trim().startsWith('[')) {
+      try {
+        const dates = JSON.parse(dueDateStr) as string[];
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        const parsedDates = dates
+          .map((d) => new Date(d))
+          .filter((d) => !isNaN(d.getTime()));
+
+        if (parsedDates.length > 0) {
+          parsedDates.sort((a, b) => a.getTime() - b.getTime());
+          const nextUpcoming = parsedDates.find(
+            (d) => d.getTime() >= today.getTime(),
+          );
+
+          if (nextUpcoming) {
+            target = nextUpcoming.toISOString().substring(0, 10);
+            isUsingDueDate = true;
+          } else {
+            target = parsedDates[parsedDates.length - 1]
+              .toISOString()
+              .substring(0, 10);
+            isUsingDueDate = true;
+          }
+        }
+      } catch (e) {
+        console.warn(
+          '[AlarmService] Failed to parse JSON array for due_date:',
+          e,
+        );
+      }
+    }
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    const targetDate = new Date(target);
+    let targetDate = new Date(target);
     if (isNaN(targetDate.getTime())) return ALARM_LEVELS.NA;
     targetDate.setHours(0, 0, 0, 0);
+
+    // Apply authorized window offsets or custom date ranges to due date to calculate absolute deadline
+    if (isUsingDueDate && windowVal) {
+      const windowValStr = String(windowVal).trim();
+      if (windowValStr.startsWith('[')) {
+        try {
+          const windows = JSON.parse(windowValStr) as any[];
+          const windowDeadlines = windows.map((w) => {
+              if (w.mode === 'custom') {
+                const endD = new Date(w.endDate);
+                return isNaN(endD.getTime()) ? null : endD;
+              } else {
+                const months = parseInt(String(w.offsetMonths), 10);
+                if (!isNaN(months) && months > 0) {
+                  const targetD = new Date(target);
+                  if (!isNaN(targetD.getTime())) {
+                    targetD.setMonth(targetD.getMonth() + months);
+                    return targetD;
+                  }
+                }
+              }
+              return null;
+            })
+            .filter(Boolean) as Date[];
+
+          if (windowDeadlines.length > 0) {
+            windowDeadlines.sort((a, b) => a.getTime() - b.getTime());
+            const nextUpcomingWindow = windowDeadlines.find(
+              (d) => d.getTime() >= today.getTime(),
+            );
+            if (nextUpcomingWindow) {
+              targetDate = nextUpcomingWindow;
+            } else {
+              targetDate = windowDeadlines[windowDeadlines.length - 1];
+            }
+            targetDate.setHours(0, 0, 0, 0);
+          }
+        } catch (e) {
+          console.warn(
+            '[AlarmService] Failed to parse multiple windows JSON:',
+            e,
+          );
+        }
+      } else {
+        // Fallback to legacy single window value (months)
+        const months = parseInt(windowValStr, 10);
+        if (!isNaN(months) && months > 0) {
+          targetDate.setMonth(targetDate.getMonth() + months);
+        }
+      }
+    }
 
     const diffDays = Math.ceil(
       (targetDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24),

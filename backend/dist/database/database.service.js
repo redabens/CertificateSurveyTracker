@@ -228,6 +228,12 @@ let DatabaseService = class DatabaseService {
     }
     migrateEmailSettings() {
         try {
+            const count = this.db
+                .prepare('SELECT COUNT(*) as cnt FROM vessel_emails')
+                .get().cnt;
+            if (count > 0) {
+                return;
+            }
             const rows = this.db
                 .prepare('SELECT * FROM email_settings')
                 .all();

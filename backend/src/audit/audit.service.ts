@@ -18,7 +18,8 @@ export type AuditAction =
   | 'DELETE_USER'
   | 'RESET_PASSWORD'
   | 'ADD_VESSEL_EMAIL'
-  | 'REMOVE_VESSEL_EMAIL';
+  | 'REMOVE_VESSEL_EMAIL'
+  | 'TRIGGER_MANUAL_NOTIFICATION';
 
 export type AuditTargetType =
   | 'vessel'

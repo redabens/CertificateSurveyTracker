@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { CloseIcon, TrashIcon } from '../Icons';
 
 export interface VesselEmail {
@@ -17,7 +17,7 @@ export interface EmailSettingsDrawerProps {
   verificationCode: string;
   devOtpNotice: string | null;
   isSubmitting: boolean;
-  lang: string;
+  t: (key: string) => string;
   onClose: () => void;
   onNewEmailChange: (v: string) => void;
   onAddEmailSubmit: (e: React.FormEvent) => void;
@@ -26,6 +26,7 @@ export interface EmailSettingsDrawerProps {
   onStartVerify: (email: string, otp: string | null) => void;
   onCancelVerify: () => void;
   onVerificationCodeChange: (v: string) => void;
+  onForceNotifyVessel?: (status: string) => void;
 }
 
 export function EmailSettingsDrawer({
@@ -36,7 +37,7 @@ export function EmailSettingsDrawer({
   verificationCode,
   devOtpNotice,
   isSubmitting,
-  lang,
+  t,
   onClose,
   onNewEmailChange,
   onAddEmailSubmit,
@@ -45,7 +46,9 @@ export function EmailSettingsDrawer({
   onStartVerify,
   onCancelVerify,
   onVerificationCodeChange,
+  onForceNotifyVessel,
 }: EmailSettingsDrawerProps) {
+  const [alertFilter, setAlertFilter] = useState('ALL');
   if (!open) return null;
 
   return (
@@ -53,7 +56,7 @@ export function EmailSettingsDrawer({
       <div className="drawer-backdrop" onClick={onClose} />
       <div className="drawer">
         <div className="drawer-header">
-          <h2>{lang === 'fr' ? 'Destinataires des Alertes' : 'Alert Recipients'}</h2>
+          <h2>{t('alert_recipients_title')}</h2>
           <span className="close-btn icon-svg" onClick={onClose}>
             <CloseIcon size={18} />
           </span>
@@ -63,12 +66,12 @@ export function EmailSettingsDrawer({
           {/* Registered email list */}
           <div style={{ marginBottom: 24 }}>
             <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '12px' }}>
-              {lang === 'fr' ? 'Adresses enregistrées' : 'Registered Addresses'}
+              {t('registered_addresses_label')}
             </label>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               {vesselEmails.length === 0 ? (
                 <p className="placeholder-text" style={{ padding: '10px 0', textAlign: 'left' }}>
-                  {lang === 'fr' ? 'Aucune adresse e-mail configurée.' : 'No email addresses configured.'}
+                  {t('no_emails_configured')}
                 </p>
               ) : (
                 vesselEmails.map((ve, idx) => (
@@ -81,8 +84,8 @@ export function EmailSettingsDrawer({
                       <div>
                         <span className={`badge ${ve.is_verified ? 'badge-green' : 'badge-yellow'}`} style={{ fontSize: '10px', padding: '2px 6px' }}>
                           {ve.is_verified
-                            ? lang === 'fr' ? 'Vérifié' : 'Verified'
-                            : lang === 'fr' ? 'En attente de code' : 'Pending OTP'}
+                            ? t('email_verified_badge')
+                            : t('email_pending_otp_badge')}
                         </span>
                         {!ve.is_verified && (
                           <button
@@ -91,17 +94,27 @@ export function EmailSettingsDrawer({
                             style={{ fontSize: '11px', color: 'var(--primary-color)', marginLeft: '8px', padding: 0 }}
                             onClick={() => onStartVerify(ve.email, ve.otp_code ?? null)}
                           >
-                            {lang === 'fr' ? 'Saisir le code' : 'Enter code'}
+                            {t('enter_code_action')}
                           </button>
                         )}
                       </div>
                     </div>
                     <button
                       type="button"
-                      className="btn btn-sm btn-danger icon-svg"
-                      style={{ padding: '6px 8px' }}
+                      className="btn btn-danger icon-svg"
+                      style={{
+                        width: '28px',
+                        height: '28px',
+                        padding: 0,
+                        borderRadius: '50%',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        border: 'none',
+                        cursor: 'pointer'
+                      }}
                       onClick={() => onDeleteEmail(ve.email)}
-                      title={lang === 'fr' ? 'Supprimer' : 'Delete'}
+                      title={t('btn_delete')}
                     >
                       <TrashIcon size={12} />
                     </button>
@@ -115,12 +128,10 @@ export function EmailSettingsDrawer({
           {emailToVerify && (
             <div style={{ borderLeft: '3px solid var(--primary-color)', background: 'rgba(204,164,59,0.03)', padding: '16px', borderRadius: '0 var(--border-radius-md) var(--border-radius-md) 0', marginBottom: 24 }}>
               <h4 style={{ margin: 0, fontSize: '14px', color: 'var(--primary-color)', fontWeight: 600 }}>
-                {lang === 'fr' ? 'Vérification e-mail requis' : 'Email verification required'}
+                {t('verification_required_title')}
               </h4>
               <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '4px 0 12px 0' }}>
-                {lang === 'fr'
-                  ? `Saisissez le code OTP à 6 chiffres envoyé à ${emailToVerify}`
-                  : `Enter the 6-digit OTP code sent to ${emailToVerify}`}
+                {t('enter_otp_sent_to').replace('{email}', emailToVerify)}
               </p>
               <form onSubmit={onVerifyEmailSubmit} style={{ display: 'flex', gap: '8px' }}>
                 <input
@@ -130,17 +141,17 @@ export function EmailSettingsDrawer({
                   style={{ flexGrow: 1 }}
                 />
                 <button type="submit" className="btn btn-primary" style={{ padding: '0 16px', fontSize: '12px' }} disabled={isSubmitting}>
-                  {isSubmitting ? lang === 'fr' ? 'Vérification...' : 'Verifying...' : lang === 'fr' ? 'Confirmer' : 'Confirm'}
+                  {isSubmitting ? t('btn_verifying') : t('btn_confirm')}
                 </button>
                 <button type="button" className="btn btn-outline" style={{ padding: '0 12px', fontSize: '12px' }} onClick={onCancelVerify}>
-                  {lang === 'fr' ? 'Annuler' : 'Cancel'}
+                  {t('btn_cancel')}
                 </button>
               </form>
               {devOtpNotice && (
                 <div style={{ marginTop: '12px', padding: '10px 14px', background: 'rgba(212,163,89,0.08)', border: '1px solid rgba(212,163,89,0.3)', borderRadius: 'var(--border-radius-md)', color: 'var(--primary-color)', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '8px', lineHeight: 1.4 }}>
                   <span style={{ fontSize: '16px' }}>💡</span>
                   <span>
-                    {lang === 'fr' ? '[Dev Mode] Code OTP généré : ' : '[Dev Mode] Generated OTP: '}
+                    {t('dev_otp_notice_prefix')}
                     <strong style={{ fontFamily: 'Roboto Mono', fontSize: '14px', letterSpacing: '1px', textShadow: '0 0 8px rgba(212,163,89,0.3)' }}>
                       {devOtpNotice}
                     </strong>
@@ -154,7 +165,7 @@ export function EmailSettingsDrawer({
           {!emailToVerify && (
             <form onSubmit={onAddEmailSubmit} style={{ borderTop: '1px solid var(--border-color)', paddingTop: '20px' }}>
               <div className="form-group">
-                <label>{lang === 'fr' ? 'Ajouter une adresse de notification' : 'Add notification email address'}</label>
+                <label>{t('add_notification_email_label')}</label>
                 <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
                   <input
                     type="email" maxLength={100} className="input-field" required
@@ -164,7 +175,7 @@ export function EmailSettingsDrawer({
                     style={{ flexGrow: 1 }}
                   />
                   <button type="submit" className="btn btn-primary" style={{ padding: '0 20px' }} disabled={isSubmitting}>
-                    {isSubmitting ? lang === 'fr' ? 'Ajout...' : 'Adding...' : lang === 'fr' ? 'Ajouter' : 'Add'}
+                    {isSubmitting ? t('btn_adding') : t('btn_add')}
                   </button>
                 </div>
               </div>
@@ -172,9 +183,34 @@ export function EmailSettingsDrawer({
           )}
         </div>
 
-        <div className="drawer-footer">
+        <div className="drawer-footer" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          {vesselEmails.some((ve) => ve.is_verified) && onForceNotifyVessel && (
+            <div style={{ display: 'flex', gap: '8px', width: '100%' }}>
+              <select
+                className="input-field"
+                style={{ flexGrow: 1, padding: '0 10px', height: '36px', fontSize: '13px', minWidth: '140px', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-color)', borderRadius: 'var(--border-radius-md)' }}
+                value={alertFilter}
+                onChange={(e) => setAlertFilter(e.target.value)}
+              >
+                <option value="ALL">{t('opt_all_alerts')}</option>
+                <option value="RED">{t('opt_urgent_alerts')}</option>
+                <option value="YELLOW">{t('opt_warning_alerts')}</option>
+                <option value="GREEN">{t('opt_monitored_alerts')}</option>
+              </select>
+              <button
+                type="button"
+                className="btn btn-primary"
+                style={{ height: '36px', fontSize: '13px', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '6px' }}
+                onClick={() => onForceNotifyVessel(alertFilter)}
+                disabled={isSubmitting}
+              >
+                <span>✉</span>
+                {t('btn_notify')}
+              </button>
+            </div>
+          )}
           <button type="button" className="btn btn-outline" style={{ width: '100%', justifyContent: 'center' }} onClick={onClose}>
-            {lang === 'fr' ? 'Fermer' : 'Close'}
+            {t('btn_close')}
           </button>
         </div>
       </div>

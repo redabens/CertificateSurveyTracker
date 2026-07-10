@@ -8,6 +8,9 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
+var __param = (this && this.__param) || function (paramIndex, decorator) {
+    return function (target, key) { decorator(target, key, paramIndex); }
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AppController = void 0;
 const common_1 = require("@nestjs/common");
@@ -21,8 +24,8 @@ let AppController = class AppController {
         this.emailService = emailService;
         this.db = db;
     }
-    async triggerNotifications() {
-        return this.emailService.performCertificateStatusCheck();
+    async triggerNotifications(status) {
+        return this.emailService.sendManualFleetNotifications(status);
     }
     async getEmailLogs() {
         return this.db.prepare('SELECT * FROM email_logs ORDER BY id DESC').all();
@@ -32,8 +35,9 @@ exports.AppController = AppController;
 __decorate([
     (0, common_1.Post)('trigger-notifications'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    __param(0, (0, common_1.Query)('status')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", []),
+    __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", Promise)
 ], AppController.prototype, "triggerNotifications", null);
 __decorate([

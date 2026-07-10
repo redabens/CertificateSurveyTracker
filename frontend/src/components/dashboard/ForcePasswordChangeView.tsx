@@ -4,7 +4,7 @@ import { LogoIcon, CheckIcon, AlertIcon, WarningIcon } from '../Icons';
 type ToastMsg = { id: number; text: string; type: 'success' | 'error' | 'info' };
 
 interface ForcePasswordChangeViewProps {
-  lang: string;
+  t: (key: string) => string;
   newPassword: string;
   setNewPassword: (val: string) => void;
   confirmPassword: string;
@@ -16,7 +16,7 @@ interface ForcePasswordChangeViewProps {
 }
 
 export const ForcePasswordChangeView: React.FC<ForcePasswordChangeViewProps> = ({
-  lang,
+  t,
   newPassword,
   setNewPassword,
   confirmPassword,
@@ -34,12 +34,10 @@ export const ForcePasswordChangeView: React.FC<ForcePasswordChangeViewProps> = (
           <span className="logo-text" style={{ fontSize: '28px', fontWeight: 800 }}>CNAN<span>Certifs</span></span>
         </div>
         <h2 style={{ fontSize: '20px', marginBottom: '8px', color: 'var(--text-primary)', fontWeight: 700 }}>
-          {lang === 'fr' ? 'Changement de mot de passe' : 'Change Password'}
+          {t('title_change_password')}
         </h2>
         <p className="form-desc" style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '24px' }}>
-          {lang === 'fr' 
-            ? 'Pour votre première connexion, vous devez définir votre mot de passe personnel.' 
-            : 'For your first login, you must configure a personal password.'}
+          {t('desc_first_login_password')}
         </p>
 
         {passwordChangeError && (
@@ -52,7 +50,7 @@ export const ForcePasswordChangeView: React.FC<ForcePasswordChangeViewProps> = (
         <form onSubmit={handleForcePasswordChange}>
           <div className="form-group" style={{ marginBottom: '20px' }}>
             <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '8px' }}>
-              {lang === 'fr' ? 'Nouveau mot de passe (min. 6 caractères)' : 'New Password (min. 6 chars)'}
+              {t('label_new_password_min_6')}
             </label>
             <input
               type="password"
@@ -65,7 +63,7 @@ export const ForcePasswordChangeView: React.FC<ForcePasswordChangeViewProps> = (
           </div>
           <div className="form-group" style={{ marginBottom: '24px' }}>
             <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '8px' }}>
-              {lang === 'fr' ? 'Confirmer le mot de passe' : 'Confirm Password'}
+              {t('label_confirm_password')}
             </label>
             <input
               type="password"
@@ -83,8 +81,8 @@ export const ForcePasswordChangeView: React.FC<ForcePasswordChangeViewProps> = (
             disabled={passwordChangeLoading}
           >
             {passwordChangeLoading 
-              ? (lang === 'fr' ? 'Enregistrement...' : 'Saving...') 
-              : (lang === 'fr' ? 'Enregistrer le mot de passe' : 'Save Password')}
+              ? t('btn_saving') 
+              : t('btn_save_password')}
           </button>
         </form>
       </div>

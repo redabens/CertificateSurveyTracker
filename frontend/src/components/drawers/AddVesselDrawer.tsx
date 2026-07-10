@@ -16,7 +16,6 @@ export interface AddVesselDrawerProps {
   open: boolean;
   vesselForm: VesselFormState;
   isSubmitting: boolean;
-  lang: string;
   t: (key: string) => string;
   onClose: () => void;
   onFormChange: (form: VesselFormState) => void;
@@ -27,7 +26,6 @@ export function AddVesselDrawer({
   open,
   vesselForm,
   isSubmitting,
-  lang,
   t,
   onClose,
   onFormChange,
@@ -105,12 +103,12 @@ export function AddVesselDrawer({
           </div>
           <div className="drawer-footer">
             <button type="button" className="btn btn-outline" onClick={onClose}>
-              {lang === 'fr' ? 'Annuler' : 'Cancel'}
+              {t('btn_cancel')}
             </button>
             <button type="submit" className="btn btn-primary" disabled={isSubmitting}>
               {isSubmitting
-                ? lang === 'fr' ? 'Création...' : 'Creating...'
-                : lang === 'fr' ? 'Créer Navire' : 'Create Vessel'}
+                ? t('btn_creating')
+                : t('btn_create_vessel')}
             </button>
           </div>
         </form>

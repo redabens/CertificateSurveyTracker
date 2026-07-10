@@ -15,7 +15,6 @@ export interface AddActionableDrawerProps {
   open: boolean;
   actionableForm: ActionableFormState;
   isSubmitting: boolean;
-  lang: string;
   t: (key: string) => string;
   onClose: () => void;
   onFormChange: (form: ActionableFormState) => void;
@@ -26,7 +25,6 @@ export function AddActionableDrawer({
   open,
   actionableForm,
   isSubmitting,
-  lang,
   t,
   onClose,
   onFormChange,
@@ -73,12 +71,12 @@ export function AddActionableDrawer({
           </div>
           <div className="drawer-footer">
             <button type="button" className="btn btn-outline" onClick={onClose}>
-              {lang === 'fr' ? 'Annuler' : 'Cancel'}
+              {t('btn_cancel')}
             </button>
             <button type="submit" className="btn btn-primary" disabled={isSubmitting}>
               {isSubmitting
-                ? lang === 'fr' ? 'Ajout...' : 'Adding...'
-                : lang === 'fr' ? 'Ajouter' : 'Add'}
+                ? t('btn_adding')
+                : t('btn_add')}
             </button>
           </div>
         </form>

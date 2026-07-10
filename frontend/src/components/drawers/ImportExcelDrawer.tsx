@@ -7,7 +7,6 @@ export interface ImportExcelDrawerProps {
   open: boolean;
   importFile: File | null;
   isSubmitting: boolean;
-  lang: string;
   t: (key: string) => string;
   onClose: () => void;
   onFileChange: (file: File | null) => void;
@@ -18,7 +17,6 @@ export function ImportExcelDrawer({
   open,
   importFile,
   isSubmitting,
-  lang,
   t,
   onClose,
   onFileChange,
@@ -39,7 +37,7 @@ export function ImportExcelDrawer({
         <form onSubmit={onSubmit} className="flex-column" style={{ height: '100%' }}>
           <div className="drawer-body">
             <div className="form-group">
-              <label>Sélectionnez le fichier Excel du suivi des certificats (Format .xlsx)</label>
+               <label>{t('label_select_excel')}</label>
               <div className="file-drop-zone">
                 <input
                   type="file"
@@ -47,21 +45,21 @@ export function ImportExcelDrawer({
                   required
                   onChange={(e) => onFileChange(e.target.files?.[0] || null)}
                 />
-                <p>Glissez-déposez le fichier ici ou cliquez pour parcourir</p>
+                <p>{t('label_drag_drop')}</p>
                 <small className="file-name-display">
-                  {importFile ? importFile.name : lang === 'fr' ? 'Aucun fichier' : 'No file'}
+                  {importFile ? importFile.name : t('label_no_file')}
                 </small>
               </div>
             </div>
           </div>
           <div className="drawer-footer">
             <button type="button" className="btn btn-outline" onClick={onClose}>
-              {lang === 'fr' ? 'Annuler' : 'Cancel'}
+              {t('btn_cancel')}
             </button>
             <button type="submit" className="btn btn-primary" disabled={isSubmitting}>
               {isSubmitting
-                ? lang === 'fr' ? 'Importation...' : 'Importing...'
-                : lang === 'fr' ? "Lancer l'importation" : 'Start Import'}
+                ? t('btn_importing')
+                : t('btn_start_import')}
             </button>
           </div>
         </form>

@@ -17,16 +17,90 @@ exports.ALARM_LEVELS = {
     NA: 'N/A',
 };
 let AlarmService = class AlarmService {
-    calculate(dueDateStr, expirationDateStr) {
-        const target = dueDateStr || expirationDateStr;
+    calculate(dueDateStr, expirationDateStr, windowVal) {
+        let target = dueDateStr || expirationDateStr;
         if (!target)
             return exports.ALARM_LEVELS.NA;
+        let isUsingDueDate = !!dueDateStr;
+        if (dueDateStr && dueDateStr.trim().startsWith('[')) {
+            try {
+                const dates = JSON.parse(dueDateStr);
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                const parsedDates = dates
+                    .map((d) => new Date(d))
+                    .filter((d) => !isNaN(d.getTime()));
+                if (parsedDates.length > 0) {
+                    parsedDates.sort((a, b) => a.getTime() - b.getTime());
+                    const nextUpcoming = parsedDates.find((d) => d.getTime() >= today.getTime());
+                    if (nextUpcoming) {
+                        target = nextUpcoming.toISOString().substring(0, 10);
+                        isUsingDueDate = true;
+                    }
+                    else {
+                        target = parsedDates[parsedDates.length - 1]
+                            .toISOString()
+                            .substring(0, 10);
+                        isUsingDueDate = true;
+                    }
+                }
+            }
+            catch (e) {
+                console.warn('[AlarmService] Failed to parse JSON array for due_date:', e);
+            }
+        }
         const today = new Date();
         today.setHours(0, 0, 0, 0);
-        const targetDate = new Date(target);
+        let targetDate = new Date(target);
         if (isNaN(targetDate.getTime()))
             return exports.ALARM_LEVELS.NA;
         targetDate.setHours(0, 0, 0, 0);
+        if (isUsingDueDate && windowVal) {
+            const windowValStr = String(windowVal).trim();
+            if (windowValStr.startsWith('[')) {
+                try {
+                    const windows = JSON.parse(windowValStr);
+                    const windowDeadlines = windows.map((w) => {
+                        if (w.mode === 'custom') {
+                            const endD = new Date(w.endDate);
+                            return isNaN(endD.getTime()) ? null : endD;
+                        }
+                        else {
+                            const months = parseInt(String(w.offsetMonths), 10);
+                            if (!isNaN(months) && months > 0) {
+                                const targetD = new Date(target);
+                                if (!isNaN(targetD.getTime())) {
+                                    targetD.setMonth(targetD.getMonth() + months);
+                                    return targetD;
+                                }
+                            }
+                        }
+                        return null;
+                    })
+                        .filter(Boolean);
+                    if (windowDeadlines.length > 0) {
+                        windowDeadlines.sort((a, b) => a.getTime() - b.getTime());
+                        const nextUpcomingWindow = windowDeadlines.find((d) => d.getTime() >= today.getTime());
+                        if (nextUpcomingWindow) {
+                            targetDate = nextUpcomingWindow;
+                        }
+                        else {
+                            targetDate = windowDeadlines[windowDeadlines.length - 1];
+                        }
+                        targetDate.setHours(0, 0, 0, 0);
+                    }
+                }
+                catch (e) {
+                    console.warn('[AlarmService] Failed to parse multiple windows JSON:', e);
+                }
+            }
+            else {
+                const months = parseInt(windowValStr, 10);
+                if (!isNaN(months) && months > 0) {
+                    targetDate.setMonth(targetDate.getMonth() + months);
+                }
+            }
+        }
         const diffDays = Math.ceil((targetDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
         if (diffDays < 0)
             return exports.ALARM_LEVELS.OVERDUE;

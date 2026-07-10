@@ -9,7 +9,7 @@ export declare const ALARM_LEVELS: {
 export type AlarmLevel = (typeof ALARM_LEVELS)[keyof typeof ALARM_LEVELS];
 export type VesselStatus = 'Imminent' | 'Attention' | 'Suivi' | 'Normal';
 export declare class AlarmService {
-    calculate(dueDateStr: string | null | undefined, expirationDateStr: string | null | undefined): AlarmLevel;
+    calculate(dueDateStr: string | null | undefined, expirationDateStr: string | null | undefined, windowVal?: string | number | null): AlarmLevel;
     computeVesselStatus(alarmLevels: AlarmLevel[]): VesselStatus;
     hasChanged(previous: string, current: AlarmLevel): boolean;
 }

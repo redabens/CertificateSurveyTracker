@@ -38,4 +38,8 @@ export declare class VesselsController {
     removeEmail(req: any, vesselId: string, emailFromQuery: string, body: any): Promise<{
         success: boolean;
     }>;
+    triggerVesselNotifications(req: any, vesselId: string, status?: string): Promise<{
+        alerts: number;
+        success: boolean;
+    }>;
 }

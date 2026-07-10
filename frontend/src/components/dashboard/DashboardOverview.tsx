@@ -3,7 +3,6 @@ import { ShipIcon, AlertIcon, WarningIcon, CheckIcon } from '../Icons';
 
 interface DashboardOverviewProps {
   vessels: any[];
-  lang: string;
   t: (key: string) => string;
   chartRef: React.RefObject<HTMLCanvasElement | null>;
   setActiveView: (view: 'dashboard' | 'fleet' | 'logs' | 'users' | 'audit') => void;
@@ -12,13 +11,12 @@ interface DashboardOverviewProps {
 
 export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
   vessels,
-  lang,
   t,
   chartRef,
   setActiveView,
   setSelectedVesselId,
 }) => {
-  const urgentCount = vessels.reduce((acc, curr) => acc + (curr.counts?.red || 0), 0);
+  const urgentCount = vessels.reduce((acc, curr) => acc + (curr.counts?.overdue || 0) + (curr.counts?.red || 0), 0);
   const warningCount = vessels.reduce((acc, curr) => acc + (curr.counts?.yellow || 0), 0);
   const greenCount = vessels.reduce((acc, curr) => acc + (curr.counts?.green || 0), 0);
 
@@ -93,11 +91,11 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
                   <div className="item-left">
                     <span className="item-title">{v.name}</span>
                     <span className="item-sub">
-                      {lang === 'fr' ? 'Nécessite des actions de conformité urgentes' : 'Requires urgent compliance action'}
+                      {t('need_compliance_action')}
                     </span>
                   </div>
                   <span className={`badge ${v.status === 'Imminent' ? 'badge-red' : 'badge-yellow'}`}>
-                    {v.counts?.red || 0} {lang === 'fr' ? 'Urgents' : 'Urgents'} | {v.counts?.yellow || 0} {lang === 'fr' ? 'Alertes' : 'Warnings'}
+                    {v.counts?.red || 0} {t('lbl_urgents')} | {v.counts?.yellow || 0} {t('lbl_warnings')}
                   </span>
                 </div>
               ))
@@ -122,20 +120,34 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
                 <span className="vessel-card-imo">IMO {v.imo_number || 'N/A'}</span>
               </div>
               <span className={`badge ${v.status === 'Imminent' ? 'badge-red' : v.status === 'Attention' ? 'badge-yellow' : v.status === 'Suivi' ? 'badge-green' : 'badge-normal'}`}>
-                {lang === 'fr' 
-                  ? (v.status === 'Imminent' ? 'Imminent' : v.status === 'Attention' ? 'Attention' : v.status === 'Suivi' ? 'Suivi' : 'Normal')
-                  : v.status}
+                {v.status === 'Imminent' ? t('status_imminent') : v.status === 'Attention' ? t('status_attention') : v.status === 'Suivi' ? t('status_suivi') : t('status_normal')}
               </span>
             </div>
             <div className="vessel-card-body">
-              <div className="vessel-card-stat">
-                <span className="dot dot-red"></span>
-                <span>{lang === 'fr' ? 'Urgent' : 'Urgent'}: <strong>{v.counts?.red || 0}</strong></span>
-              </div>
-              <div className="vessel-card-stat">
-                <span className="dot dot-yellow"></span>
-                <span>{lang === 'fr' ? 'Attention' : 'Warning'}: <strong>{v.counts?.yellow || 0}</strong></span>
-              </div>
+              {v.counts?.overdue > 0 && (
+                <div className="vessel-card-stat">
+                  <span className="dot dot-red"></span>
+                  <span>{t('status_overdue')}: <strong>{v.counts.overdue}</strong></span>
+                </div>
+              )}
+              {v.counts?.red > 0 && (
+                <div className="vessel-card-stat">
+                  <span className="dot dot-orange"></span>
+                  <span>{t('status_under_1m')}: <strong>{v.counts.red}</strong></span>
+                </div>
+              )}
+              {v.counts?.yellow > 0 && (
+                <div className="vessel-card-stat">
+                  <span className="dot dot-yellow"></span>
+                  <span>{t('label_warning')}: <strong>{v.counts.yellow}</strong></span>
+                </div>
+              )}
+              {(v.counts?.overdue || 0) === 0 && (v.counts?.red || 0) === 0 && (v.counts?.yellow || 0) === 0 && (
+                <div className="vessel-card-stat" style={{ color: 'var(--status-green)' }}>
+                  <span className="dot" style={{ backgroundColor: 'var(--status-green)' }}></span>
+                  <span>{t('label_compliant')}</span>
+                </div>
+              )}
             </div>
           </div>
         ))}

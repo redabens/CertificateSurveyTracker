@@ -58,8 +58,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const apiFetch = async (url: string, options: RequestInit = {}): Promise<Response> => {
     const headers = (options.headers || {}) as Record<string, string>;
     options.headers = headers;
-    // Base URL points to the NestJS backend
-    const backendUrl = `http://localhost:3000/api${url.startsWith('/') ? '' : '/'}${url}`;
+    const baseApiUrl = process.env.NEXT_PUBLIC_API_URL || (typeof window !== 'undefined'
+      ? (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+        ? 'http://localhost:3000/api'
+        : `${window.location.origin}/api`)
+      : 'http://localhost:3000/api');
+    const backendUrl = `${baseApiUrl}${url.startsWith('/') ? '' : '/'}${url}`;
     
     const savedToken = token || localStorage.getItem('babor_token');
     if (savedToken) {

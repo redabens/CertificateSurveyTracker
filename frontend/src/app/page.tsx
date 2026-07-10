@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import { useDashboard } from '../hooks/useDashboard';
 import { ForcePasswordChangeView } from '../components/dashboard/ForcePasswordChangeView';
 import { TvModeView } from '../components/dashboard/TvModeView';
@@ -26,7 +26,8 @@ import {
   ImportIcon,
   AlertIcon,
   WarningIcon,
-  CheckIcon
+  CheckIcon,
+  TrashIcon
 } from '../components/Icons';
 
 export default function Dashboard() {
@@ -93,7 +94,7 @@ export default function Dashboard() {
     toasts,
     // Helpers
     showToast,
-    formatDateString, formatDateTimeString,
+    formatDateString, formatDateTimeString, formatDueDateWithWindow,
     getAlarmBadgeClass, getAlarmLabel,
     // Handlers
     handleImportExcel,
@@ -114,17 +115,20 @@ export default function Dashboard() {
     handleDeleteUser,
     handleForcePasswordChange,
     triggerAlertCheck,
+    handleForceNotifyVessel,
     handleExcelExport,
     openPdfViewer,
     loadAuditLogs,
   } = useDashboard(chartRef);
+
+  const [globalAlertFilter, setGlobalAlertFilter] = useState('ALL');
 
   if (!token || !user) return null;
 
   if (user.mustChangePassword) {
     return (
       <ForcePasswordChangeView
-        lang={lang}
+        t={t}
         newPassword={newPassword}
         setNewPassword={setNewPassword}
         confirmPassword={confirmPassword}
@@ -145,7 +149,6 @@ export default function Dashboard() {
       {/* ---------------------------------------------------- */}
       {tvMode && (
         <TvModeView
-          lang={lang}
           vessels={vessels}
           tvTime={tvTime}
           tvDate={tvDate}
@@ -184,7 +187,7 @@ export default function Dashboard() {
               </a>
               {user.role === 'Admin' && (
                 <a href="#users" className={`nav-item ${activeView === 'users' ? 'active' : ''}`} onClick={() => setActiveView('users')}>
-                  <span className="icon-svg"><UserIcon size={18} /></span> <span>{lang === 'fr' ? 'Utilisateurs' : 'Users'}</span>
+                  <span className="icon-svg"><UserIcon size={18} /></span> <span>{t('nav_users')}</span>
                 </a>
               )}
               {user.role === 'Admin' && (
@@ -197,7 +200,7 @@ export default function Dashboard() {
                   }}
                 >
                   <span className="icon-svg"><LogsIcon /></span>
-                  <span>{lang === 'fr' ? 'Audit Trail' : 'Audit Trail'}</span>
+                  <span>{t('nav_audit')}</span>
                 </a>
               )}
             </nav>
@@ -209,20 +212,20 @@ export default function Dashboard() {
                 <div className="profile-info">
                   <div className="profile-name">{user.full_name}</div>
                   <div className="profile-role" id="currentUserRoleBadge">
-                    {user.role === 'Admin' ? 'Administrateur' : user.role === 'Crew' ? 'Équipage (Capitaine)' : user.role === 'Partner' ? 'Partenaire B2B' : 'Auditeur Externe'}
+                    {user.role === 'Admin' ? t('role_admin') : user.role === 'Crew' ? t('role_crew') : user.role === 'Partner' ? t('role_partner') : t('role_auditor')}
                   </div>
                 </div>
-                <button className="btn-logout icon-svg" onClick={logout} title="Déconnexion"><LogoutIcon size={18} /></button>
+                <button className="btn-logout icon-svg" onClick={logout} title={t('btn_logout')}><LogoutIcon size={18} /></button>
               </div>
             </div>
           </aside>
 
           {/* MAIN CONTENT AREA */}
-          <main className="main-content">
+          <div className="main-container">
             {/* HEADER */}
             <header className="app-header">
               <div className="header-search">
-                <h1>{activeView === 'audit' ? (lang === 'fr' ? 'Journal d\'Audit' : 'Audit Trail') : t(`nav_${activeView}`)}</h1>
+                <h1>{t(`nav_${activeView}`)}</h1>
               </div>
               <div className="header-actions">
                 <div className="lang-selector">
@@ -237,13 +240,14 @@ export default function Dashboard() {
               </div>
             </header>
 
+            <main className="main-content">
+
             {/* ---------------------------------------------------- */}
             {/* VIEW: DASHBOARD */}
             {/* ---------------------------------------------------- */}
             {activeView === 'dashboard' && (
               <DashboardOverview
                 vessels={vessels}
-                lang={lang}
                 t={t}
                 chartRef={chartRef}
                 setActiveView={setActiveView}
@@ -380,6 +384,7 @@ export default function Dashboard() {
                                 lang={lang}
                                 t={t}
                                 formatDateString={formatDateString}
+                                formatDueDateWithWindow={formatDueDateWithWindow}
                                 getAlarmBadgeClass={getAlarmBadgeClass}
                                 getAlarmLabel={getAlarmLabel}
                                 handleEditCertOpen={handleEditCertOpen}
@@ -418,7 +423,7 @@ export default function Dashboard() {
                                   </thead>
                                   <tbody>
                                     {actionableItems.length === 0 ? (
-                                      <tr><td colSpan={7} className="placeholder-text">{lang === 'fr' ? 'Aucune recommandation.' : 'No recommendations.'}</td></tr>
+                                      <tr><td colSpan={7} className="placeholder-text">{t('no_recommendations')}</td></tr>
                                     ) : (
                                       actionableItems.map(a => {
                                         const isCompleted = a.status === 'Completed';
@@ -430,16 +435,16 @@ export default function Dashboard() {
                                             <td>{formatDateString(a.imposed_date)}</td>
                                             <td>{a.category || '-'}</td>
                                             <td>{a.report_number || '-'}</td>
-                                            <td><strong>{a.due_date ? formatDateString(a.due_date) : (lang === 'fr' ? 'Non spécifiée' : 'Not specified')}</strong></td>
+                                            <td><strong>{a.due_date ? formatDateString(a.due_date) : t('label_not_specified')}</strong></td>
                                             <td><div style={{ maxWidth: 400, whiteSpace: 'normal', fontSize: 12 }}>{a.description}</div></td>
                                             <td>
                                               {!isReadOnly ? (
                                                 <button className={`btn btn-sm ${isCompleted ? 'btn-outline' : 'btn-success'}`} onClick={() => toggleActionableStatus(a.id, a.status)}>
-                                                  {isCompleted ? (lang === 'fr' ? 'En attente' : 'Pending') : (lang === 'fr' ? 'Terminé' : 'Completed')}
+                                                  {isCompleted ? t('status_pending') : t('status_completed')}
                                                 </button>
                                               ) : (
                                                 <span className={`badge ${isCompleted ? 'badge-green' : 'badge-yellow'}`}>
-                                                  {isCompleted ? (lang === 'fr' ? 'Fait ✓' : 'Done ✓') : (lang === 'fr' ? 'En attente' : 'Pending')}
+                                                  {isCompleted ? t('status_done') : t('status_pending')}
                                                 </span>
                                               )}
                                             </td>
@@ -469,9 +474,22 @@ export default function Dashboard() {
                   <div className="card-header-actions" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <h2>{t('logs_title')}</h2>
                     {user.role === 'Admin' && (
-                      <button className="btn btn-outline" onClick={triggerAlertCheck}>
-                        {t('btn_trigger_check')}
-                      </button>
+                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                        <select
+                          className="input-field"
+                          style={{ padding: '0 10px', height: '36px', fontSize: '13px', minWidth: '160px', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-color)', borderRadius: 'var(--border-radius-md)' }}
+                          value={globalAlertFilter}
+                          onChange={(e) => setGlobalAlertFilter(e.target.value)}
+                        >
+                          <option value="ALL">{t('opt_all_alerts')}</option>
+                          <option value="RED">{t('opt_urgent_alerts')}</option>
+                          <option value="YELLOW">{t('opt_warning_alerts')}</option>
+                          <option value="GREEN">{t('opt_monitored_alerts')}</option>
+                        </select>
+                        <button className="btn btn-outline" onClick={() => triggerAlertCheck(globalAlertFilter)}>
+                          {t('btn_trigger_check')}
+                        </button>
+                      </div>
                     )}
                   </div>
                   <p className="section-desc" style={{ marginTop: 8 }}>{t('logs_desc')}</p>
@@ -490,7 +508,7 @@ export default function Dashboard() {
                       </thead>
                       <tbody>
                         {emailLogs.length === 0 ? (
-                          <tr><td colSpan={6} className="placeholder-text">{lang === 'fr' ? 'Aucun log disponible.' : 'No email logs available.'}</td></tr>
+                          <tr><td colSpan={6} className="placeholder-text">{t('no_email_logs')}</td></tr>
                         ) : (
                           emailLogs.map(l => {
                             const isFailure = l.sent_to.includes('Echec') || l.sent_to.includes('Error');
@@ -505,7 +523,7 @@ export default function Dashboard() {
                                 <td>{formatDateTimeString(l.sent_at)}</td>
                                 <td>
                                   <span className={`badge ${isFailure ? 'badge-red' : 'badge-green'}`}>
-                                    {isFailure ? (lang === 'fr' ? 'ÉCHEC' : 'FAILED') : (lang === 'fr' ? 'ENVOYÉ ✓' : 'SENT ✓')}
+                                    {isFailure ? t('delivery_failed') : t('delivery_sent')}
                                   </span>
                                 </td>
                               </tr>
@@ -526,32 +544,30 @@ export default function Dashboard() {
               <section className="app-view active">
                 <div className="card glass">
                   <div className="card-header-actions" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <h2>{lang === 'fr' ? 'Gestion des Utilisateurs' : 'User Management'}</h2>
+                    <h2>{t('title_user_management')}</h2>
                     <button className="btn btn-primary" onClick={() => { setTempInviteOtp(null); setShowAddUserModal(true); }}>
-                      <span className="icon-svg"><UserIcon size={16} /></span> <span style={{ marginLeft: '8px' }}>{lang === 'fr' ? 'Nouvel Utilisateur' : 'New User'}</span>
+                      <span className="icon-svg"><UserIcon size={16} /></span> <span style={{ marginLeft: '8px' }}>{t('btn_new_user')}</span>
                     </button>
                   </div>
                   <p className="section-desc" style={{ marginTop: 8 }}>
-                    {lang === 'fr'
-                      ? 'Créez des comptes et attribuez-leur des rôles (Administrateur, Équipage, Partenaire, Auditeur).'
-                      : 'Create accounts and assign them roles (Admin, Crew, Partner, Auditor).'}
+                    {t('desc_user_management_subtitle')}
                   </p>
 
                   <div className="table-container scrollable" style={{ marginTop: 20 }}>
                     <table className="data-table">
                       <thead>
                         <tr>
-                          <th>{lang === 'fr' ? 'Nom Complet' : 'Full Name'}</th>
+                          <th>{t('label_full_name')}</th>
                           <th>Email</th>
-                          <th>{lang === 'fr' ? 'Rôle' : 'Role'}</th>
-                          <th>{lang === 'fr' ? 'Première Connexion' : 'First Connection'}</th>
-                          <th>{lang === 'fr' ? 'Navire Associé' : 'Associated Vessel'}</th>
-                          <th>{lang === 'fr' ? 'Actions' : 'Actions'}</th>
+                          <th>{t('label_role')}</th>
+                          <th>{t('label_first_connection')}</th>
+                          <th>{t('label_assigned_vessel')}</th>
+                          <th>{t('table_col_actions')}</th>
                         </tr>
                       </thead>
                       <tbody>
                         {usersList.length === 0 ? (
-                          <tr><td colSpan={6} className="placeholder-text">{lang === 'fr' ? 'Aucun utilisateur trouvé.' : 'No users found.'}</td></tr>
+                          <tr><td colSpan={6} className="placeholder-text">{t('no_users_found')}</td></tr>
                         ) : (
                           usersList.map(u => {
                             const linkedVesselName = vessels.find(v => v.id === u.vessel_id)?.name || '-';
@@ -561,14 +577,14 @@ export default function Dashboard() {
                                   <td><code>{u.email}</code></td>
                                   <td>
                                     <span className={`badge ${u.role === 'Admin' ? 'badge-red' : u.role === 'Crew' ? 'badge-yellow' : u.role === 'Partner' ? 'badge-green' : 'badge-normal'}`}>
-                                      {u.role === 'Admin' ? 'Administrateur' : u.role === 'Crew' ? 'Équipage' : u.role === 'Partner' ? 'Partenaire' : 'Auditeur'}
+                                      {u.role === 'Admin' ? t('role_admin_short') : u.role === 'Crew' ? t('role_crew_short') : u.role === 'Partner' ? t('role_partner_short') : t('role_auditor_short')}
                                     </span>
                                   </td>
                                   <td>
                                     <span className={`badge ${u.must_change_password ? 'badge-yellow' : 'badge-green'}`}>
                                       {u.must_change_password 
-                                        ? (lang === 'fr' ? 'En attente (OTP)' : 'Pending (OTP)') 
-                                        : (lang === 'fr' ? 'Configuré ✓' : 'Configured ✓')}
+                                        ? t('status_pending_otp') 
+                                        : t('status_configured')}
                                     </span>
                                   </td>
                                   <td><strong>{linkedVesselName}</strong></td>
@@ -584,18 +600,28 @@ export default function Dashboard() {
                                           setResetPasswordValue('');
                                           setShowResetPasswordModal(true);
                                         }}
-                                        title={lang === 'fr' ? 'Réinitialiser le mot de passe' : 'Reset password'}
+                                        title={t('title_reset_password')}
                                       >
-                                        🔑 {lang === 'fr' ? 'MDP' : 'Reset'}
+                                        🔑 {t('btn_reset')}
                                       </button>
                                       <button
                                         type="button"
-                                        className="btn btn-sm btn-danger"
-                                        style={{ fontSize: '11px', padding: '4px 8px' }}
+                                        className="btn btn-danger icon-svg"
+                                        style={{
+                                          width: '28px',
+                                          height: '28px',
+                                          padding: 0,
+                                          borderRadius: '50%',
+                                          display: 'inline-flex',
+                                          alignItems: 'center',
+                                          justifyContent: 'center',
+                                          border: 'none',
+                                          cursor: 'pointer'
+                                        }}
                                         onClick={() => handleDeleteUser(u.id, u.full_name)}
-                                        title={lang === 'fr' ? 'Supprimer cet utilisateur' : 'Delete this user'}
+                                        title={t('confirm_delete_user').replace('{name}', u.full_name)}
                                       >
-                                        🗑️
+                                        <TrashIcon size={12} />
                                       </button>
                                     </div>
                                   </td>
@@ -617,15 +643,13 @@ export default function Dashboard() {
               <section className="app-view active">
                 <div className="card glass">
                   <div className="card-header-actions" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <h2>{lang === 'fr' ? 'Journal d\'Audit' : 'Audit Trail'}</h2>
+                    <h2>{t('nav_audit')}</h2>
                     <button className="btn btn-outline" onClick={loadAuditLogs} disabled={auditLoading}>
-                      {auditLoading ? (lang === 'fr' ? 'Chargement...' : 'Loading...') : (lang === 'fr' ? 'Rafraîchir' : 'Refresh')}
+                      {auditLoading ? t('btn_loading') : t('btn_refresh')}
                     </button>
                   </div>
                   <p className="section-desc" style={{ marginTop: 8 }}>
-                    {lang === 'fr'
-                      ? 'Historique complet des actions critiques effectuées sur la plateforme.'
-                      : 'Complete history of critical actions performed on the platform.'}
+                    {t('desc_audit_trail')}
                   </p>
 
                   <div className="table-container scrollable" style={{ marginTop: 20 }}>
@@ -643,7 +667,7 @@ export default function Dashboard() {
                       </thead>
                       <tbody>
                         {auditLogs.length === 0 ? (
-                          <tr><td colSpan={7} className="placeholder-text">{lang === 'fr' ? 'Aucun log d\'audit disponible.' : 'No audit logs available.'}</td></tr>
+                          <tr><td colSpan={7} className="placeholder-text">{t('no_audit_logs')}</td></tr>
                         ) : (
                           auditLogs.map(l => {
                             let changesStr = '';
@@ -653,7 +677,8 @@ export default function Dashboard() {
                                 changesStr = Object.entries(parsed).map(([k, v]: [string, any]) => {
                                   return `${k}: ${v.from} ➔ ${v.to}`;
                                 }).join(', ');
-                              } catch {
+                              } catch (err) {
+                                console.warn('[page.tsx] Failed to parse audit log changes JSON:', err);
                                 changesStr = String(l.changes);
                               }
                             }
@@ -676,7 +701,8 @@ export default function Dashboard() {
                 </div>
               </section>
             )}
-          </main>
+            </main>
+          </div>
         </div>
       )}
 
@@ -685,7 +711,7 @@ export default function Dashboard() {
         userName={resetPasswordUserName}
         passwordValue={resetPasswordValue}
         isSubmitting={isSubmitting}
-        lang={lang}
+        t={t}
         onClose={() => { setShowResetPasswordModal(false); setResetPasswordValue(''); }}
         onPasswordChange={setResetPasswordValue}
         onSubmit={handleAdminResetPassword}
@@ -695,7 +721,6 @@ export default function Dashboard() {
         open={showImportModal}
         importFile={importFile}
         isSubmitting={isSubmitting}
-        lang={lang}
         t={t}
         onClose={() => setShowImportModal(false)}
         onFileChange={setImportFile}
@@ -706,7 +731,6 @@ export default function Dashboard() {
         open={showAddVesselModal}
         vesselForm={vesselForm}
         isSubmitting={isSubmitting}
-        lang={lang}
         t={t}
         onClose={() => setShowAddVesselModal(false)}
         onFormChange={setVesselForm}
@@ -719,21 +743,19 @@ export default function Dashboard() {
         certPdfCurrent={certPdfCurrent}
         isSubmitting={isSubmitting}
         isCrew={user?.role === 'Crew'}
-        lang={lang}
         t={t}
         onClose={() => setShowEditCertModal(false)}
         onFormChange={setCertForm}
         onPdfFileChange={setCertPdfFile}
         onSubmit={handleEditCertSubmit}
         onViewCurrentPdf={() => openPdfViewer(certPdfCurrent, certForm.name)}
-        onFileSizeError={() => showToast(lang === 'fr' ? 'Fichier trop volumineux (Max. 10 Mo)' : 'File too large (Max. 10 MB)', 'error')}
+        onFileSizeError={() => showToast(t('toast_file_too_large'), 'error')}
       />
 
       <AddActionableDrawer
         open={showAddActionableModal}
         actionableForm={actionableForm}
         isSubmitting={isSubmitting}
-        lang={lang}
         t={t}
         onClose={() => setShowAddActionableModal(false)}
         onFormChange={setActionableForm}
@@ -748,7 +770,7 @@ export default function Dashboard() {
         verificationCode={verificationCode}
         devOtpNotice={devOtpNotice}
         isSubmitting={isSubmitting}
-        lang={lang}
+        t={t}
         onClose={() => setShowSettingsModal(false)}
         onNewEmailChange={setNewVesselEmail}
         onAddEmailSubmit={handleAddEmailSubmit}
@@ -757,6 +779,7 @@ export default function Dashboard() {
         onStartVerify={(email, otp) => { setEmailToVerify(email); setVerificationCode(''); setDevOtpNotice(otp); }}
         onCancelVerify={() => { setEmailToVerify(null); setDevOtpNotice(null); }}
         onVerificationCodeChange={setVerificationCode}
+        onForceNotifyVessel={handleForceNotifyVessel}
       />
 
       <AddUserDrawer
@@ -765,7 +788,7 @@ export default function Dashboard() {
         vessels={vessels}
         tempInviteOtp={tempInviteOtp}
         isSubmitting={isSubmitting}
-        lang={lang}
+        t={t}
         onClose={() => { setTempInviteOtp(null); setShowAddUserModal(false); }}
         onFormChange={setUserForm}
         onSubmit={handleCreateUserSubmit}

@@ -16,7 +16,7 @@ describe('AppController', () => {
         {
           provide: EmailService,
           useValue: {
-            performCertificateStatusCheck: jest
+            sendManualFleetNotifications: jest
               .fn()
               .mockResolvedValue({ success: true, count: 0 }),
           },
@@ -48,9 +48,11 @@ describe('AppController', () => {
   });
 
   describe('triggerNotifications', () => {
-    it('should call performCertificateStatusCheck', async () => {
-      const result = await appController.triggerNotifications();
-      expect(emailService.performCertificateStatusCheck).toHaveBeenCalled();
+    it('should call sendManualFleetNotifications', async () => {
+      const result = await appController.triggerNotifications('RED');
+      expect(emailService.sendManualFleetNotifications).toHaveBeenCalledWith(
+        'RED',
+      );
       expect(result).toEqual({ success: true, count: 0 });
     });
   });

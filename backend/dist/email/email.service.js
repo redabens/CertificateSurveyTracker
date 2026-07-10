@@ -62,7 +62,7 @@ let EmailService = EmailService_1 = class EmailService {
                 .all(vessel.id);
             for (const cert of certs) {
                 const prevAlarm = cert.alarm_status;
-                const newAlarm = this.alarmService.calculate(cert.due_date, cert.expiration_date);
+                const newAlarm = this.alarmService.calculate(cert.due_date, cert.expiration_date, cert.window);
                 totalChecked++;
                 if (this.alarmService.hasChanged(prevAlarm, newAlarm)) {
                     this.db
@@ -75,6 +75,77 @@ let EmailService = EmailService_1 = class EmailService {
         }
         this.logger.log(`Contrôle terminé. Vérifiés: ${totalChecked}, Alertes envoyées: ${totalAlertsSent}`);
         return { checked: totalChecked, alerts: totalAlertsSent };
+    }
+    matchesAlarmFilter(alarm, filter) {
+        if (!filter || filter === 'ALL')
+            return true;
+        if (filter === 'RED') {
+            return alarm.includes('RED') || alarm.includes('OVERDUE');
+        }
+        if (filter === 'YELLOW') {
+            return alarm.includes('YELLOW');
+        }
+        if (filter === 'GREEN') {
+            return alarm.includes('GREEN');
+        }
+        return false;
+    }
+    async sendManualFleetNotifications(statusFilter) {
+        this.logger.log(`Démarrage de l'envoi manuel d'alertes pour la flotte. Filtre: ${statusFilter || 'ALL'}`);
+        const vessels = this.db.prepare('SELECT * FROM vessels').all();
+        let totalChecked = 0;
+        let totalAlertsSent = 0;
+        for (const vessel of vessels) {
+            const emails = this.db
+                .prepare('SELECT email FROM vessel_emails WHERE vessel_id = ? AND is_verified = 1')
+                .all(vessel.id).map((r) => r.email);
+            if (emails.length === 0)
+                continue;
+            const certs = this.db
+                .prepare('SELECT * FROM certificates WHERE vessel_id = ?')
+                .all(vessel.id);
+            for (const cert of certs) {
+                const alarm = this.alarmService.calculate(cert.due_date, cert.expiration_date, cert.window);
+                totalChecked++;
+                const matchesFilter = this.matchesAlarmFilter(alarm, statusFilter);
+                const isWarning = alarm !== alarm_service_1.ALARM_LEVELS.MONITOR && alarm !== alarm_service_1.ALARM_LEVELS.NA;
+                if (matchesFilter && isWarning) {
+                    await this.sendCertificateAlert(vessel, emails, { ...cert, alarm_status: alarm }, cert.alarm_status);
+                    totalAlertsSent++;
+                }
+            }
+        }
+        this.logger.log(`Envoi manuel flotte terminé. Vérifiés: ${totalChecked}, Alertes envoyées: ${totalAlertsSent}`);
+        return { checked: totalChecked, alerts: totalAlertsSent };
+    }
+    async sendManualVesselNotifications(vesselId, statusFilter) {
+        this.logger.log(`Envoi manuel d'alertes pour le navire ${vesselId}. Filtre: ${statusFilter || 'ALL'}`);
+        const vessel = this.db
+            .prepare('SELECT * FROM vessels WHERE id = ?')
+            .get(vesselId);
+        if (!vessel) {
+            throw new Error('Navire introuvable');
+        }
+        const emails = this.db
+            .prepare('SELECT email FROM vessel_emails WHERE vessel_id = ? AND is_verified = 1')
+            .all(vesselId).map((r) => r.email);
+        if (emails.length === 0) {
+            return { alerts: 0 };
+        }
+        const certs = this.db
+            .prepare('SELECT * FROM certificates WHERE vessel_id = ?')
+            .all(vesselId);
+        let totalAlertsSent = 0;
+        for (const cert of certs) {
+            const alarm = this.alarmService.calculate(cert.due_date, cert.expiration_date, cert.window);
+            const matchesFilter = this.matchesAlarmFilter(alarm, statusFilter);
+            const isWarning = alarm !== alarm_service_1.ALARM_LEVELS.MONITOR && alarm !== alarm_service_1.ALARM_LEVELS.NA;
+            if (matchesFilter && isWarning) {
+                await this.sendCertificateAlert(vessel, emails, { ...cert, alarm_status: alarm }, cert.alarm_status);
+                totalAlertsSent++;
+            }
+        }
+        return { alerts: totalAlertsSent };
     }
 };
 exports.EmailService = EmailService;

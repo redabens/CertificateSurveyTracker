@@ -175,10 +175,38 @@ export class VesselsService {
     const actionableItems = this.db
       .prepare('SELECT * FROM actionable_items WHERE vessel_id = ?')
       .all(vesselId) as any[];
-    const settings =
-      (this.db
-        .prepare('SELECT * FROM email_settings WHERE vessel_id = ?')
-        .get(vesselId) as any) || {};
+    const emailsList = (
+      this.db
+        .prepare('SELECT email FROM vessel_emails WHERE vessel_id = ?')
+        .all(vesselId) as any[]
+    ).map((r) => r.email);
+
+    const formattedCertificates = certificates.map((cert) => {
+      let windowText = cert.window;
+      if (windowText && windowText.trim().startsWith('[')) {
+        try {
+          const arr = JSON.parse(windowText) as any[];
+          windowText = arr
+            .map((item) => {
+              if (item.mode === 'custom') {
+                const startFmt = formatDateStringExcel(item.startDate);
+                const endFmt = formatDateStringExcel(item.endDate);
+                return `${item.type}: ${startFmt} - ${endFmt}`;
+              } else {
+                const offset = item.offsetMonths || 0;
+                return `${item.type}: +/- ${offset} mois`;
+              }
+            })
+            .join('; ');
+        } catch (e) {
+          console.warn(
+            '[VesselsService] Failed to parse structured window text in Excel export:',
+            e,
+          );
+        }
+      }
+      return { ...cert, window: windowText };
+    });
 
     const exportData = {
       lang: lang || 'en',
@@ -198,10 +226,8 @@ export class VesselsService {
         port_of_registry: vessel.port_of_registry,
         call_sign: vessel.call_sign,
       },
-      emails: [settings.email1, settings.email2, settings.email3].filter(
-        Boolean,
-      ),
-      certificates,
+      emails: emailsList,
+      certificates: formattedCertificates,
       actionable_items: actionableItems,
     };
 
@@ -236,4 +262,28 @@ export class VesselsService {
       fileName: `${vessel.name}_Certificate_Tracker.xlsx`,
     };
   }
+}
+
+function formatDateStringExcel(dateStr: string): string {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return dateStr;
+  const day = String(d.getDate()).padStart(2, '0');
+  const months = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ];
+  const month = months[d.getMonth()];
+  const year = d.getFullYear();
+  return `${day} ${month} ${year}`;
 }

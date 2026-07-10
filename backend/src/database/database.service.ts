@@ -280,6 +280,15 @@ export class DatabaseService implements OnModuleInit {
 
   private migrateEmailSettings() {
     try {
+      const count = (
+        this.db
+          .prepare('SELECT COUNT(*) as cnt FROM vessel_emails')
+          .get() as any
+      ).cnt;
+      if (count > 0) {
+        return; // Already populated/migrated
+      }
+
       const rows = this.db
         .prepare('SELECT * FROM email_settings')
         .all() as any[];

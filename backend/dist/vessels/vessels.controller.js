@@ -75,7 +75,7 @@ let VesselsController = class VesselsController {
                 .prepare('SELECT * FROM certificates WHERE vessel_id = ?')
                 .all(v.id);
             const alarmLevels = certs.map((c) => {
-                const computed = this.alarmService.calculate(c.due_date, c.expiration_date);
+                const computed = this.alarmService.calculate(c.due_date, c.expiration_date, c.window);
                 if (this.alarmService.hasChanged(c.alarm_status, computed)) {
                     this.vesselsService['db']
                         .prepare('UPDATE certificates SET alarm_status = ? WHERE id = ?')
@@ -85,14 +85,15 @@ let VesselsController = class VesselsController {
             });
             const overall = this.alarmService.computeVesselStatus(alarmLevels);
             this.vesselsService.updateStatus(v.id, overall);
-            const red = alarmLevels.filter((a) => a.includes('RED') || a.includes('OVERDUE')).length;
+            const overdue = alarmLevels.filter((a) => a.includes('OVERDUE')).length;
+            const red = alarmLevels.filter((a) => a.includes('RED')).length;
             const yellow = alarmLevels.filter((a) => a.includes('YELLOW')).length;
             const green = alarmLevels.filter((a) => a.includes('GREEN')).length;
-            const normal = alarmLevels.length - red - yellow - green;
+            const normal = alarmLevels.filter((a) => a.includes('MONITOR')).length;
             return {
                 ...v,
                 status: overall,
-                counts: { red, yellow, green, normal, total: certs.length },
+                counts: { overdue, red, yellow, green, normal, total: certs.length },
             };
         });
     }
@@ -174,7 +175,7 @@ let VesselsController = class VesselsController {
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
             for (const c of certs) {
-                const alarm = this.alarmService.calculate(c.due_date, c.expiration_date);
+                const alarm = this.alarmService.calculate(c.due_date, c.expiration_date, c.window);
                 insertCert.run(vesselId, c.name, c.category, c.organization, c.issuing_date, c.expiration_date, c.due_date, c.window, alarm, c.remarks);
             }
             const insertAct = this.vesselsService['db'].prepare(`
@@ -215,7 +216,7 @@ let VesselsController = class VesselsController {
     }
     async getEmails(vesselId) {
         return this.vesselsService['db']
-            .prepare('SELECT * FROM vessel_emails WHERE vessel_id = ?')
+            .prepare('SELECT vessel_id, email, is_verified FROM vessel_emails WHERE vessel_id = ?')
             .all(parseInt(vesselId));
     }
     async addEmail(req, vesselId, body) {
@@ -239,10 +240,11 @@ let VesselsController = class VesselsController {
             target_name: email,
         });
         const smtpConfigured = !!(process.env.SMTP_USER && process.env.SMTP_PASS);
+        const isProd = process.env.NODE_ENV === 'production';
         return {
             success: true,
             email,
-            devOtp: smtpConfigured ? undefined : otp,
+            devOtp: smtpConfigured || isProd ? undefined : otp,
         };
     }
     async verifyEmail(req, vesselId, body) {
@@ -289,6 +291,18 @@ let VesselsController = class VesselsController {
             target_name: email,
         });
         return { success: true };
+    }
+    async triggerVesselNotifications(req, vesselId, status) {
+        const result = await this.emailService.sendManualVesselNotifications(parseInt(vesselId), status);
+        this.auditService.log({
+            user_id: req.user.id,
+            user_email: req.user.email,
+            action: 'TRIGGER_MANUAL_NOTIFICATION',
+            target_type: 'vessel',
+            target_id: parseInt(vesselId),
+            target_name: `Status filter: ${status || 'ALL'}`,
+        });
+        return { success: true, ...result };
     }
 };
 exports.VesselsController = VesselsController;
@@ -381,6 +395,16 @@ __decorate([
     __metadata("design:paramtypes", [Object, String, String, Object]),
     __metadata("design:returntype", Promise)
 ], VesselsController.prototype, "removeEmail", null);
+__decorate([
+    (0, common_1.Post)(':id/trigger-notifications'),
+    (0, roles_decorator_1.Roles)('Admin'),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Param)('id')),
+    __param(2, (0, common_1.Query)('status')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, String]),
+    __metadata("design:returntype", Promise)
+], VesselsController.prototype, "triggerVesselNotifications", null);
 exports.VesselsController = VesselsController = __decorate([
     (0, common_1.Controller)('vessels'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),

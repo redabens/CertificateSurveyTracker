@@ -16,4 +16,12 @@ export declare class EmailService {
         checked: number;
         alerts: number;
     }>;
+    private matchesAlarmFilter;
+    sendManualFleetNotifications(statusFilter?: string): Promise<{
+        checked: number;
+        alerts: number;
+    }>;
+    sendManualVesselNotifications(vesselId: number, statusFilter?: string): Promise<{
+        alerts: number;
+    }>;
 }

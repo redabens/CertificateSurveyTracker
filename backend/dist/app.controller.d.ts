@@ -4,7 +4,7 @@ export declare class AppController {
     private readonly emailService;
     private readonly db;
     constructor(emailService: EmailService, db: DatabaseService);
-    triggerNotifications(): Promise<{
+    triggerNotifications(status?: string): Promise<{
         checked: number;
         alerts: number;
     }>;

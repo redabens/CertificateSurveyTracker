@@ -8,7 +8,7 @@ export interface ResetPasswordDrawerProps {
   userName: string;
   passwordValue: string;
   isSubmitting: boolean;
-  lang: string;
+  t: (key: string) => string;
   onClose: () => void;
   onPasswordChange: (v: string) => void;
   onSubmit: (e: React.FormEvent) => void;
@@ -19,7 +19,7 @@ export function ResetPasswordDrawer({
   userName,
   passwordValue,
   isSubmitting,
-  lang,
+  t,
   onClose,
   onPasswordChange,
   onSubmit,
@@ -31,7 +31,7 @@ export function ResetPasswordDrawer({
       <div className="drawer-backdrop" onClick={onClose} />
       <div className="drawer">
         <div className="drawer-header">
-          <h2>{lang === 'fr' ? 'Réinitialiser le mot de passe' : 'Reset Password'}</h2>
+          <h2>{t('title_reset_password')}</h2>
           <span className="close-btn icon-svg" onClick={onClose}>
             <CloseIcon size={18} />
           </span>
@@ -39,19 +39,17 @@ export function ResetPasswordDrawer({
         <form onSubmit={onSubmit} className="flex-column" style={{ height: '100%' }}>
           <div className="drawer-body">
             <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginBottom: 16 }}>
-              {lang === 'fr'
-                ? `Définir un nouveau mot de passe temporaire pour ${userName}. L'utilisateur devra le changer à sa prochaine connexion.`
-                : `Set a new temporary password for ${userName}. The user will be required to change it on next login.`}
+              {t('desc_reset_password').replace('{name}', userName)}
             </p>
             <div className="form-group">
-              <label>{lang === 'fr' ? 'Nouveau mot de passe temporaire' : 'New temporary password'}</label>
+              <label>{t('label_new_temp_password')}</label>
               <input
                 type="password"
                 className="input-field"
                 required
                 minLength={6}
                 maxLength={50}
-                placeholder={lang === 'fr' ? 'Min. 6 caractères' : 'Min. 6 characters'}
+                placeholder={t('placeholder_min_6_chars')}
                 value={passwordValue}
                 onChange={(e) => onPasswordChange(e.target.value)}
               />
@@ -59,12 +57,12 @@ export function ResetPasswordDrawer({
           </div>
           <div className="drawer-footer">
             <button type="button" className="btn btn-outline" onClick={onClose}>
-              {lang === 'fr' ? 'Annuler' : 'Cancel'}
+              {t('btn_cancel')}
             </button>
             <button type="submit" className="btn btn-primary" disabled={isSubmitting}>
               {isSubmitting
-                ? lang === 'fr' ? 'Réinitialisation...' : 'Resetting...'
-                : lang === 'fr' ? 'Réinitialiser' : 'Reset'}
+                ? t('btn_resetting')
+                : t('btn_reset')}
             </button>
           </div>
         </form>

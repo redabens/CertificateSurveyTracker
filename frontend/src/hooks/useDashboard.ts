@@ -156,46 +156,134 @@ export function useDashboard(chartRef: RefObject<HTMLCanvasElement | null>) {
     try {
       const date = new Date(dateStr);
       if (isNaN(date.getTime())) return dateStr;
-      return new Intl.DateTimeFormat(lang === 'fr' ? 'fr-FR' : 'en-US', {
+      return new Intl.DateTimeFormat(t('locale'), {
         year: 'numeric', month: 'short', day: 'numeric'
       }).format(date);
-    } catch {
+    } catch (err) {
+      console.error('[useDashboard] formatDateString error:', err);
       return dateStr;
     }
-  }, [lang]);
+  }, [t]);
 
   const formatDateTimeString = useCallback((dateTimeStr: string) => {
     if (!dateTimeStr) return '-';
     try {
       const date = new Date(dateTimeStr.replace(' ', 'T'));
       if (isNaN(date.getTime())) return dateTimeStr;
-      return new Intl.DateTimeFormat(lang === 'fr' ? 'fr-FR' : 'en-US', {
+      return new Intl.DateTimeFormat(t('locale'), {
         year: 'numeric', month: 'short', day: 'numeric',
         hour: '2-digit', minute: '2-digit', second: '2-digit'
       }).format(date);
-    } catch {
+    } catch (err) {
+      console.error('[useDashboard] formatDateTimeString error:', err);
       return dateTimeStr;
     }
-  }, [lang]);
+  }, [t]);
+
+  const formatDueDateWithWindow = useCallback((
+    dueStr: string | null | undefined,
+    windowStr: string | null | undefined
+  ) => {
+    if (!dueStr) return '-';
+    let targetDateStr = dueStr;
+    let countVisitsSuffix = '';
+
+    if (dueStr.trim().startsWith('[')) {
+      try {
+        const dates = JSON.parse(dueStr) as string[];
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        const parsedDates = dates
+          .map((d) => new Date(d))
+          .filter((d) => !isNaN(d.getTime()));
+
+        if (parsedDates.length > 0) {
+          parsedDates.sort((a, b) => a.getTime() - b.getTime());
+          const nextUpcoming = parsedDates.find(
+            (d) => d.getTime() >= today.getTime(),
+          );
+          if (nextUpcoming) {
+            targetDateStr = nextUpcoming.toISOString().substring(0, 10);
+          } else {
+            targetDateStr = parsedDates[parsedDates.length - 1]
+              .toISOString()
+              .substring(0, 10);
+          }
+          countVisitsSuffix = t('visits_suffix').replace('{count}', String(dates.length));
+        }
+      } catch (e) {
+        console.error('[useDashboard] Failed to parse due_date JSON:', e);
+      }
+    }
+
+    let formattedDate = targetDateStr;
+    try {
+      const date = new Date(targetDateStr);
+      if (!isNaN(date.getTime())) {
+        formattedDate = new Intl.DateTimeFormat(t('locale'), {
+          year: 'numeric', month: 'short', day: 'numeric'
+        }).format(date);
+      }
+    } catch (err) {
+      console.error('[useDashboard] Date formatting error:', err);
+    }
+
+    let windowSuffix = '';
+    if (windowStr && windowStr.trim()) {
+      if (windowStr.trim().startsWith('[')) {
+        try {
+          const windows = JSON.parse(windowStr) as any[];
+          const activeWindow = windows.map((w) => {
+            if (w.mode === 'custom') {
+              let startFmt = w.startDate;
+              let endFmt = w.endDate;
+              try {
+                const sD = new Date(w.startDate);
+                const eD = new Date(w.endDate);
+                const opt: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric' };
+                if (!isNaN(sD.getTime())) startFmt = new Intl.DateTimeFormat(t('locale'), opt).format(sD);
+                if (!isNaN(eD.getTime())) endFmt = new Intl.DateTimeFormat(t('locale'), opt).format(eD);
+              } catch (e) {
+                console.error('[useDashboard] Window date formatting error:', e);
+              }
+              return `${w.type}: ${startFmt} - ${endFmt}`;
+            } else {
+              const offset = w.offsetMonths || 0;
+              return `${w.type}: +/- ${offset}m`;
+            }
+          }).join(', ');
+          
+          if (activeWindow) {
+            windowSuffix = ` [⏱️ ${activeWindow}]`;
+          }
+        } catch (e) {
+          console.error('[useDashboard] Failed to parse window JSON:', e);
+        }
+      } else {
+        windowSuffix = ` [⏱️ ${windowStr}]`;
+      }
+    }
+
+    return `${formattedDate}${countVisitsSuffix}${windowSuffix}`;
+  }, [t]);
 
   const getAlarmBadgeClass = useCallback((status: string) => {
-    if (status.includes('RED') || status.includes('OVERDUE')) return 'badge-red';
+    if (status.includes('OVERDUE')) return 'badge-red';
+    if (status.includes('RED')) return 'badge-orange';
     if (status.includes('YELLOW')) return 'badge-yellow';
     if (status.includes('GREEN')) return 'badge-green';
     return 'badge-normal';
   }, []);
 
   const getAlarmLabel = useCallback((status: string) => {
-    if (lang === 'fr') {
-      if (status.includes('RED')) return 'ROUGE - <1 MOIS';
-      if (status.includes('YELLOW')) return 'JAUNE - 1 A 3 MOIS';
-      if (status.includes('GREEN')) return 'VERT - 3 A 6 MOIS';
-      if (status.includes('MONITOR')) return 'SUIVI >6 MOIS';
-      if (status.includes('OVERDUE')) return 'EXPIRÉ / IMMINENT';
-      return status;
-    }
+    if (status.includes('OVERDUE')) return t('alarm_overdue');
+    if (status.includes('RED')) return t('alarm_red');
+    if (status.includes('YELLOW')) return t('alarm_yellow');
+    if (status.includes('GREEN')) return t('alarm_green');
+    if (status.includes('MONITOR')) return t('alarm_monitor');
     return status;
-  }, [lang]);
+  }, [t]);
 
   // ─── Loaders ───────────────────────────────────────────────────────────────
 
@@ -300,16 +388,17 @@ export function useDashboard(chartRef: RefObject<HTMLCanvasElement | null>) {
           const certs = await res.json();
           if (Array.isArray(certs)) {
             certs.forEach((c: any) => {
-              const isRed = c.alarm_status.includes('RED') || c.alarm_status.includes('OVERDUE');
+              const isOverdue = c.alarm_status.includes('OVERDUE');
+              const isRed = c.alarm_status.includes('RED');
               const isYellow = c.alarm_status.includes('YELLOW');
               const isGreen = c.alarm_status.includes('GREEN');
-              if (isRed || isYellow || isGreen) {
+              if (isOverdue || isRed || isYellow || isGreen) {
                 list.push({
                   vessel_name: v.name,
                   cert_name: c.name,
                   due_date: c.due_date || c.expiration_date || 'N/A',
                   alarm_status: c.alarm_status,
-                  level: isRed ? 'red' : isYellow ? 'yellow' : 'green'
+                  level: isOverdue ? 'red' : isRed ? 'orange' : isYellow ? 'yellow' : 'green'
                 });
               }
             });
@@ -430,8 +519,9 @@ export function useDashboard(chartRef: RefObject<HTMLCanvasElement | null>) {
   // Chart.js doughnut — needs chartRef from component
   useEffect(() => {
     if (activeView === 'dashboard' && vessels.length > 0 && chartRef.current) {
-      let red = 0, yellow = 0, green = 0, normal = 0;
+      let overdue = 0, red = 0, yellow = 0, green = 0, normal = 0;
       vessels.forEach(v => {
+        overdue += v.counts.overdue || 0;
         red += v.counts.red || 0;
         yellow += v.counts.yellow || 0;
         green += v.counts.green || 0;
@@ -440,12 +530,12 @@ export function useDashboard(chartRef: RefObject<HTMLCanvasElement | null>) {
 
       if (chartInstance.current) chartInstance.current.destroy();
 
-      const total = red + yellow + green + normal;
+      const total = overdue + red + yellow + green + normal;
       if (total === 0) {
         chartInstance.current = new Chart(chartRef.current, {
           type: 'doughnut',
           data: {
-            labels: [lang === 'fr' ? 'Aucune donnée' : 'No Data'],
+            labels: [t('no_data')],
             datasets: [{ data: [1], backgroundColor: ['#27272a'], borderWidth: 0 }]
           },
           options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
@@ -453,16 +543,19 @@ export function useDashboard(chartRef: RefObject<HTMLCanvasElement | null>) {
         return;
       }
 
-      const labelsFr = ['Urgent / Expire (<30j)', 'Attention (30j-90j)', 'Suivi (90j-180j)', 'Conforme (>180j)'];
-      const labelsEn = ['Urgent / Expired (<30d)', 'Warning (30d-90d)', 'Monitored (90d-180d)', 'Compliant (>180d)'];
-
       chartInstance.current = new Chart(chartRef.current, {
         type: 'doughnut',
         data: {
-          labels: lang === 'fr' ? labelsFr : labelsEn,
+          labels: [
+            t('chart_lbl_overdue'),
+            t('chart_lbl_urgent'),
+            t('chart_lbl_warning'),
+            t('chart_lbl_monitored'),
+            t('chart_lbl_compliant')
+          ],
           datasets: [{
-            data: [red, yellow, green, normal],
-            backgroundColor: ['#d64f3e', '#e59b3c', '#48a37e', '#cca43b'],
+            data: [overdue, red, yellow, green, normal],
+            backgroundColor: ['#d64f3e', '#f97316', '#e59b3c', '#48a37e', '#a855f7'],
             borderWidth: 1,
             borderColor: 'var(--border-color)'
           }]
@@ -486,7 +579,7 @@ export function useDashboard(chartRef: RefObject<HTMLCanvasElement | null>) {
         chartInstance.current = null;
       }
     };
-  }, [vessels, activeView, lang, chartRef]);
+  }, [vessels, activeView, t, chartRef]);
 
   // TV mode clock + auto-refresh
   useEffect(() => {
@@ -498,7 +591,7 @@ export function useDashboard(chartRef: RefObject<HTMLCanvasElement | null>) {
         const secs = String(now.getSeconds()).padStart(2, '0');
         setTvTime(`${hrs}:${mins}:${secs}`);
         const opts = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' } as const;
-        setTvDate(now.toLocaleDateString(lang === 'fr' ? 'fr-FR' : 'en-US', opts));
+        setTvDate(now.toLocaleDateString(t('locale'), opts));
       };
       update();
       const interval = setInterval(update, 1000);
@@ -509,7 +602,7 @@ export function useDashboard(chartRef: RefObject<HTMLCanvasElement | null>) {
         clearInterval(tvFetchInterval);
       };
     }
-  }, [tvMode, vessels, lang, loadTvCerts]);
+  }, [tvMode, vessels, t, loadTvCerts]);
 
   // ─── Handlers ──────────────────────────────────────────────────────────────
 
@@ -523,7 +616,7 @@ export function useDashboard(chartRef: RefObject<HTMLCanvasElement | null>) {
       const res = await apiFetch('/vessels/import', { method: 'POST', body: formData });
       const data = await res.json();
       if (res.ok) {
-        showToast(lang === 'fr' ? 'Navire importé avec succès !' : 'Vessel imported successfully!', 'success');
+        showToast(t('toast_vessel_imported'), 'success');
         setShowImportModal(false);
         setImportFile(null);
         await loadVessels();
@@ -535,7 +628,7 @@ export function useDashboard(chartRef: RefObject<HTMLCanvasElement | null>) {
       if (err instanceof Error && err.message === 'Unauthorized') return;
       console.error(err);
       const errMsg = err instanceof Error ? err.message : String(err);
-      showToast(lang === 'fr' ? `Erreur lors de l'import: ${errMsg}` : `Import error: ${errMsg}`, 'error');
+      showToast(t('toast_import_error').replace('{error}', errMsg), 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -549,7 +642,7 @@ export function useDashboard(chartRef: RefObject<HTMLCanvasElement | null>) {
       const res = await apiFetch('/vessels/manual', { method: 'POST', body: JSON.stringify(vesselForm) });
       const data = await res.json();
       if (res.ok) {
-        showToast(lang === 'fr' ? 'Navire créé' : 'Vessel created', 'success');
+        showToast(t('toast_vessel_created'), 'success');
         setShowAddVesselModal(false);
         setVesselForm({ name: '', imo_number: '', flag: '', asset_type: '', owner: '', manager: '' });
         await loadVessels();
@@ -561,7 +654,7 @@ export function useDashboard(chartRef: RefObject<HTMLCanvasElement | null>) {
       if (err instanceof Error && err.message === 'Unauthorized') return;
       console.error(err);
       const errMsg = err instanceof Error ? err.message : String(err);
-      showToast(lang === 'fr' ? `Erreur lors de la création du navire: ${errMsg}` : `Error creating vessel: ${errMsg}`, 'error');
+      showToast(t('toast_vessel_create_error').replace('{error}', errMsg), 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -569,14 +662,12 @@ export function useDashboard(chartRef: RefObject<HTMLCanvasElement | null>) {
 
   const handleDeleteVessel = async () => {
     if (!selectedVesselId) return;
-    const conf = lang === 'fr'
-      ? 'Êtes-vous absolument sûr de vouloir supprimer ce navire et toutes ses données ?'
-      : 'Are you sure you want to delete this vessel and all its data?';
+    const conf = t('confirm_delete_vessel');
     if (!confirm(conf)) return;
     try {
       const res = await apiFetch(`/vessels/${selectedVesselId}`, { method: 'DELETE' });
       if (res.ok) {
-        showToast(lang === 'fr' ? 'Navire supprimé' : 'Vessel deleted', 'success');
+        showToast(t('toast_vessel_deleted'), 'success');
         setSelectedVesselId(null);
         await loadVessels();
       }
@@ -584,7 +675,7 @@ export function useDashboard(chartRef: RefObject<HTMLCanvasElement | null>) {
       if (err instanceof Error && err.message === 'Unauthorized') return;
       console.error(err);
       const errMsg = err instanceof Error ? err.message : String(err);
-      showToast(lang === 'fr' ? `Erreur lors de la suppression du navire: ${errMsg}` : `Error deleting vessel: ${errMsg}`, 'error');
+      showToast(t('toast_error_deleting_vessel').replace('{error}', errMsg), 'error');
     }
   };
 
@@ -634,10 +725,10 @@ export function useDashboard(chartRef: RefObject<HTMLCanvasElement | null>) {
             body: formData
           });
           if (uploadRes.ok) {
-            showToast(lang === 'fr' ? 'PDF téléversé !' : 'PDF uploaded!', 'success');
+            showToast(t('toast_pdf_uploaded'), 'success');
           }
         }
-        showToast(lang === 'fr' ? 'Certificat enregistré' : 'Certificate saved', 'success');
+        showToast(t('toast_cert_saved'), 'success');
         setShowEditCertModal(false);
         if (selectedVesselId) void loadVesselDetails(selectedVesselId);
         void loadVessels();
@@ -648,18 +739,18 @@ export function useDashboard(chartRef: RefObject<HTMLCanvasElement | null>) {
       if (err instanceof Error && err.message === 'Unauthorized') return;
       console.error(err);
       const errMsg = err instanceof Error ? err.message : String(err);
-      showToast(lang === 'fr' ? `Erreur lors de l'enregistrement: ${errMsg}` : `Error saving: ${errMsg}`, 'error');
+      showToast(t('toast_error_saving').replace('{error}', errMsg), 'error');
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const handleDeleteCert = async (certId: number) => {
-    if (!confirm(lang === 'fr' ? 'Supprimer ce certificat ?' : 'Delete this certificate?')) return;
+    if (!confirm(t('confirm_delete_cert'))) return;
     try {
       const res = await apiFetch(`/certificates/${certId}`, { method: 'DELETE' });
       if (res.ok) {
-        showToast(lang === 'fr' ? 'Certificat supprimé' : 'Certificate deleted', 'success');
+        showToast(t('toast_cert_deleted'), 'success');
         if (selectedVesselId) void loadVesselDetails(selectedVesselId);
         void loadVessels();
       }
@@ -667,7 +758,7 @@ export function useDashboard(chartRef: RefObject<HTMLCanvasElement | null>) {
       if (err instanceof Error && err.message === 'Unauthorized') return;
       console.error(err);
       const errMsg = err instanceof Error ? err.message : String(err);
-      showToast(lang === 'fr' ? `Erreur de suppression: ${errMsg}` : `Delete error: ${errMsg}`, 'error');
+      showToast(t('toast_delete_error').replace('{error}', errMsg), 'error');
     }
   };
 
@@ -681,7 +772,7 @@ export function useDashboard(chartRef: RefObject<HTMLCanvasElement | null>) {
         body: JSON.stringify(actionableForm)
       });
       if (res.ok) {
-        showToast(lang === 'fr' ? 'Recommandation ajoutée' : 'Recommendation added', 'success');
+        showToast(t('toast_recommendation_added'), 'success');
         setShowAddActionableModal(false);
         setActionableForm({ imposed_date: '', category: '', report_number: '', due_date: '', description: '' });
         if (selectedVesselId) void loadVesselDetails(selectedVesselId);
@@ -690,7 +781,7 @@ export function useDashboard(chartRef: RefObject<HTMLCanvasElement | null>) {
       if (err instanceof Error && err.message === 'Unauthorized') return;
       console.error(err);
       const errMsg = err instanceof Error ? err.message : String(err);
-      showToast(lang === 'fr' ? `Erreur lors de l'ajout: ${errMsg}` : `Error adding: ${errMsg}`, 'error');
+      showToast(t('toast_add_error').replace('{error}', errMsg), 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -704,14 +795,14 @@ export function useDashboard(chartRef: RefObject<HTMLCanvasElement | null>) {
         body: JSON.stringify({ status: nextStatus })
       });
       if (res.ok) {
-        showToast(lang === 'fr' ? 'Statut mis à jour' : 'Status updated', 'success');
+        showToast(t('toast_status_updated'), 'success');
         if (selectedVesselId) void loadVesselDetails(selectedVesselId);
       }
     } catch (err) {
       if (err instanceof Error && err.message === 'Unauthorized') return;
       console.error(err);
       const errMsg = err instanceof Error ? err.message : String(err);
-      showToast(lang === 'fr' ? `Erreur de mise à jour du statut: ${errMsg}` : `Error updating status: ${errMsg}`, 'error');
+      showToast(t('toast_status_update_error').replace('{error}', errMsg), 'error');
     }
   };
 
@@ -739,12 +830,7 @@ export function useDashboard(chartRef: RefObject<HTMLCanvasElement | null>) {
       });
       const data = await res.json();
       if (res.ok) {
-        showToast(
-          lang === 'fr'
-            ? "Code de vérification envoyé à l'adresse e-mail !"
-            : 'Verification code sent to the email address!',
-          'success'
-        );
+        showToast(t('toast_otp_sent'), 'success');
         setEmailToVerify(newVesselEmail);
         setVerificationCode('');
         setDevOtpNotice(data.devOtp || null);
@@ -770,10 +856,7 @@ export function useDashboard(chartRef: RefObject<HTMLCanvasElement | null>) {
         body: JSON.stringify({ email: emailToVerify, code: verificationCode }),
       });
       if (res.ok) {
-        showToast(
-          lang === 'fr' ? 'Adresse e-mail vérifiée avec succès !' : 'Email address verified successfully!',
-          'success'
-        );
+        showToast(t('toast_email_verified'), 'success');
         setEmailToVerify(null);
         setVerificationCode('');
         setDevOtpNotice(null);
@@ -791,16 +874,14 @@ export function useDashboard(chartRef: RefObject<HTMLCanvasElement | null>) {
 
   const handleDeleteEmail = async (emailToDelete: string) => {
     if (!selectedVesselId) return;
-    const confirmMsg = lang === 'fr'
-      ? `Supprimer l'adresse e-mail ${emailToDelete} ?`
-      : `Delete email address ${emailToDelete}?`;
+    const confirmMsg = t('confirm_delete_email').replace('{email}', emailToDelete);
     if (!confirm(confirmMsg)) return;
     try {
       const res = await apiFetch(`/vessels/${selectedVesselId}/emails?email=${encodeURIComponent(emailToDelete)}`, {
         method: 'DELETE',
       });
       if (res.ok) {
-        showToast(lang === 'fr' ? 'Adresse e-mail supprimée' : 'Email address deleted', 'success');
+        showToast(t('toast_email_deleted'), 'success');
         if (emailToVerify === emailToDelete) {
           setEmailToVerify(null);
           setDevOtpNotice(null);
@@ -832,7 +913,7 @@ export function useDashboard(chartRef: RefObject<HTMLCanvasElement | null>) {
       });
       const data = await res.json();
       if (res.ok) {
-        showToast(lang === 'fr' ? 'Utilisateur créé avec succès !' : 'User created successfully!', 'success');
+        showToast(t('toast_user_created'), 'success');
         setUserForm({ email: '', fullName: '', role: 'Crew', companyId: 1, vesselId: '' });
         setTempInviteOtp(data.tempOtp);
         await loadUsers();
@@ -850,7 +931,7 @@ export function useDashboard(chartRef: RefObject<HTMLCanvasElement | null>) {
     e.preventDefault();
     if (!resetPasswordUserId || !resetPasswordValue || isSubmitting) return;
     if (resetPasswordValue.length < 6) {
-      showToast(lang === 'fr' ? 'Le mot de passe doit faire au moins 6 caractères.' : 'Password must be at least 6 characters.', 'error');
+      showToast(t('toast_password_length_error'), 'error');
       return;
     }
     setIsSubmitting(true);
@@ -860,7 +941,7 @@ export function useDashboard(chartRef: RefObject<HTMLCanvasElement | null>) {
         body: JSON.stringify({ newPassword: resetPasswordValue }),
       });
       if (res.ok) {
-        showToast(lang === 'fr' ? 'Mot de passe réinitialisé avec succès.' : 'Password reset successfully.', 'success');
+        showToast(t('toast_password_reset_success'), 'success');
         setShowResetPasswordModal(false);
         setResetPasswordUserId(null);
         setResetPasswordUserName('');
@@ -878,14 +959,12 @@ export function useDashboard(chartRef: RefObject<HTMLCanvasElement | null>) {
   };
 
   const handleDeleteUser = async (userId: number, userName: string) => {
-    const confirmMsg = lang === 'fr'
-      ? `Supprimer l'utilisateur "${userName}" ? Cette action est irréversible.`
-      : `Delete user "${userName}"? This action cannot be undone.`;
+    const confirmMsg = t('confirm_delete_user').replace('{name}', userName);
     if (!confirm(confirmMsg)) return;
     try {
       const res = await apiFetch(`/users/${userId}`, { method: 'DELETE' });
       if (res.ok) {
-        showToast(lang === 'fr' ? 'Utilisateur supprimé.' : 'User deleted.', 'success');
+        showToast(t('toast_user_deleted'), 'success');
         await loadUsers();
       } else {
         const data = await res.json();
@@ -900,11 +979,11 @@ export function useDashboard(chartRef: RefObject<HTMLCanvasElement | null>) {
     e.preventDefault();
     setPasswordChangeError('');
     if (newPassword.length < 6) {
-      setPasswordChangeError(lang === 'fr' ? 'Le mot de passe doit faire au moins 6 caractères.' : 'Password must be at least 6 characters.');
+      setPasswordChangeError(t('toast_password_length_error'));
       return;
     }
     if (newPassword !== confirmPassword) {
-      setPasswordChangeError(lang === 'fr' ? 'Les mots de passe ne correspondent pas.' : 'Passwords do not match.');
+      setPasswordChangeError(t('toast_passwords_dont_match'));
       return;
     }
     setPasswordChangeLoading(true);
@@ -915,7 +994,7 @@ export function useDashboard(chartRef: RefObject<HTMLCanvasElement | null>) {
       });
       if (res.ok) {
         updateUser({ mustChangePassword: false });
-        showToast(lang === 'fr' ? 'Mot de passe mis à jour avec succès !' : 'Password updated successfully!', 'success');
+        showToast(t('toast_password_updated'), 'success');
       } else {
         const data = await res.json();
         setPasswordChangeError(data.error || 'Erreur lors du changement de mot de passe');
@@ -927,14 +1006,14 @@ export function useDashboard(chartRef: RefObject<HTMLCanvasElement | null>) {
     }
   };
 
-  const triggerAlertCheck = async () => {
+  const triggerAlertCheck = async (status?: string) => {
     try {
-      const res = await apiFetch('/trigger-notifications', { method: 'POST' });
+      const res = await apiFetch(`/trigger-notifications?status=${status || 'ALL'}`, { method: 'POST' });
       const data = await res.json();
       if (res.ok) {
-        const msg = lang === 'fr'
-          ? `Vérification effectuée. ${data.checked} certificats analysés, ${data.alerts} alertes e-mail.`
-          : `Check complete. ${data.checked} certificates analyzed, ${data.alerts} email alerts generated.`;
+        const msg = t('toast_verification_complete')
+          .replace('{checked}', String(data.checked))
+          .replace('{alerts}', String(data.alerts));
         showToast(msg, 'success');
         void loadEmailLogs();
       }
@@ -942,7 +1021,32 @@ export function useDashboard(chartRef: RefObject<HTMLCanvasElement | null>) {
       if (err instanceof Error && err.message === 'Unauthorized') return;
       console.error(err);
       const errMsg = err instanceof Error ? err.message : String(err);
-      showToast(lang === 'fr' ? `Erreur lors de la vérification: ${errMsg}` : `Verification error: ${errMsg}`, 'error');
+      showToast(t('toast_verification_error').replace('{error}', errMsg), 'error');
+    }
+  };
+
+  const handleForceNotifyVessel = async (status?: string) => {
+    if (!selectedVesselId || isSubmitting) return;
+    setIsSubmitting(true);
+    try {
+      const res = await apiFetch(`/vessels/${selectedVesselId}/trigger-notifications?status=${status || 'ALL'}`, {
+        method: 'POST',
+      });
+      const data = await res.json();
+      if (res.ok) {
+        const msg = t('toast_notification_sent').replace('{alerts}', String(data.alerts));
+        showToast(msg, 'success');
+        void loadEmailLogs();
+      } else {
+        showToast(data.error || "Erreur lors de l'envoi de l'alerte", 'error');
+      }
+    } catch (err) {
+      if (err instanceof Error && err.message === 'Unauthorized') return;
+      console.error(err);
+      const errMsg = err instanceof Error ? err.message : String(err);
+      showToast(t('toast_send_error').replace('{error}', errMsg), 'error');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -950,7 +1054,7 @@ export function useDashboard(chartRef: RefObject<HTMLCanvasElement | null>) {
     if (!selectedVesselId) return;
     const url = `http://localhost:3000/api/vessels/${selectedVesselId}/export?token=${encodeURIComponent(token || '')}&lang=${lang}`;
     window.open(url);
-    showToast(lang === 'fr' ? 'Téléchargement lancé...' : 'Download started...', 'success');
+    showToast(t('toast_download_started'), 'success');
   };
 
   const openPdfViewer = (url: string, name: string) => {
@@ -1054,7 +1158,7 @@ export function useDashboard(chartRef: RefObject<HTMLCanvasElement | null>) {
     toasts,
     // Helpers
     showToast,
-    formatDateString, formatDateTimeString,
+    formatDateString, formatDateTimeString, formatDueDateWithWindow,
     getAlarmBadgeClass, getAlarmLabel,
     // Handlers
     handleImportExcel,
@@ -1075,6 +1179,7 @@ export function useDashboard(chartRef: RefObject<HTMLCanvasElement | null>) {
     handleDeleteUser,
     handleForcePasswordChange,
     triggerAlertCheck,
+    handleForceNotifyVessel,
     handleExcelExport,
     openPdfViewer,
     loadAuditLogs,
