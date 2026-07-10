@@ -55,6 +55,8 @@ spec:
                 secretKeyRef:
                   name: app-secrets
                   key: POSTGRES_DB
+            - name: DATABASE_URL
+              value: "postgresql://$(DB_USER):$(DB_PASSWORD)@$(DB_HOST):$(DB_PORT)/$(DB_NAME)"
             - name: JWT_SECRET
               valueFrom:
                 secretKeyRef:
