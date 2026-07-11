@@ -10,6 +10,11 @@ export class AppController {
     private readonly prisma: PrismaService,
   ) {}
 
+  @Get()
+  healthCheck() {
+    return { status: 'ok', timestamp: new Date().toISOString() };
+  }
+
   @Post('trigger-notifications')
   @UseGuards(JwtAuthGuard)
   async triggerNotifications(@Query('status') status?: string) {
