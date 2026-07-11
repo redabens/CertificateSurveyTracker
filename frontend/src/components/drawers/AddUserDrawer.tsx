@@ -83,7 +83,7 @@ export function AddUserDrawer({
               </div>
 
               <div className="form-group" style={{ marginBottom: '16px' }}>
-                <label>Adresse E-mail *</label>
+                <label>{t('form_user_email')} *</label>
                 <input type="email" required maxLength={100} className="input-field" placeholder="amine@babor.com" value={userForm.email} onChange={(e) => set({ email: e.target.value })} />
               </div>
 
@@ -100,10 +100,10 @@ export function AddUserDrawer({
                       set({ role: nextRole, companyId: nextCompanyId, vesselId: '' });
                     }}
                   >
-                    <option value="Admin">Administrateur</option>
-                    <option value="Crew">Équipage (Capitaine)</option>
-                    <option value="Partner">Partenaire B2B</option>
-                    <option value="Auditor">Auditeur Externe</option>
+                    <option value="Admin">{t('form_user_role_admin')}</option>
+                    <option value="Crew">{t('form_user_role_crew')}</option>
+                    <option value="Partner">{t('form_user_role_partner')}</option>
+                    <option value="Auditor">{t('form_user_role_auditor')}</option>
                   </select>
                 </div>
 

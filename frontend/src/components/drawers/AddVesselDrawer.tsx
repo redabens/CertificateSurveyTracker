@@ -55,7 +55,7 @@ export function AddVesselDrawer({
           <div className="drawer-body">
             <div className="form-grid" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <div className="form-group">
-                <label>Nom du Navire *</label>
+                <label>{t('form_vessel_name')} *</label>
                 <input
                   type="text" required maxLength={100} className="input-field"
                   placeholder="Ex. BABOR ALGERIEN"
@@ -64,7 +64,7 @@ export function AddVesselDrawer({
                 />
               </div>
               <div className="form-group">
-                <label>Numéro IMO *</label>
+                <label>{t('form_vessel_imo')} *</label>
                 <input
                   type="text" required maxLength={20} pattern="[0-9A-Za-z ]+"
                   title="Letters, numbers and spaces only"
@@ -74,7 +74,7 @@ export function AddVesselDrawer({
                 />
               </div>
               <div className="form-group">
-                <label>Pavillon *</label>
+                <label>{t('form_vessel_flag')} *</label>
                 <input
                   type="text" required maxLength={100} className="input-field" placeholder="Ex. Algérie"
                   value={vesselForm.flag}
@@ -82,7 +82,7 @@ export function AddVesselDrawer({
                 />
               </div>
               <div className="form-group">
-                <label>{"Type d'Asset"}</label>
+                <label>{t('form_vessel_type')}</label>
                 <input
                   type="text" maxLength={100} className="input-field" placeholder="Ex. Products Tanker"
                   value={vesselForm.asset_type}
@@ -90,7 +90,7 @@ export function AddVesselDrawer({
                 />
               </div>
               <div className="form-group">
-                <label>Propriétaire *</label>
+                <label>{t('form_vessel_owner')} *</label>
                 <input
                   type="text" required maxLength={100} className="input-field" placeholder="Ex. CNAN"
                   value={vesselForm.owner}
@@ -98,7 +98,7 @@ export function AddVesselDrawer({
                 />
               </div>
               <div className="form-group">
-                <label>Technical Manager</label>
+                <label>{t('form_vessel_manager')}</label>
                 <input
                   type="text" maxLength={100} className="input-field" placeholder="Ex. Verital"
                   value={vesselForm.manager}
@@ -106,7 +106,7 @@ export function AddVesselDrawer({
                 />
               </div>
               <div className="form-group">
-                <label>Port d'attache</label>
+                <label>{t('form_vessel_port')}</label>
                 <input
                   type="text" maxLength={100} className="input-field" placeholder="Ex. Lome"
                   value={vesselForm.port_of_registry}
@@ -114,7 +114,7 @@ export function AddVesselDrawer({
                 />
               </div>
               <div className="form-group">
-                <label>Signal d'appel</label>
+                <label>{t('form_vessel_callsign')}</label>
                 <input
                   type="text" maxLength={100} className="input-field" placeholder="Ex. 5VJB5"
                   value={vesselForm.call_sign}
@@ -122,7 +122,7 @@ export function AddVesselDrawer({
                 />
               </div>
               <div className="form-group">
-                <label>Jauge brute (GT)</label>
+                <label>{t('form_vessel_gt')}</label>
                 <input
                   type="number" className="input-field" placeholder="Ex. 5036"
                   value={vesselForm.gross_tonnage}
@@ -130,7 +130,7 @@ export function AddVesselDrawer({
                 />
               </div>
               <div className="form-group">
-                <label>Port en lourd (DWT)</label>
+                <label>{t('form_vessel_dwt')}</label>
                 <input
                   type="number" className="input-field" placeholder="Ex. 7119"
                   value={vesselForm.deadweight_tonnage}
@@ -138,7 +138,7 @@ export function AddVesselDrawer({
                 />
               </div>
               <div className="form-group">
-                <label>Année de construction</label>
+                <label>{t('form_vessel_year')}</label>
                 <input
                   type="number" min="1900" max="2100" className="input-field" placeholder="Ex. 2012"
                   value={vesselForm.year_built}
@@ -146,7 +146,7 @@ export function AddVesselDrawer({
                 />
               </div>
               <div className="form-group">
-                <label>Société de classification</label>
+                <label>{t('form_vessel_class')}</label>
                 <input
                   type="text" maxLength={100} className="input-field" placeholder="Ex. Lloyd's Register (LR)"
                   value={vesselForm.class_society}

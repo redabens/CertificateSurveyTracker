@@ -40,7 +40,7 @@ export function AddActionableDrawer({
       <div className="drawer-backdrop" onClick={onClose} />
       <div className="drawer">
         <div className="drawer-header">
-          <h2>{actionableForm.id ? "Modifier la Recommandation" : t('btn_add_rec')}</h2>
+          <h2>{actionableForm.id ? t('form_rec_edit_title') : t('btn_add_rec')}</h2>
           <span className="close-btn icon-svg" onClick={onClose}>
             <CloseIcon size={18} />
           </span>
@@ -49,24 +49,24 @@ export function AddActionableDrawer({
           <div className="drawer-body">
             <div className="form-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
               <div className="form-group">
-                <label>Date Imposée</label>
+                <label>{t('form_rec_imposed')}</label>
                 <input type="date" className="input-field" value={actionableForm.imposed_date} onChange={(e) => set({ imposed_date: e.target.value })} />
               </div>
               <div className="form-group">
-                <label>Catégorie</label>
+                <label>{t('form_rec_category')}</label>
                 <input type="text" maxLength={50} className="input-field" placeholder="Ex. Class" value={actionableForm.category} onChange={(e) => set({ category: e.target.value })} />
               </div>
               <div className="form-group">
-                <label>Rapport N°</label>
+                <label>{t('form_rec_report')}</label>
                 <input type="text" maxLength={50} className="input-field" placeholder="Ex. 12345" value={actionableForm.report_number} onChange={(e) => set({ report_number: e.target.value })} />
               </div>
               <div className="form-group">
-                <label>Date Limite</label>
+                <label>{t('form_rec_due')}</label>
                 <input type="date" className="input-field" value={actionableForm.due_date} onChange={(e) => set({ due_date: e.target.value })} />
               </div>
             </div>
             <div className="form-group">
-              <label>Description *</label>
+              <label>{t('form_rec_desc')} *</label>
               <textarea rows={4} required maxLength={2000} className="textarea-field" value={actionableForm.description} onChange={(e) => set({ description: e.target.value })} />
             </div>
           </div>

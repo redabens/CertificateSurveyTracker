@@ -193,7 +193,7 @@ export function EditCertificateDrawer({
           <div className="drawer-body">
             {/* Name */}
             <div className="form-group" style={{ marginBottom: '16px' }}>
-              <label>Nom du Certificat *</label>
+              <label>{t('form_cert_name')} *</label>
               <input
                 type="text" required maxLength={150} className="input-field"
                 disabled={isCrew}
@@ -205,15 +205,15 @@ export function EditCertificateDrawer({
             {/* Category + Org */}
             <div className="form-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
               <div className="form-group">
-                <label>Catégorie *</label>
+                <label>{t('form_cert_category')} *</label>
                 <select className="select-field" required disabled={isCrew} value={certForm.category} onChange={(e) => set({ category: e.target.value })}>
-                  <option value="Class">Certificats de Classe / Statutaires</option>
-                  <option value="Flag">Certificats de Pavillon</option>
-                  <option value="Servicing">{"Certificats d'Entretien (Équipement)"}</option>
+                  <option value="Class">{t('form_cert_cat_class')}</option>
+                  <option value="Flag">{t('form_cert_cat_flag')}</option>
+                  <option value="Servicing">{t('form_cert_cat_servicing')}</option>
                 </select>
               </div>
               <div className="form-group">
-                <label>Émetteur</label>
+                <label>{t('form_cert_issuer')}</label>
                 <input type="text" maxLength={100} className="input-field" placeholder="Ex. LR" value={certForm.organization} onChange={(e) => set({ organization: e.target.value })} />
               </div>
             </div>
@@ -221,11 +221,11 @@ export function EditCertificateDrawer({
             {/* Dates: Issue + Expiry */}
             <div className="form-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
               <div className="form-group">
-                <label>Emission</label>
+                <label>{t('form_cert_issue_date')}</label>
                 <input type="date" className="input-field" value={certForm.issuing_date} onChange={(e) => set({ issuing_date: e.target.value })} />
               </div>
               <div className="form-group">
-                <label>Expiration</label>
+                <label>{t('form_cert_expiry_date')}</label>
                 <input type="date" className="input-field" value={certForm.expiration_date} onChange={(e) => set({ expiration_date: e.target.value })} />
               </div>
             </div>
@@ -257,7 +257,7 @@ export function EditCertificateDrawer({
 
             {schedulingMode === 'single' ? (
               <div className="form-group" style={{ marginBottom: '16px' }}>
-                <label>{"Date Visite / Échéance Active"}</label>
+                <label>{t('form_cert_survey_date')}</label>
                 <input type="date" className="input-field" value={dates[0]} onChange={(e) => handleDateChange(0, e.target.value)} />
               </div>
             ) : (
@@ -445,7 +445,7 @@ export function EditCertificateDrawer({
 
             {/* PDF upload */}
             <div className="form-group" style={{ marginBottom: '16px' }}>
-              <label>Fichier Certificat PDF (Facultatif - Max 10 Mo)</label>
+              <label>{t('form_cert_pdf')}</label>
               <div className="pdf-upload-controls">
                 <input
                   type="file"
@@ -479,7 +479,7 @@ export function EditCertificateDrawer({
 
             {/* Remarks */}
             <div className="form-group">
-              <label>Remarques</label>
+              <label>{t('form_cert_remarks')}</label>
               <textarea rows={3} maxLength={1000} className="textarea-field" value={certForm.remarks} onChange={(e) => set({ remarks: e.target.value })} />
             </div>
           </div>
