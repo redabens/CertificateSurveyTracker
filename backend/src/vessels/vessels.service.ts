@@ -76,33 +76,17 @@ export class VesselsService {
   }
 
   async getAll(userId: number, role: string): Promise<any[]> {
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-    });
-    if (!user) return [];
-
     let vessels: any[] = [];
-    if (role === 'Admin') {
-      vessels = await this.prisma.vessel.findMany({
-        where: { companyId: user.companyId },
-      });
-    } else if (role === 'Manager') {
-      vessels = await this.prisma.vessel.findMany({
-        where: {
-          OR: [
-            { companyId: user.companyId },
-            { managerCompanyId: user.companyId },
-          ],
-        },
-      });
+    if (role === 'Admin' || role === 'Manager' || role === 'Auditor') {
+      vessels = await this.prisma.vessel.findMany();
     } else if (role === 'Crew') {
-      if (!user.vesselId) return [];
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+      });
+      if (!user || !user.vesselId) return [];
       vessels = await this.prisma.vessel.findMany({
         where: { id: user.vesselId },
       });
-    } else {
-      // Auditor: Lloyd's Register Algiers, sees all vessels
-      vessels = await this.prisma.vessel.findMany();
     }
     return vessels.map((v) => this.mapVesselToResponse(v));
   }
