@@ -1,3 +1,13 @@
+apiVersion: traefik.containo.us/v1alpha1
+kind: Middleware
+metadata:
+  name: redirect-https
+  namespace: certificatsurvey
+spec:
+  redirectScheme:
+    scheme: https
+    permanent: true
+---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -5,13 +15,12 @@ metadata:
   namespace: certificatsurvey
   annotations:
     kubernetes.io/ingress.class: traefik
-    # Optionnel: Redirection HTTP -> HTTPS si TLS est configuré
-    # ingress.kubernetes.io/ssl-redirect: "true"
+    traefik.ingress.kubernetes.io/router.middlewares: certificatsurvey-redirect-https@kubernetescrd
+    traefik.ingress.kubernetes.io/router.certresolver: "myresolver"
 spec:
-  # tls:
-  #   - hosts:
-  #       - certificatsurvey.vexaaiplus.com
-  #     secretName: certificatsurvey-tls-cert
+  tls:
+    - hosts:
+        - certificatsurvey.vexaaiplus.com
   rules:
     - host: certificatsurvey.vexaaiplus.com
       http:
