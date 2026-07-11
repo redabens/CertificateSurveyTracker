@@ -8,12 +8,11 @@ generator client {
 }
 
 model Company {
-  id             Int      @id @default(autoincrement())
-  name           String
-  role           String
-  users          User[]
-  vessels        Vessel[] @relation("VesselOwner")
-  managedVessels Vessel[] @relation("VesselManager")
+  id      Int      @id @default(autoincrement())
+  name    String
+  role    String
+  users   User[]
+  vessels Vessel[]
 
   @@map("companies")
 }
@@ -21,7 +20,6 @@ model Company {
 model Vessel {
   id                 Int              @id @default(autoincrement())
   companyId          Int?             @map("company_id")
-  managerCompanyId   Int?             @map("manager_company_id")
   name               String
   imoNumber          String?          @unique @map("imo_number")
   flag               String?
@@ -35,8 +33,7 @@ model Vessel {
   yearBuilt          Int?             @map("year_built")
   classSociety       String?          @map("class_society")
   status             String           @default("Normal")
-  company            Company?         @relation("VesselOwner", fields: [companyId], references: [id])
-  managerCompany     Company?         @relation("VesselManager", fields: [managerCompanyId], references: [id])
+  company            Company?         @relation(fields: [companyId], references: [id])
   certificates       Certificate[]
   actionableItems    ActionableItem[]
   vesselEmails       VesselEmail[]

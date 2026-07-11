@@ -27,7 +27,6 @@ export class VesselsService {
     return {
       id: v.id,
       company_id: v.companyId,
-      manager_company_id: v.managerCompanyId,
       name: v.name,
       imo_number: v.imoNumber,
       flag: v.flag,
@@ -117,7 +116,6 @@ export class VesselsService {
     const vessel = await this.prisma.vessel.create({
       data: {
         companyId: v.company_id ?? 1,
-        managerCompanyId: v.manager_company_id ?? null,
         name: v.name,
         imoNumber: v.imo_number ?? null,
         flag: v.flag ?? null,

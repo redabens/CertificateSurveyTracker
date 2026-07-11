@@ -45,7 +45,6 @@ export class DatabaseService implements OnModuleInit {
       data: {
         id: 1,
         companyId: 1,
-        managerCompanyId: 2,
         name: 'BABOR ALGERIEN',
         imoNumber: '9477189',
         flag: 'Algeria',
