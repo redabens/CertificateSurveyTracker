@@ -62,7 +62,7 @@ export class CertificatesController {
   }
 
   @Post('vessels/:vesselId/certificates')
-  @Roles('Admin', 'Crew')
+  @Roles('Admin', 'Manager', 'Crew')
   @UseGuards(CrewVesselGuard)
   async create(
     @Req() req: any,
@@ -111,7 +111,7 @@ export class CertificatesController {
   }
 
   @Put('certificates/:id')
-  @Roles('Admin', 'Crew')
+  @Roles('Admin', 'Manager', 'Crew')
   async update(@Req() req: any, @Param('id') id: string, @Body() body: any) {
     const prevCert = await this.certsService.getById(parseInt(id));
     if (!prevCert) {
@@ -164,7 +164,7 @@ export class CertificatesController {
   }
 
   @Delete('certificates/:id')
-  @Roles('Admin')
+  @Roles('Admin', 'Manager')
   async delete(@Req() req: any, @Param('id') id: string) {
     const cert = await this.certsService.getById(parseInt(id));
     await this.certsService.delete(parseInt(id));
@@ -182,7 +182,7 @@ export class CertificatesController {
   }
 
   @Post('certificates/:id/upload')
-  @Roles('Admin', 'Crew')
+  @Roles('Admin', 'Manager', 'Crew')
   @UseInterceptors(
     FileInterceptor('pdf', {
       storage: diskStorage({

@@ -9,7 +9,7 @@ import {
  * CrewVesselGuard — Isole les membres d'équipage à leur navire assigné.
  *
  * SRP: Ce guard NE fait QUE vérifier que le Crew accède bien à son propre navire.
- *      Les autres rôles (Admin, Partner, Auditor) passent toujours.
+ *      Les autres rôles (Admin, Manager, Auditor) passent toujours.
  *
  * Appliquer sur tout endpoint exposant un :vesselId ou un :id de ressource
  * liée à un navire (certificats, actionable items).
@@ -23,7 +23,7 @@ export class CrewVesselGuard implements CanActivate {
     const request = context.switchToHttp().getRequest();
     const user = request.user;
 
-    // Seuls les Crew sont restreints; Admin/Partner/Auditor passent librement
+    // Seuls les Crew sont restreints; Admin/Manager/Auditor passent librement
     if (!user || user.role !== 'Crew') return true;
 
     // Extrait le vessel_id depuis les params (:vesselId prioritaire, puis :id)

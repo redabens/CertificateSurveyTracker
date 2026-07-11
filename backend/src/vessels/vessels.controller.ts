@@ -96,7 +96,7 @@ export class VesselsController {
   }
 
   @Post('manual')
-  @Roles('Admin')
+  @Roles('Admin', 'Manager')
   async createManual(@Req() req: any, @Body() body: any) {
     if (!body.name) {
       throw new BadRequestException('Le nom du navire est requis');
@@ -139,7 +139,7 @@ export class VesselsController {
   }
 
   @Delete(':id')
-  @Roles('Admin')
+  @Roles('Admin', 'Manager')
   async delete(@Req() req: any, @Param('id') id: string) {
     const vessel = await this.vesselsService.getById(parseInt(id));
     await this.vesselsService.delete(parseInt(id));
@@ -157,7 +157,7 @@ export class VesselsController {
   }
 
   @Post('import')
-  @Roles('Admin')
+  @Roles('Admin', 'Manager')
   @UseInterceptors(
     FileInterceptor('file', {
       storage: diskStorage({
@@ -328,7 +328,7 @@ export class VesselsController {
   }
 
   @Post(':id/emails')
-  @Roles('Admin')
+  @Roles('Admin', 'Manager')
   async addEmail(
     @Req() req: any,
     @Param('id') vesselId: string,
@@ -384,7 +384,7 @@ export class VesselsController {
   }
 
   @Post(':id/emails/verify')
-  @Roles('Admin')
+  @Roles('Admin', 'Manager')
   async verifyEmail(
     @Req() req: any,
     @Param('id') vesselId: string,
@@ -441,7 +441,7 @@ export class VesselsController {
   }
 
   @Delete(':id/emails')
-  @Roles('Admin')
+  @Roles('Admin', 'Manager')
   async removeEmail(
     @Req() req: any,
     @Param('id') vesselId: string,
@@ -476,7 +476,7 @@ export class VesselsController {
   }
 
   @Post(':id/trigger-notifications')
-  @Roles('Admin')
+  @Roles('Admin', 'Manager')
   async triggerVesselNotifications(
     @Req() req: any,
     @Param('id') vesselId: string,

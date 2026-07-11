@@ -27,6 +27,7 @@ export class VesselsService {
     return {
       id: v.id,
       company_id: v.companyId,
+      manager_company_id: v.managerCompanyId,
       name: v.name,
       imo_number: v.imoNumber,
       flag: v.flag,
@@ -75,25 +76,32 @@ export class VesselsService {
   }
 
   async getAll(userId: number, role: string): Promise<any[]> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
+    if (!user) return [];
+
     let vessels: any[] = [];
     if (role === 'Admin') {
-      vessels = await this.prisma.vessel.findMany();
-    } else if (role === 'Crew') {
-      const user = await this.prisma.user.findUnique({
-        where: { id: userId },
+      vessels = await this.prisma.vessel.findMany({
+        where: { companyId: user.companyId },
       });
-      if (!user || !user.vesselId) return [];
+    } else if (role === 'Manager') {
+      vessels = await this.prisma.vessel.findMany({
+        where: {
+          OR: [
+            { companyId: user.companyId },
+            { managerCompanyId: user.companyId },
+          ],
+        },
+      });
+    } else if (role === 'Crew') {
+      if (!user.vesselId) return [];
       vessels = await this.prisma.vessel.findMany({
         where: { id: user.vesselId },
       });
-    } else if (role === 'Partner') {
-      vessels = await this.prisma.vessel.findMany({
-        where: {
-          OR: [{ companyId: 1 }, { manager: 'Verital Marine Services' }],
-        },
-      });
     } else {
-      // Auditor
+      // Auditor: Lloyd's Register Algiers, sees all vessels
       vessels = await this.prisma.vessel.findMany();
     }
     return vessels.map((v) => this.mapVesselToResponse(v));
@@ -124,7 +132,8 @@ export class VesselsService {
   async insert(v: any): Promise<number> {
     const vessel = await this.prisma.vessel.create({
       data: {
-        companyId: v.company_id ?? 2,
+        companyId: v.company_id ?? 1,
+        managerCompanyId: v.manager_company_id ?? null,
         name: v.name,
         imoNumber: v.imo_number ?? null,
         flag: v.flag ?? null,

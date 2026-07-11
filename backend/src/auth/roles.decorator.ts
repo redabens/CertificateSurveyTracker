@@ -9,10 +9,10 @@ import { SetMetadata } from '@nestjs/common';
  * Utilisation:
  *   @Roles('Admin')                    → Admins uniquement
  *   @Roles('Admin', 'Crew')            → Admins et Crew
- *   @Roles('Admin', 'Crew', 'Partner') → Lecture élargie
+ *   @Roles('Admin', 'Crew', 'Manager') → Lecture élargie
  *   (sans @Roles)                      → Accès libre pour tout utilisateur authentifié
  */
-export type UserRole = 'Admin' | 'Crew' | 'Partner' | 'Auditor';
+export type UserRole = 'Admin' | 'Crew' | 'Manager' | 'Auditor';
 
 export const ROLES_KEY = 'roles';
 

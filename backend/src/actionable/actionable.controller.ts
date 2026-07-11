@@ -42,7 +42,7 @@ export class ActionableController {
   }
 
   @Post('vessels/:vesselId/actionable-items')
-  @Roles('Admin')
+  @Roles('Admin', 'Manager', 'Auditor')
   async create(
     @Req() req: any,
     @Param('vesselId') vesselId: string,
@@ -74,7 +74,7 @@ export class ActionableController {
   }
 
   @Put('actionable-items/:id/status')
-  @Roles('Admin', 'Crew')
+  @Roles('Admin', 'Manager', 'Crew')
   async updateStatus(
     @Req() req: any,
     @Param('id') id: string,
@@ -99,7 +99,7 @@ export class ActionableController {
   }
 
   @Put('actionable-items/:id')
-  @Roles('Admin')
+  @Roles('Admin', 'Manager')
   async update(@Req() req: any, @Param('id') id: string, @Body() body: any) {
     if (!body.description) {
       throw new BadRequestException('La description est requise');
@@ -126,7 +126,7 @@ export class ActionableController {
   }
 
   @Delete('actionable-items/:id')
-  @Roles('Admin')
+  @Roles('Admin', 'Manager')
   async delete(@Req() req: any, @Param('id') id: string) {
     await this.actionableService.delete(parseInt(id));
 

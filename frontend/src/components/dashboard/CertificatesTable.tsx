@@ -22,7 +22,6 @@ export interface Certificate {
 export interface CertificatesTableProps {
   filteredCerts: Certificate[];
   userRole: string;
-  lang: string;
   t: (key: string) => string;
   formatDateString: (dateStr: string) => string;
   formatDueDateWithWindow: (dueStr: string | null | undefined, windowStr: string | null | undefined) => string;
@@ -38,7 +37,6 @@ export interface CertificatesTableProps {
 export function CertificatesTable({
   filteredCerts,
   userRole,
-  lang,
   t,
   formatDateString,
   formatDueDateWithWindow,
@@ -48,7 +46,7 @@ export function CertificatesTable({
   handleDeleteCert,
   openPdfViewer,
 }: CertificatesTableProps) {
-  const isReadOnly = userRole === 'Partner' || userRole === 'Auditor';
+  const isReadOnly = userRole === 'Auditor';
   const isCrew = userRole === 'Crew';
 
   return (

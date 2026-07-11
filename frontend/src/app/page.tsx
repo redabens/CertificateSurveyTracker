@@ -185,9 +185,11 @@ export default function Dashboard() {
               <a href="#tv-mode" className="nav-item" onClick={(e) => { e.preventDefault(); enterTvMode(); }}>
                 <span className="icon-svg"><TvIcon /></span> <span>{t('nav_tv_mode')}</span>
               </a>
-              <a href="#logs" className={`nav-item ${activeView === 'logs' ? 'active' : ''}`} onClick={() => setActiveView('logs')}>
-                <span className="icon-svg"><LogsIcon /></span> <span>{t('nav_logs')}</span>
-              </a>
+              {(user.role === 'Admin' || user.role === 'Manager') && (
+                <a href="#logs" className={`nav-item ${activeView === 'logs' ? 'active' : ''}`} onClick={() => setActiveView('logs')}>
+                  <span className="icon-svg"><LogsIcon /></span> <span>{t('nav_logs')}</span>
+                </a>
+              )}
               {user.role === 'Admin' && (
                 <a href="#users" className={`nav-item ${activeView === 'users' ? 'active' : ''}`} onClick={() => setActiveView('users')}>
                   <span className="icon-svg"><UserIcon size={18} /></span> <span>{t('nav_users')}</span>
@@ -215,7 +217,7 @@ export default function Dashboard() {
                 <div className="profile-info">
                   <div className="profile-name">{user.full_name}</div>
                   <div className="profile-role" id="currentUserRoleBadge">
-                    {user.role === 'Admin' ? t('role_admin') : user.role === 'Crew' ? t('role_crew') : user.role === 'Partner' ? t('role_partner') : t('role_auditor')}
+                    {user.role === 'Admin' ? t('role_admin') : user.role === 'Crew' ? t('role_crew') : user.role === 'Manager' ? t('role_partner') : t('role_auditor')}
                   </div>
                 </div>
                 <button className="btn-logout icon-svg" onClick={logout} title={t('btn_logout')}><LogoutIcon size={18} /></button>
@@ -235,7 +237,7 @@ export default function Dashboard() {
                   <button className={`lang-btn ${lang === 'fr' ? 'active' : ''}`} onClick={() => setLang('fr')}>FR</button>
                   <button className={`lang-btn ${lang === 'en' ? 'active' : ''}`} onClick={() => setLang('en')}>EN</button>
                 </div>
-                {user.role === 'Admin' && (
+                {(user.role === 'Admin' || user.role === 'Manager') && (
                   <button className="btn btn-primary" onClick={() => setShowImportModal(true)}>
                     <span className="icon-svg"><ImportIcon /></span> <span>{t('btn_import_excel')}</span>
                   </button>
@@ -268,7 +270,7 @@ export default function Dashboard() {
                     vessels={vessels}
                     selectedVesselId={selectedVesselId}
                     onSelect={setSelectedVesselId}
-                    isAdmin={user.role === 'Admin'}
+                    isAdmin={user.role === 'Admin' || user.role === 'Manager'}
                     onAddVessel={() => setShowAddVesselModal(true)}
                     t={t}
                   />
@@ -300,7 +302,7 @@ export default function Dashboard() {
                             <button className="btn btn-success" onClick={handleExcelExport}>
                               {t('btn_export_audit')}
                             </button>
-                            {user.role === 'Admin' && (
+                            {(user.role === 'Admin' || user.role === 'Manager') && (
                               <button className="btn btn-danger" onClick={handleDeleteVessel}>
                                 {t('btn_delete_vessel')}
                               </button>
@@ -382,7 +384,7 @@ export default function Dashboard() {
                                     <option value="NORMAL">{t('filter_status_normal')}</option>
                                   </select>
                                 </div>
-                                {(user.role === 'Admin' || user.role === 'Crew') && (
+                                {(user.role === 'Admin' || user.role === 'Manager' || user.role === 'Crew') && (
                                   <button className="btn btn-sm btn-primary" onClick={handleCreateCertOpen}>
                                     {t('btn_add_cert')}
                                   </button>
@@ -392,7 +394,6 @@ export default function Dashboard() {
                               <CertificatesTable
                                 filteredCerts={filteredCerts}
                                 userRole={user.role}
-                                lang={lang}
                                 t={t}
                                 formatDateString={formatDateString}
                                 formatDueDateWithWindow={formatDueDateWithWindow}
@@ -412,7 +413,7 @@ export default function Dashboard() {
                                 <div className="search-filters">
                                   <h3 style={{ margin: 0 }}>{t('rec_title')}</h3>
                                 </div>
-                                {user.role === 'Admin' && (
+                                {(user.role === 'Admin' || user.role === 'Manager' || user.role === 'Auditor') && (
                                   <button className="btn btn-sm btn-primary" onClick={() => setShowAddActionableModal(true)}>
                                     {t('btn_add_rec')}
                                   </button>
@@ -429,16 +430,16 @@ export default function Dashboard() {
                                       <th>{t('rec_col_due')}</th>
                                       <th>{t('rec_col_desc')}</th>
                                       <th>{t('rec_col_status')}</th>
-                                      {user.role === 'Admin' && <th>Actions</th>}
+                                      {(user.role === 'Admin' || user.role === 'Manager') && <th>Actions</th>}
                                     </tr>
                                   </thead>
                                   <tbody>
                                     {actionableItems.length === 0 ? (
-                                      <tr><td colSpan={user.role === 'Admin' ? 7 : 6} className="placeholder-text">{t('no_recommendations')}</td></tr>
+                                      <tr><td colSpan={(user.role === 'Admin' || user.role === 'Manager') ? 7 : 6} className="placeholder-text">{t('no_recommendations')}</td></tr>
                                     ) : (
                                       actionableItems.map(a => {
                                         const isCompleted = a.status === 'Completed';
-                                        const isReadOnly = user.role === 'Partner' || user.role === 'Auditor' || user.role === 'Crew';
+                                        const isReadOnly = user.role === 'Auditor';
                                         
                                         return (
                                           <tr key={a.id}>
@@ -458,7 +459,7 @@ export default function Dashboard() {
                                                 </span>
                                               )}
                                             </td>
-                                            {user.role === 'Admin' && (
+                                            {(user.role === 'Admin' || user.role === 'Manager') && (
                                               <td>
                                                 <div style={{ display: 'flex', gap: '8px' }}>
                                                   <button 
@@ -505,7 +506,7 @@ export default function Dashboard() {
                 <div className="card glass">
                   <div className="card-header-actions" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <h2>{t('logs_title')}</h2>
-                    {user.role === 'Admin' && (
+                    {(user.role === 'Admin' || user.role === 'Manager') && (
                       <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                         <select
                           className="input-field"
@@ -608,8 +609,8 @@ export default function Dashboard() {
                                   <td><strong>{u.full_name}</strong></td>
                                   <td><code>{u.email}</code></td>
                                   <td>
-                                    <span className={`badge ${u.role === 'Admin' ? 'badge-red' : u.role === 'Crew' ? 'badge-yellow' : u.role === 'Partner' ? 'badge-green' : 'badge-normal'}`}>
-                                      {u.role === 'Admin' ? t('role_admin_short') : u.role === 'Crew' ? t('role_crew_short') : u.role === 'Partner' ? t('role_partner_short') : t('role_auditor_short')}
+                                    <span className={`badge ${u.role === 'Admin' ? 'badge-red' : u.role === 'Crew' ? 'badge-yellow' : u.role === 'Manager' ? 'badge-green' : 'badge-normal'}`}>
+                                      {u.role === 'Admin' ? t('role_admin_short') : u.role === 'Crew' ? t('role_crew_short') : u.role === 'Manager' ? t('role_partner_short') : t('role_auditor_short')}
                                     </span>
                                   </td>
                                   <td>

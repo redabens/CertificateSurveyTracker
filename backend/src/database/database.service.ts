@@ -34,7 +34,7 @@ export class DatabaseService implements OnModuleInit {
       data: { id: 1, name: 'CNAN NORD', role: 'Admin' },
     });
     await this.prisma.company.create({
-      data: { id: 2, name: 'Verital Marine Services', role: 'Partner' },
+      data: { id: 2, name: 'Verital Marine Services', role: 'Manager' },
     });
     await this.prisma.company.create({
       data: { id: 3, name: 'Lloyds Register Algiers', role: 'Auditor' },
@@ -45,6 +45,7 @@ export class DatabaseService implements OnModuleInit {
       data: {
         id: 1,
         companyId: 1,
+        managerCompanyId: 2,
         name: 'BABOR ALGERIEN',
         imoNumber: '9477189',
         flag: 'Algeria',
@@ -74,7 +75,7 @@ export class DatabaseService implements OnModuleInit {
     const salt = bcrypt.genSaltSync(10);
     const adminHash = bcrypt.hashSync('admin123', salt);
     const captainHash = bcrypt.hashSync('captain123', salt);
-    const partnerHash = bcrypt.hashSync('partner123', salt);
+    const managerHash = bcrypt.hashSync('partner123', salt);
     const auditorHash = bcrypt.hashSync('auditor123', salt);
 
     // Admin: Complete fleet manager (CNAN)
@@ -102,13 +103,13 @@ export class DatabaseService implements OnModuleInit {
       },
     });
 
-    // Partner: Verital Marine Services (can view fleet of CNAN)
+    // Technical Manager: Verital Marine Services (can manage fleet of CNAN)
     await this.prisma.user.create({
       data: {
         email: 'partner@babor.com',
-        password: partnerHash,
-        fullName: 'Verital Marine Partner',
-        role: 'Partner',
+        password: managerHash,
+        fullName: 'Verital Marine Manager',
+        role: 'Manager',
         companyId: 2,
         mustChangePassword: 0,
       },

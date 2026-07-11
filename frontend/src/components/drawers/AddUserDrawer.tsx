@@ -95,14 +95,14 @@ export function AddUserDrawer({
                     onChange={(e) => {
                       const nextRole = e.target.value;
                       let nextCompanyId = 1;
-                      if (nextRole === 'Partner') nextCompanyId = 2;
+                      if (nextRole === 'Manager') nextCompanyId = 2;
                       else if (nextRole === 'Auditor') nextCompanyId = 3;
                       set({ role: nextRole, companyId: nextCompanyId, vesselId: '' });
                     }}
                   >
                     <option value="Admin">{t('form_user_role_admin')}</option>
                     <option value="Crew">{t('form_user_role_crew')}</option>
-                    <option value="Partner">{t('form_user_role_partner')}</option>
+                    <option value="Manager">{t('form_user_role_partner')}</option>
                     <option value="Auditor">{t('form_user_role_auditor')}</option>
                   </select>
                 </div>
