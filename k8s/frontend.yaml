@@ -22,8 +22,6 @@ spec:
           env:
             - name: NODE_ENV
               value: "production"
-            - name: NEXT_PUBLIC_API_URL
-              value: "https://certificatsurvey.vexaaiplus.com/api"
           resources:
             requests:
               cpu: 50m
