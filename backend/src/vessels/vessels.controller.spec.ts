@@ -92,7 +92,12 @@ describe('VesselsController', () => {
   describe('createManual', () => {
     it('should allow Admin to create manually', async () => {
       const mockReq = { user: { role: 'Admin' } };
-      const body = { name: 'New Vessel' };
+      const body = {
+        name: 'New Vessel',
+        imo_number: '1234567',
+        flag: 'Algeria',
+        owner: 'CNAN',
+      };
       const result = await controller.createManual(mockReq, body);
       expect(service.insert).toHaveBeenCalledWith(body);
       expect(result).toBeDefined();
@@ -100,9 +105,46 @@ describe('VesselsController', () => {
 
     it('should throw BadRequestException if name is missing', async () => {
       const mockReq = { user: { role: 'Admin' } };
-      await expect(controller.createManual(mockReq, {})).rejects.toThrow(
-        BadRequestException,
-      );
+      await expect(
+        controller.createManual(mockReq, {
+          imo_number: '1234567',
+          flag: 'Algeria',
+          owner: 'CNAN',
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should throw BadRequestException if imo_number is missing', async () => {
+      const mockReq = { user: { role: 'Admin' } };
+      await expect(
+        controller.createManual(mockReq, {
+          name: 'New Vessel',
+          flag: 'Algeria',
+          owner: 'CNAN',
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should throw BadRequestException if flag is missing', async () => {
+      const mockReq = { user: { role: 'Admin' } };
+      await expect(
+        controller.createManual(mockReq, {
+          name: 'New Vessel',
+          imo_number: '1234567',
+          owner: 'CNAN',
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should throw BadRequestException if owner is missing', async () => {
+      const mockReq = { user: { role: 'Admin' } };
+      await expect(
+        controller.createManual(mockReq, {
+          name: 'New Vessel',
+          imo_number: '1234567',
+          flag: 'Algeria',
+        }),
+      ).rejects.toThrow(BadRequestException);
     });
   });
 

@@ -101,6 +101,15 @@ export class VesselsController {
     if (!body.name) {
       throw new BadRequestException('Le nom du navire est requis');
     }
+    if (!body.imo_number) {
+      throw new BadRequestException('Le numéro IMO est requis');
+    }
+    if (!body.flag) {
+      throw new BadRequestException('Le pavillon est requis');
+    }
+    if (!body.owner) {
+      throw new BadRequestException('Le propriétaire est requis');
+    }
     const id = await this.vesselsService.insert(body);
     await this.prisma.vesselEmail.upsert({
       where: {

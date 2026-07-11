@@ -27,6 +27,8 @@
   "spec_callsign": "Signal d'appel:",
   "spec_gt": "Jauge brute (GT):",
   "spec_dwt": "Port en lourd (DWT):",
+  "spec_year_built": "Année de construction:",
+  "spec_class_society": "Société de classification:",
   "tab_certs": "Certificats & Inspections",
   "tab_recs": "Recommandations & Actions (LR)",
   "search_placeholder": "Rechercher un certificat...",

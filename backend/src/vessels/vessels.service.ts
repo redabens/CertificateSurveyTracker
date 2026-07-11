@@ -131,10 +131,14 @@ export class VesselsService {
         assetType: v.asset_type ?? null,
         owner: v.owner ?? null,
         manager: v.manager ?? null,
-        grossTonnage: v.gross_tonnage ?? 0,
-        deadweightTonnage: v.deadweight_tonnage ?? 0,
+        grossTonnage: v.gross_tonnage ? parseInt(v.gross_tonnage, 10) : 0,
+        deadweightTonnage: v.deadweight_tonnage
+          ? parseInt(v.deadweight_tonnage, 10)
+          : 0,
         portOfRegistry: v.port_of_registry ?? null,
         callSign: v.call_sign ?? null,
+        yearBuilt: v.year_built ? parseInt(v.year_built, 10) : null,
+        classSociety: v.class_society ?? null,
         status: v.status ?? 'Normal',
       },
     });

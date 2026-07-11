@@ -10,6 +10,12 @@ export interface VesselFormState {
   asset_type: string;
   owner: string;
   manager: string;
+  port_of_registry: string;
+  call_sign: string;
+  gross_tonnage: string;
+  deadweight_tonnage: string;
+  year_built: string;
+  class_society: string;
 }
 
 export interface AddVesselDrawerProps {
@@ -58,9 +64,9 @@ export function AddVesselDrawer({
                 />
               </div>
               <div className="form-group">
-                <label>Numéro IMO</label>
+                <label>Numéro IMO *</label>
                 <input
-                  type="text" maxLength={20} pattern="[0-9A-Za-z ]+"
+                  type="text" required maxLength={20} pattern="[0-9A-Za-z ]+"
                   title="Letters, numbers and spaces only"
                   className="input-field" placeholder="Ex. 9477177"
                   value={vesselForm.imo_number}
@@ -68,9 +74,9 @@ export function AddVesselDrawer({
                 />
               </div>
               <div className="form-group">
-                <label>Pavillon</label>
+                <label>Pavillon *</label>
                 <input
-                  type="text" maxLength={100} className="input-field" placeholder="Ex. Algérie"
+                  type="text" required maxLength={100} className="input-field" placeholder="Ex. Algérie"
                   value={vesselForm.flag}
                   onChange={(e) => set({ flag: e.target.value })}
                 />
@@ -84,9 +90,9 @@ export function AddVesselDrawer({
                 />
               </div>
               <div className="form-group">
-                <label>Propriétaire</label>
+                <label>Propriétaire *</label>
                 <input
-                  type="text" maxLength={100} className="input-field" placeholder="Ex. CNAN"
+                  type="text" required maxLength={100} className="input-field" placeholder="Ex. CNAN"
                   value={vesselForm.owner}
                   onChange={(e) => set({ owner: e.target.value })}
                 />
@@ -97,6 +103,54 @@ export function AddVesselDrawer({
                   type="text" maxLength={100} className="input-field" placeholder="Ex. Verital"
                   value={vesselForm.manager}
                   onChange={(e) => set({ manager: e.target.value })}
+                />
+              </div>
+              <div className="form-group">
+                <label>Port d'attache</label>
+                <input
+                  type="text" maxLength={100} className="input-field" placeholder="Ex. Lome"
+                  value={vesselForm.port_of_registry}
+                  onChange={(e) => set({ port_of_registry: e.target.value })}
+                />
+              </div>
+              <div className="form-group">
+                <label>Signal d'appel</label>
+                <input
+                  type="text" maxLength={100} className="input-field" placeholder="Ex. 5VJB5"
+                  value={vesselForm.call_sign}
+                  onChange={(e) => set({ call_sign: e.target.value })}
+                />
+              </div>
+              <div className="form-group">
+                <label>Jauge brute (GT)</label>
+                <input
+                  type="number" className="input-field" placeholder="Ex. 5036"
+                  value={vesselForm.gross_tonnage}
+                  onChange={(e) => set({ gross_tonnage: e.target.value })}
+                />
+              </div>
+              <div className="form-group">
+                <label>Port en lourd (DWT)</label>
+                <input
+                  type="number" className="input-field" placeholder="Ex. 7119"
+                  value={vesselForm.deadweight_tonnage}
+                  onChange={(e) => set({ deadweight_tonnage: e.target.value })}
+                />
+              </div>
+              <div className="form-group">
+                <label>Année de construction</label>
+                <input
+                  type="number" min="1900" max="2100" className="input-field" placeholder="Ex. 2012"
+                  value={vesselForm.year_built}
+                  onChange={(e) => set({ year_built: e.target.value })}
+                />
+              </div>
+              <div className="form-group">
+                <label>Société de classification</label>
+                <input
+                  type="text" maxLength={100} className="input-field" placeholder="Ex. Lloyd's Register (LR)"
+                  value={vesselForm.class_society}
+                  onChange={(e) => set({ class_society: e.target.value })}
                 />
               </div>
             </div>

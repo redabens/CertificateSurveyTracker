@@ -36,6 +36,12 @@ export interface VesselFormState {
   asset_type: string;
   owner: string;
   manager: string;
+  port_of_registry: string;
+  call_sign: string;
+  gross_tonnage: string;
+  deadweight_tonnage: string;
+  year_built: string;
+  class_society: string;
 }
 
 export interface CertFormState {
@@ -112,7 +118,9 @@ export function useDashboard(chartRef: RefObject<HTMLCanvasElement | null>) {
   // Form states
   const [importFile, setImportFile] = useState<File | null>(null);
   const [vesselForm, setVesselForm] = useState<VesselFormState>({
-    name: '', imo_number: '', flag: '', asset_type: '', owner: '', manager: ''
+    name: '', imo_number: '', flag: '', asset_type: '', owner: '', manager: '',
+    port_of_registry: '', call_sign: '', gross_tonnage: '', deadweight_tonnage: '',
+    year_built: '', class_society: ''
   });
   const [certForm, setCertForm] = useState<CertFormState>({
     id: '', name: '', category: 'Class', organization: '',
@@ -661,7 +669,11 @@ export function useDashboard(chartRef: RefObject<HTMLCanvasElement | null>) {
       if (res.ok) {
         showToast(t('toast_vessel_created'), 'success');
         setShowAddVesselModal(false);
-        setVesselForm({ name: '', imo_number: '', flag: '', asset_type: '', owner: '', manager: '' });
+        setVesselForm({
+          name: '', imo_number: '', flag: '', asset_type: '', owner: '', manager: '',
+          port_of_registry: '', call_sign: '', gross_tonnage: '', deadweight_tonnage: '',
+          year_built: '', class_society: ''
+        });
         await loadVessels();
         setSelectedVesselId(data.id);
       } else {

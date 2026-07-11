@@ -61,9 +61,13 @@ export class PrismaService
     ];
 
     for (const tableName of tableNames) {
-      await this.$executeRawUnsafe(
-        `TRUNCATE TABLE "${tableName}" RESTART IDENTITY CASCADE;`,
-      );
+      if (tableName === 'vessel_emails') {
+        await this.$executeRawUnsafe(`TRUNCATE TABLE "${tableName}" CASCADE;`);
+      } else {
+        await this.$executeRawUnsafe(
+          `TRUNCATE TABLE "${tableName}" RESTART IDENTITY CASCADE;`,
+        );
+      }
     }
   }
 }

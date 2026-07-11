@@ -27,6 +27,8 @@
   "spec_callsign": "Call Sign:",
   "spec_gt": "Gross Tonnage (GT):",
   "spec_dwt": "Deadweight (DWT):",
+  "spec_year_built": "Year Built:",
+  "spec_class_society": "Classification Society:",
   "tab_certs": "Certificates & Inspections",
   "tab_recs": "Recommendations & Actions (LR)",
   "search_placeholder": "Search certificate...",

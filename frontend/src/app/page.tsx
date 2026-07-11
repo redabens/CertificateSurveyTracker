@@ -334,6 +334,14 @@ export default function Dashboard() {
                             <strong>{t('spec_dwt')}</strong>
                             <span>{selectedVessel.deadweight_tonnage ? selectedVessel.deadweight_tonnage.toLocaleString() : '-'}</span>
                           </div>
+                          <div className="spec-item">
+                            <strong>{t('spec_year_built')}</strong>
+                            <span>{selectedVessel.year_built || '-'}</span>
+                          </div>
+                          <div className="spec-item">
+                            <strong>{t('spec_class_society')}</strong>
+                            <span>{selectedVessel.class_society || '-'}</span>
+                          </div>
                         </div>
 
                         {/* Tabs content */}
@@ -415,7 +423,6 @@ export default function Dashboard() {
                                 <table className="data-table">
                                   <thead>
                                     <tr>
-                                      <th>{t('rec_col_id')}</th>
                                       <th>{t('rec_col_imposed')}</th>
                                       <th>{t('rec_col_cat')}</th>
                                       <th>{t('rec_col_report')}</th>
@@ -427,7 +434,7 @@ export default function Dashboard() {
                                   </thead>
                                   <tbody>
                                     {actionableItems.length === 0 ? (
-                                      <tr><td colSpan={user.role === 'Admin' ? 8 : 7} className="placeholder-text">{t('no_recommendations')}</td></tr>
+                                      <tr><td colSpan={user.role === 'Admin' ? 7 : 6} className="placeholder-text">{t('no_recommendations')}</td></tr>
                                     ) : (
                                       actionableItems.map(a => {
                                         const isCompleted = a.status === 'Completed';
@@ -435,7 +442,6 @@ export default function Dashboard() {
                                         
                                         return (
                                           <tr key={a.id}>
-                                            <td><code style={{ fontFamily: 'Roboto Mono' }}>{a.item_id || '-'}</code></td>
                                             <td>{formatDateString(a.imposed_date)}</td>
                                             <td>{a.category || '-'}</td>
                                             <td>{a.report_number || '-'}</td>
