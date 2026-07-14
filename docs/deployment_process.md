@@ -95,7 +95,7 @@ kubectl apply -f k8s/postgres.yaml
 ```
 *Attendez que le pod PostgreSQL soit marqué `Running` et `Ready` :*
 ```bash
-kubectl get pods -n cnan-vessel-tracker -w
+kubectl get pods -n certificatsurvey -w
 ```
 
 ### Étape 4 : Déployer le Backend NestJS
@@ -105,10 +105,10 @@ kubectl apply -f k8s/backend.yaml
 Une fois le pod backend actif, lancez l'application du schéma de base de données :
 ```bash
 # Identifier le nom du pod backend
-POD_NAME=$(kubectl get pods -n cnan-vessel-tracker -l app=backend -o jsonpath="{.items[0].metadata.name}")
+POD_NAME=$(kubectl get pods -n certificatsurvey -l app=backend -o jsonpath="{.items[0].metadata.name}")
 
 # Exécuter prisma db push dans le conteneur
-kubectl exec -n cnan-vessel-tracker -it $POD_NAME -- npx prisma db push
+kubectl exec -n certificatsurvey -it $POD_NAME -- npx prisma db push --accept-data-loss
 ```
 
 ### Étape 5 : Déployer le Frontend et l'Ingress (Routage Réseau)
@@ -118,6 +118,55 @@ kubectl apply -f k8s/ingress.yaml
 ```
 
 ### Commandes Utiles de Supervision Kubernetes :
-*   **Voir toutes les ressources** : `kubectl get all -n cnan-vessel-tracker`
-*   **Consulter les logs de l'API** : `kubectl logs -f deployment/backend -n cnan-vessel-tracker`
-*   **Entrer dans le conteneur backend** : `kubectl exec -n cnan-vessel-tracker -it deployment/backend -- sh`
+*   **Voir toutes les ressources** : `kubectl get all -n certificatsurvey`
+*   **Consulter les logs de l'API** : `kubectl logs -f deployment/backend -n certificatsurvey`
+*   **Entrer dans le conteneur backend** : `kubectl exec -n certificatsurvey -it deployment/backend -- sh`
+
+---
+
+## 🔄 3. Processus de Mise à Jour et Redéploiement (k3s Local Server)
+
+Lorsque vous apportez de nouveaux changements au code et que vous souhaitez mettre à jour le serveur de production (situé dans `/opt/certif-tracker`) :
+
+### Étape 1 : Récupérer le dernier code depuis GitHub
+Connectez-vous via SSH à votre serveur et tirez les modifications :
+```bash
+cd /opt/certif-tracker
+git pull
+```
+
+### Étape 2 : Reconstruire les images Docker localement sur le serveur
+Recompilez les images Docker de production pour le frontend et le backend :
+```bash
+docker build -t certificatsurvey-backend:latest ./backend
+docker build -t certificatsurvey-frontend:latest ./frontend
+```
+
+### Étape 3 : Importer les images dans le registre k3s
+Si votre k3s n'est pas configuré pour utiliser directement le daemon Docker, importez les images construites dans le cache d'images interne de k3s :
+```bash
+docker save certificatsurvey-backend:latest | k3s ctr images import -
+docker save certificatsurvey-frontend:latest | k3s ctr images import -
+```
+
+### Étape 4 : Déclencher le redémarrage des Pods dans Kubernetes
+Forcez Kubernetes à recréer les pods pour utiliser les nouvelles images :
+```bash
+kubectl rollout restart deployment/backend -n certificatsurvey
+kubectl rollout restart deployment/frontend -n certificatsurvey
+```
+
+*Supervisez le redémarrage des pods jusqu'à ce qu'ils soient tous à l'état `Running` :*
+```bash
+kubectl get pods -n certificatsurvey -w
+```
+
+### Étape 5 : Appliquer la migration de base de données en production
+Une fois le nouveau pod `backend` démarré et à l'état `Running`, exécutez la commande pour synchroniser le schéma de votre base de données PostgreSQL de production :
+```bash
+# Récupérer le nom du nouveau pod backend
+POD_NAME=$(kubectl get pods -n certificatsurvey -l app=backend -o jsonpath="{.items[0].metadata.name}")
+
+# Lancer la mise à jour du schéma Prisma dans le conteneur
+kubectl exec -n certificatsurvey -it $POD_NAME -- npx prisma db push --accept-data-loss
+```
