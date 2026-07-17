@@ -78,6 +78,12 @@ export class AuthController {
         'Seuls les administrateurs peuvent supprimer des utilisateurs.',
       );
     }
-    return this.authService.deleteUser(parseInt(id));
+    const targetUserId = parseInt(id);
+    if (req.user.id === targetUserId) {
+      throw new ForbiddenException(
+        'Vous ne pouvez pas vous supprimer vous-même.',
+      );
+    }
+    return this.authService.deleteUser(targetUserId);
   }
 }

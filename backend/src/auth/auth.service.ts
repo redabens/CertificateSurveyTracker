@@ -171,6 +171,49 @@ export class AuthService {
           'Impossible de supprimer le dernier administrateur',
         );
       }
+
+      // Find a replacement admin for vessel notifications
+      const fallbackAdmin = await this.prisma.user.findFirst({
+        where: {
+          role: 'Admin',
+          NOT: { id: userId },
+        },
+      });
+
+      if (fallbackAdmin) {
+        // Find all vessel_emails matching the deleted admin's email
+        const vesselEmailsToMigrate = await this.prisma.vesselEmail.findMany({
+          where: { email: user.email },
+        });
+
+        for (const ve of vesselEmailsToMigrate) {
+          // Check if the fallback admin is already registered on this vessel
+          const alreadyExists = await this.prisma.vesselEmail.findUnique({
+            where: {
+              vesselId_email: {
+                vesselId: ve.vesselId,
+                email: fallbackAdmin.email,
+              },
+            },
+          });
+
+          if (alreadyExists) {
+            // Delete the duplicate row
+            await this.prisma.vesselEmail.delete({
+              where: { id: ve.id },
+            });
+          } else {
+            // Update to the fallback admin's email
+            await this.prisma.vesselEmail.update({
+              where: { id: ve.id },
+              data: {
+                email: fallbackAdmin.email,
+                isVerified: 1, // Assume verified for admin transitions
+              },
+            });
+          }
+        }
+      }
     }
 
     await this.prisma.user.delete({

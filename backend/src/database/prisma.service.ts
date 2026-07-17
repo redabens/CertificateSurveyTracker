@@ -11,16 +11,17 @@ export class PrismaService
     const port = process.env.DB_PORT || '5432';
     const user = process.env.DB_USER || 'postgres';
     const password = process.env.DB_PASSWORD || 'root';
-    const dbName =
-      process.env.DB_NAME ||
-      (process.env.NODE_ENV === 'test'
-        ? 'vessel_tracker_test'
-        : 'vessel_tracker');
+    const dbName = process.env.DB_NAME || 'vessel_tracker';
 
     // Build standard PostgreSQL connection URL
     let databaseUrl = process.env.DATABASE_URL;
 
-    if (process.env.NODE_ENV === 'test') {
+    // Detect if we are executing tests (Jest environment)
+    const isRunningTests =
+      process.env.JEST_WORKER_ID !== undefined ||
+      process.env.NODE_ENV === 'test';
+
+    if (isRunningTests) {
       // Always force test database for unit/integration tests to prevent clearing dev DB
       databaseUrl = `postgresql://${user}:${password}@${host}:${port}/vessel_tracker_test`;
     } else if (!databaseUrl) {
@@ -33,7 +34,7 @@ export class PrismaService
           url: databaseUrl,
         },
       },
-      log: process.env.NODE_ENV === 'test' ? [] : ['warn', 'error'],
+      log: isRunningTests ? [] : ['warn', 'error'],
     });
   }
 

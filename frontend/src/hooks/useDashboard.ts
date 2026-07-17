@@ -989,7 +989,7 @@ export function useDashboard(chartRef: RefObject<HTMLCanvasElement | null>) {
         setTempInviteOtp(data.tempOtp);
         await loadUsers();
       } else {
-        showToast(data.error || "Erreur lors de la création de l'utilisateur", 'error');
+        showToast(data.message || data.error || "Erreur lors de la création de l'utilisateur", 'error');
       }
     } catch (err) {
       handleCatchError(err);
@@ -1020,7 +1020,7 @@ export function useDashboard(chartRef: RefObject<HTMLCanvasElement | null>) {
         await loadUsers();
       } else {
         const data = await res.json();
-        showToast(data.error || 'Erreur', 'error');
+        showToast(data.message || data.error || 'Erreur', 'error');
       }
     } catch (err) {
       handleCatchError(err);
@@ -1039,7 +1039,7 @@ export function useDashboard(chartRef: RefObject<HTMLCanvasElement | null>) {
         await loadUsers();
       } else {
         const data = await res.json();
-        showToast(data.error || 'Erreur lors de la suppression', 'error');
+        showToast(data.message || data.error || 'Erreur lors de la suppression', 'error');
       }
     } catch (err) {
       handleCatchError(err);
@@ -1068,7 +1068,7 @@ export function useDashboard(chartRef: RefObject<HTMLCanvasElement | null>) {
         showToast(t('toast_password_updated'), 'success');
       } else {
         const data = await res.json();
-        setPasswordChangeError(data.error || 'Erreur lors du changement de mot de passe');
+        setPasswordChangeError(data.message || data.error || 'Erreur lors du changement de mot de passe');
       }
     } catch (err) {
       setPasswordChangeError(String(err));

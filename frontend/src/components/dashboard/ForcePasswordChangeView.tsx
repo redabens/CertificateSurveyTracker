@@ -1,5 +1,5 @@
-import React from 'react';
-import { LogoIcon, CheckIcon, AlertIcon, WarningIcon } from '../Icons';
+import React, { useState } from 'react';
+import { LogoIcon, CheckIcon, AlertIcon, WarningIcon, EyeIcon, EyeOffIcon } from '../Icons';
 
 type ToastMsg = { id: number; text: string; type: 'success' | 'error' | 'info' };
 
@@ -26,6 +26,7 @@ export const ForcePasswordChangeView: React.FC<ForcePasswordChangeViewProps> = (
   handleForcePasswordChange,
   toasts,
 }) => {
+  const [showPassword, setShowPassword] = useState(false);
   return (
     <div className="login-page" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#040807' }}>
       <div className="login-card glass" style={{ width: '100%', maxWidth: '440px', padding: '40px' }}>
@@ -52,27 +53,71 @@ export const ForcePasswordChangeView: React.FC<ForcePasswordChangeViewProps> = (
             <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '8px' }}>
               {t('label_new_password_min_6')}
             </label>
-            <input
-              type="password"
-              className="input-field"
-              required
-              placeholder="••••••••"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-            />
+            <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+              <input
+                type={showPassword ? 'text' : 'password'}
+                className="input-field"
+                style={{ paddingRight: '40px', width: '100%' }}
+                required
+                placeholder="••••••••"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                style={{
+                  position: 'absolute',
+                  right: '12px',
+                  background: 'none',
+                  border: 'none',
+                  padding: 0,
+                  cursor: 'pointer',
+                  color: 'var(--text-muted)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+                title={showPassword ? 'Masquer' : 'Afficher'}
+              >
+                {showPassword ? <EyeOffIcon size={18} /> : <EyeIcon size={18} />}
+              </button>
+            </div>
           </div>
           <div className="form-group" style={{ marginBottom: '24px' }}>
             <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '8px' }}>
               {t('label_confirm_password')}
             </label>
-            <input
-              type="password"
-              className="input-field"
-              required
-              placeholder="••••••••"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-            />
+            <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+              <input
+                type={showPassword ? 'text' : 'password'}
+                className="input-field"
+                style={{ paddingRight: '40px', width: '100%' }}
+                required
+                placeholder="••••••••"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                style={{
+                  position: 'absolute',
+                  right: '12px',
+                  background: 'none',
+                  border: 'none',
+                  padding: 0,
+                  cursor: 'pointer',
+                  color: 'var(--text-muted)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+                title={showPassword ? 'Masquer' : 'Afficher'}
+              >
+                {showPassword ? <EyeOffIcon size={18} /> : <EyeIcon size={18} />}
+              </button>
+            </div>
           </div>
           <button
             type="submit"

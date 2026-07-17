@@ -80,9 +80,9 @@ export class DatabaseService implements OnModuleInit {
     // Admin: Complete fleet manager (CNAN)
     await this.prisma.user.create({
       data: {
-        email: 'admin@babor.com',
+        email: 'admin@verital.ae',
         password: adminHash,
-        fullName: 'Mehdi',
+        fullName: 'Administrateur Verital',
         role: 'Admin',
         companyId: 1,
         mustChangePassword: 0,

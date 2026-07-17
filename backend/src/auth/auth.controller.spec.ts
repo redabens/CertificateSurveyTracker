@@ -16,7 +16,7 @@ describe('AuthController', () => {
           useValue: {
             login: jest.fn().mockResolvedValue({
               token: 'mock-jwt',
-              user: { email: 'admin@babor.com', role: 'Admin' },
+              user: { email: 'admin@verital.ae', role: 'Admin' },
             }),
           },
         },
@@ -39,12 +39,12 @@ describe('AuthController', () => {
   });
 
   it('should call authService login on login post request', async () => {
-    const body = { email: 'admin@babor.com', password: 'password123' };
+    const body = { email: 'admin@verital.ae', password: 'password123' };
     const result = await controller.login(body);
     expect(service.login).toHaveBeenCalledWith(body.email, body.password);
     expect(result).toEqual({
       token: 'mock-jwt',
-      user: { email: 'admin@babor.com', role: 'Admin' },
+      user: { email: 'admin@verital.ae', role: 'Admin' },
     });
   });
 });

@@ -6,11 +6,12 @@ import { PrismaService } from '../database/prisma.service';
 describe('ActionableService', () => {
   let service: ActionableService;
   let dbService: DatabaseService;
+  let module: TestingModule;
 
-  beforeEach(async () => {
+  beforeAll(async () => {
     process.env.NODE_ENV = 'test';
 
-    const module: TestingModule = await Test.createTestingModule({
+    module = await Test.createTestingModule({
       providers: [ActionableService, DatabaseService, PrismaService],
     }).compile();
 
@@ -19,8 +20,11 @@ describe('ActionableService', () => {
     await dbService.seedData();
   });
 
-  afterEach(() => {
+  afterAll(async () => {
     delete process.env.NODE_ENV;
+    if (module) {
+      await module.close();
+    }
   });
 
   it('should be defined', () => {

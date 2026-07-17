@@ -1,7 +1,7 @@
 'use client';
 
-import React from 'react';
-import { CloseIcon } from '../Icons';
+import React, { useState } from 'react';
+import { CloseIcon, EyeIcon, EyeOffIcon } from '../Icons';
 
 export interface ResetPasswordDrawerProps {
   open: boolean;
@@ -24,6 +24,7 @@ export function ResetPasswordDrawer({
   onPasswordChange,
   onSubmit,
 }: ResetPasswordDrawerProps) {
+  const [showPassword, setShowPassword] = useState(false);
   if (!open) return null;
 
   return (
@@ -43,16 +44,38 @@ export function ResetPasswordDrawer({
             </p>
             <div className="form-group">
               <label>{t('label_new_temp_password')}</label>
-              <input
-                type="password"
-                className="input-field"
-                required
-                minLength={6}
-                maxLength={50}
-                placeholder={t('placeholder_min_6_chars')}
-                value={passwordValue}
-                onChange={(e) => onPasswordChange(e.target.value)}
-              />
+              <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  className="input-field"
+                  style={{ paddingRight: '40px', width: '100%' }}
+                  required
+                  minLength={6}
+                  maxLength={50}
+                  placeholder={t('placeholder_min_6_chars')}
+                  value={passwordValue}
+                  onChange={(e) => onPasswordChange(e.target.value)}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  style={{
+                    position: 'absolute',
+                    right: '12px',
+                    background: 'none',
+                    border: 'none',
+                    padding: 0,
+                    cursor: 'pointer',
+                    color: 'var(--text-muted)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                  title={showPassword ? 'Masquer' : 'Afficher'}
+                >
+                  {showPassword ? <EyeOffIcon size={18} /> : <EyeIcon size={18} />}
+                </button>
+              </div>
             </div>
           </div>
           <div className="drawer-footer">

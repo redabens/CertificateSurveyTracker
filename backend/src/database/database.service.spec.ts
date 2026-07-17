@@ -4,12 +4,13 @@ import { PrismaService } from './prisma.service';
 
 describe('DatabaseService', () => {
   let service: DatabaseService;
+  let module: TestingModule;
 
-  beforeEach(async () => {
+  beforeAll(async () => {
     // Set NODE_ENV to test to force DatabaseService to run in-memory
     process.env.NODE_ENV = 'test';
 
-    const module: TestingModule = await Test.createTestingModule({
+    module = await Test.createTestingModule({
       providers: [DatabaseService, PrismaService],
     }).compile();
 
@@ -18,8 +19,11 @@ describe('DatabaseService', () => {
     await service.seedData();
   });
 
-  afterEach(() => {
+  afterAll(async () => {
     delete process.env.NODE_ENV;
+    if (module) {
+      await module.close();
+    }
   });
 
   it('should be defined', () => {
@@ -40,7 +44,7 @@ describe('DatabaseService', () => {
     // Check seeded users
     const users = await service.query('SELECT * FROM users');
     expect(users.length).toBeGreaterThanOrEqual(4);
-    expect(users.find((u) => u.email === 'admin@babor.com')).toBeDefined();
+    expect(users.find((u) => u.email === 'admin@verital.ae')).toBeDefined();
   });
 
   it('should allow executing queries via exec and prepare wrappers', async () => {

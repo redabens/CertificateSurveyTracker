@@ -33,6 +33,8 @@ import {
 
 export default function Dashboard() {
   const chartRef = useRef<HTMLCanvasElement | null>(null);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
   // Destructure everything from useDashboard hook to avoid changing the JSX structure below
   const {
@@ -166,86 +168,113 @@ export default function Dashboard() {
       {/* APP BODY CONTAINER */}
       {/* ---------------------------------------------------- */}
       {!tvMode && (
-        <div className="app-grid">
-          {/* SIDEBAR */}
-          <aside className="sidebar">
-            <div className="brand">
-              <span className="logo-icon icon-svg">
-                <LogoIcon size={42} />
-              </span>
-              <span className="logo-text">CNAN<span>Certifs</span></span>
-            </div>
-            <nav className="nav-menu">
-              <a href="#dashboard" className={`nav-item ${activeView === 'dashboard' ? 'active' : ''}`} onClick={() => setActiveView('dashboard')}>
-                <span className="icon-svg"><DashboardIcon /></span> <span>{t('nav_dashboard')}</span>
-              </a>
-              <a href="#fleet" className={`nav-item ${activeView === 'fleet' ? 'active' : ''}`} onClick={() => setActiveView('fleet')}>
-                <span className="icon-svg"><FleetIcon /></span> <span>{t('nav_fleet')}</span>
-              </a>
-              <a href="#tv-mode" className="nav-item" onClick={(e) => { e.preventDefault(); enterTvMode(); }}>
-                <span className="icon-svg"><TvIcon /></span> <span>{t('nav_tv_mode')}</span>
-              </a>
-              {(user.role === 'Admin' || user.role === 'Manager') && (
-                <a href="#logs" className={`nav-item ${activeView === 'logs' ? 'active' : ''}`} onClick={() => setActiveView('logs')}>
-                  <span className="icon-svg"><LogsIcon /></span> <span>{t('nav_logs')}</span>
-                </a>
-              )}
-              {user.role === 'Admin' && (
-                <a href="#users" className={`nav-item ${activeView === 'users' ? 'active' : ''}`} onClick={() => setActiveView('users')}>
-                  <span className="icon-svg"><UserIcon size={18} /></span> <span>{t('nav_users')}</span>
-                </a>
-              )}
-              {user.role === 'Admin' && (
-                <a
-                  href="#audit"
-                  className={`nav-item ${activeView === 'audit' ? 'active' : ''}`}
-                  onClick={() => {
-                    setActiveView('audit');
-                    void loadAuditLogs();
-                  }}
-                >
-                  <span className="icon-svg"><LogsIcon /></span>
-                  <span>{t('nav_audit')}</span>
-                </a>
-              )}
-            </nav>
-            <div className="sidebar-footer">
-              <div className="user-profile">
-                <div className="avatar icon-svg" style={{ background: 'rgba(156, 163, 175, 0.1)', borderRadius: 'var(--border-radius-md)', width: 36, height: 36, color: 'var(--text-secondary)' }}>
-                  <UserIcon size={18} />
-                </div>
-                <div className="profile-info">
-                  <div className="profile-name">{user.full_name}</div>
-                  <div className="profile-role" id="currentUserRoleBadge">
-                    {user.role === 'Admin' ? t('role_admin') : user.role === 'Crew' ? t('role_crew') : user.role === 'Manager' ? t('role_partner') : t('role_auditor')}
-                  </div>
-                </div>
-                <button className="btn-logout icon-svg" onClick={logout} title={t('btn_logout')}><LogoutIcon size={18} /></button>
-              </div>
-            </div>
-          </aside>
+        <>
+          {/* Mobile Overlay Backdrop */}
+          {isMobileSidebarOpen && (
+            <div className="sidebar-backdrop" onClick={() => setIsMobileSidebarOpen(false)}></div>
+          )}
 
-          {/* MAIN CONTENT AREA */}
-          <div className="main-container">
-            {/* HEADER */}
-            <header className="app-header">
-              <div className="header-search">
-                <h1>{t(`nav_${activeView}`)}</h1>
+          <div className={`app-grid ${isSidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
+            {/* SIDEBAR */}
+            <aside className={`sidebar ${isSidebarCollapsed ? 'collapsed' : ''} ${isMobileSidebarOpen ? 'mobile-open' : ''}`}>
+              <div 
+                className="brand" 
+                onClick={() => {
+                  if (window.innerWidth <= 768) {
+                    setIsMobileSidebarOpen(!isMobileSidebarOpen);
+                  } else {
+                    setIsSidebarCollapsed(!isSidebarCollapsed);
+                  }
+                }} 
+                style={{ cursor: 'pointer' }}
+              >
+                <span className="logo-icon icon-svg">
+                  <LogoIcon size={42} />
+                </span>
+                <span className="logo-text">CNAN<span>Certifs</span></span>
               </div>
-              <div className="header-actions">
-                <div className="lang-selector">
-                  <button className={`lang-btn ${lang === 'fr' ? 'active' : ''}`} onClick={() => setLang('fr')}>FR</button>
-                  <button className={`lang-btn ${lang === 'en' ? 'active' : ''}`} onClick={() => setLang('en')}>EN</button>
-                </div>
+              <nav className="nav-menu">
+                <a href="#dashboard" className={`nav-item ${activeView === 'dashboard' ? 'active' : ''}`} onClick={() => { setActiveView('dashboard'); setIsMobileSidebarOpen(false); }}>
+                  <span className="icon-svg"><DashboardIcon /></span> <span>{t('nav_dashboard')}</span>
+                </a>
+                <a href="#fleet" className={`nav-item ${activeView === 'fleet' ? 'active' : ''}`} onClick={() => { setActiveView('fleet'); setIsMobileSidebarOpen(false); }}>
+                  <span className="icon-svg"><FleetIcon /></span> <span>{t('nav_fleet')}</span>
+                </a>
+                <a href="#tv-mode" className="nav-item" onClick={(e) => { e.preventDefault(); enterTvMode(); setIsMobileSidebarOpen(false); }}>
+                  <span className="icon-svg"><TvIcon /></span> <span>{t('nav_tv_mode')}</span>
+                </a>
                 {(user.role === 'Admin' || user.role === 'Manager') && (
-                  <button className="btn btn-primary" onClick={() => setShowImportModal(true)}>
-                    <span className="icon-svg"><ImportIcon /></span> <span>{t('btn_import_excel')}</span>
-                  </button>
+                  <a href="#logs" className={`nav-item ${activeView === 'logs' ? 'active' : ''}`} onClick={() => { setActiveView('logs'); setIsMobileSidebarOpen(false); }}>
+                    <span className="icon-svg"><LogsIcon /></span> <span>{t('nav_logs')}</span>
+                  </a>
                 )}
+                {user.role === 'Admin' && (
+                  <a href="#users" className={`nav-item ${activeView === 'users' ? 'active' : ''}`} onClick={() => { setActiveView('users'); setIsMobileSidebarOpen(false); }}>
+                    <span className="icon-svg"><UserIcon size={18} /></span> <span>{t('nav_users')}</span>
+                  </a>
+                )}
+                {user.role === 'Admin' && (
+                  <a
+                    href="#audit"
+                    className={`nav-item ${activeView === 'audit' ? 'active' : ''}`}
+                    onClick={() => {
+                      setActiveView('audit');
+                      void loadAuditLogs();
+                      setIsMobileSidebarOpen(false);
+                    }}
+                  >
+                    <span className="icon-svg"><LogsIcon /></span>
+                    <span>{t('nav_audit')}</span>
+                  </a>
+                )}
+              </nav>
+              <div className="sidebar-footer">
+                <div className="user-profile">
+                  <div className="avatar icon-svg" style={{ background: 'rgba(156, 163, 175, 0.1)', borderRadius: 'var(--border-radius-md)', width: 36, height: 36, color: 'var(--text-secondary)' }}>
+                    <UserIcon size={18} />
+                  </div>
+                  <div className="profile-info">
+                    <div className="profile-name">{user.full_name}</div>
+                    <div className="profile-role" id="currentUserRoleBadge">
+                      {user.role === 'Admin' ? t('role_admin') : user.role === 'Crew' ? t('role_crew') : user.role === 'Manager' ? t('role_partner') : t('role_auditor')}
+                    </div>
+                  </div>
+                  <button className="btn-logout icon-svg" onClick={logout} title={t('btn_logout')}><LogoutIcon size={18} /></button>
+                </div>
               </div>
-            </header>
+            </aside>
 
-            <main className="main-content">
+            {/* MAIN CONTENT AREA */}
+            <div className="main-container">
+              {/* HEADER */}
+              <header className="app-header">
+                <div className="header-left" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <button 
+                    className="mobile-menu-toggle" 
+                    onClick={() => setIsMobileSidebarOpen(true)}
+                  >
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <line x1="3" y1="12" x2="21" y2="12"></line>
+                      <line x1="3" y1="6" x2="21" y2="6"></line>
+                      <line x1="3" y1="18" x2="21" y2="18"></line>
+                    </svg>
+                  </button>
+                  <h1>{t(`nav_${activeView}`)}</h1>
+                </div>
+                <div className="header-actions">
+                  <div className="lang-selector">
+                    <button className={`lang-btn ${lang === 'fr' ? 'active' : ''}`} onClick={() => setLang('fr')}>FR</button>
+                    <button className={`lang-btn ${lang === 'en' ? 'active' : ''}`} onClick={() => setLang('en')}>EN</button>
+                  </div>
+                  {(user.role === 'Admin' || user.role === 'Manager') && (
+                    <button className="btn btn-primary" onClick={() => setShowImportModal(true)}>
+                      <span className="icon-svg"><ImportIcon /></span> <span>{t('btn_import_excel')}</span>
+                    </button>
+                  )}
+                </div>
+              </header>
+
+              <main className="main-content">
 
             {/* ---------------------------------------------------- */}
             {/* VIEW: DASHBOARD */}
@@ -737,6 +766,7 @@ export default function Dashboard() {
             </main>
           </div>
         </div>
+        </>
       )}
 
       <ResetPasswordDrawer

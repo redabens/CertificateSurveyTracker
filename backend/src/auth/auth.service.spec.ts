@@ -9,11 +9,12 @@ import { EmailService } from '../email/email.service';
 describe('AuthService', () => {
   let service: AuthService;
   let dbService: DatabaseService;
+  let module: TestingModule;
 
-  beforeEach(async () => {
+  beforeAll(async () => {
     process.env.NODE_ENV = 'test';
 
-    const module: TestingModule = await Test.createTestingModule({
+    module = await Test.createTestingModule({
       providers: [
         AuthService,
         DatabaseService,
@@ -39,8 +40,11 @@ describe('AuthService', () => {
     await dbService.seedData(); // initialize seed data in test database
   });
 
-  afterEach(() => {
+  afterAll(async () => {
     delete process.env.NODE_ENV;
+    if (module) {
+      await module.close();
+    }
   });
 
   it('should be defined', () => {
@@ -48,22 +52,22 @@ describe('AuthService', () => {
   });
 
   it('should authenticate user with valid credentials', async () => {
-    // admin@babor.com is seeded with password admin123
-    const result = await service.login('admin@babor.com', 'admin123');
+    // admin@verital.ae is seeded with password admin123
+    const result = await service.login('admin@verital.ae', 'admin123');
     expect(result).toBeDefined();
     expect(result.token).toBe('mock-jwt-token');
-    expect(result.user.email).toBe('admin@babor.com');
+    expect(result.user.email).toBe('admin@verital.ae');
     expect(result.user.role).toBe('Admin');
   });
 
   it('should throw UnauthorizedException for non-existing user', async () => {
     await expect(
-      service.login('nonexist@babor.com', 'somepass'),
+      service.login('nonexist@verital.ae', 'somepass'),
     ).rejects.toThrow(UnauthorizedException);
   });
 
   it('should throw UnauthorizedException for invalid password', async () => {
-    await expect(service.login('admin@babor.com', 'wrongpass')).rejects.toThrow(
+    await expect(service.login('admin@verital.ae', 'wrongpass')).rejects.toThrow(
       UnauthorizedException,
     );
   });

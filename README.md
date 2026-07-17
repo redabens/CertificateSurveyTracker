@@ -76,7 +76,7 @@ Pour faciliter l'évolution, la maintenance et la mise à l'échelle (scaling) d
 Utilisez les comptes démo pré-alimentés lors du seeder pour tester la gestion des rôles :
 
 *   **Administrateur CNAN (Accès Complet)** :
-    *   Email : `admin@babor.com`
+    *   Email : `admin@verital.ae`
     *   Mot de passe : `admin123`
 *   **Manager Technique Verital (Accès Écriture Flotte/Alertes)** :
     *   Email : `partner@babor.com`
