@@ -1,6 +1,6 @@
 # Spécification des Rôles, Acteurs et Processus Métiers
 
-Ce document décrit les différents acteurs (stakeholders) de l'application **Portail Certificats CNAN NORD**, les rôles associés au sein du système, les fonctionnalités dédiées à chacun, et les processus métiers sous-jacents.
+Ce document décrit les différents acteurs (stakeholders) de l'application **VMCertifs (Verital Marine)**, les rôles associés au sein du système, les fonctionnalités dédiées à chacun, et les processus métiers sous-jacents.
 
 ---
 

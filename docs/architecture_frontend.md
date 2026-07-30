@@ -1,6 +1,6 @@
 # Architecture du Frontend (Client Next.js)
 
-Ce document décrit l'architecture technique, le choix des technologies, et la structure de l'application cliente Web développée pour le **Portail Certificats CNAN NORD**.
+Ce document décrit l'architecture technique, le choix des technologies, et la structure de l'application cliente Web développée pour **VMCertifs (Verital Marine)**.
 
 ---
 

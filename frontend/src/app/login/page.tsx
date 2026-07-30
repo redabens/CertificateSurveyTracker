@@ -62,7 +62,7 @@ export default function LoginPage() {
         <div className="login-left-content">
           <div className="login-left-brand">
             <LogoIcon size={56} />
-            <span className="logo-text">CNAN<span>Certifs</span></span>
+            <span className="logo-text">VM<span>Certifs</span></span>
           </div>
           <h1>Gérez la <span>Conformité</span> réglementaire de votre flotte commerciale</h1>
           <p className="subtitle" style={{ marginBottom: 0 }}>
@@ -77,7 +77,7 @@ export default function LoginPage() {
           {/* Brand logo for mobile screens only */}
           <div className="login-brand">
             <LogoIcon size={44} />
-            <span className="logo-text">CNAN<span>Certifs</span></span>
+            <span className="logo-text">VM<span>Certifs</span></span>
           </div>
           
           <h2>Connexion</h2>

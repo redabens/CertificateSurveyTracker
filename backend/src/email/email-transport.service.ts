@@ -28,7 +28,7 @@ export interface EmailLogMeta {
  *   EMAIL_PROVIDER=brevo
  *   SMTP_USER=votre-email@domaine.com       ← email du compte Brevo
  *   SMTP_PASS=xsmtp-XXXXXXXXXXXXXXXX        ← clé SMTP depuis Brevo > SMTP & API > SMTP
- *   SMTP_FROM="Portail CNAN NORD" <alerts@cnan-nord.com>
+ *   SMTP_FROM="VMCertifs - Verital Marine" <alerts@verital.ae>
  *
  *   Étapes Brevo:
  *     1. Créer un compte sur https://www.brevo.com (gratuit)
@@ -56,7 +56,9 @@ export class EmailTransportService {
 
   constructor(private readonly prisma: PrismaService) {
     this.fromAddress =
-      process.env.SMTP_FROM || '"Portail CNAN NORD" <alerts@cnan-nord.com>';
+      process.env.SMTP_FROM ||
+      // eslint-disable-next-line quotes
+      '"VMCertifs - Verital Marine" <alerts@verital.ae>';
     this.initTransporter();
   }
 

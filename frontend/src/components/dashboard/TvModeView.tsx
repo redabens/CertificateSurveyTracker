@@ -28,7 +28,7 @@ export const TvModeView: React.FC<TvModeViewProps> = ({
           <span className="tv-logo-icon icon-svg">
             <LogoIcon size={42} />
           </span>
-          <span className="tv-logo-text">Portail<span>Certificats</span> <small>CNAN NORD</small></span>
+          <span className="tv-logo-text">VM<span>Certifs</span> <small>VERITAL MARINE</small></span>
         </div>
         <div className="tv-time-container">
           <span id="tv-current-time">{tvTime}</span>

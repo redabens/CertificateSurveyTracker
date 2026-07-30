@@ -24,7 +24,7 @@ export class EmailTemplateService {
     const isRed = alarmLevel.includes('RED') || alarmLevel.includes('OVERDUE');
     const alarmColor = isRed ? '#e53e3e' : '#dd6b20';
 
-    const subject = `[ALERTE PORTAIL CNAN NORD] ${vessel.name} — Changement de statut: ${alarmLevel}`;
+    const subject = `[ALERTE VMCERTIFS] ${vessel.name} — Changement de statut: ${alarmLevel}`;
 
     const text = [
       `Navire: ${vessel.name}`,
@@ -38,13 +38,13 @@ export class EmailTemplateService {
       `Échéance visite: ${cert.due_date || 'N/A'}`,
       `Remarques: ${cert.remarks || 'Aucune'}`,
       ``,
-      `Veuillez vérifier les détails sur le Portail Certificats CNAN NORD.`,
+      `Veuillez vérifier les détails sur la plateforme VMCertifs (Verital Marine).`,
     ].join('\n');
 
     const html = `
       <div style="font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;max-width:600px;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;color:#1a202c;">
         <div style="background-color:#1a202c;color:#ffffff;padding:20px;text-align:center;">
-          <h2 style="margin:0;font-size:20px;">🚢 Portail Certificats CNAN NORD — Alerte Maritime</h2>
+          <h2 style="margin:0;font-size:20px;">🚢 VMCertifs — Portail Certificats Verital Marine — Alerte Maritime</h2>
         </div>
         <div style="padding:24px;line-height:1.6;">
           <h3 style="color:#dd6b20;margin-top:0;">Changement de statut d'alarme détecté</h3>
@@ -63,7 +63,7 @@ export class EmailTemplateService {
           <p style="font-size:13px;color:#718096;">Cette alerte a été générée automatiquement lors du contrôle quotidien de conformité.</p>
         </div>
         <div style="background-color:#edf2f7;padding:12px;text-align:center;font-size:11px;color:#718096;">
-          &copy; 2026 CNAN NORD / Verital Marine Services. Tous droits réservés.
+          &copy; 2026 Verital Marine. Tous droits réservés.
         </div>
       </div>`;
 
@@ -76,13 +76,13 @@ export class EmailTemplateService {
     text: string;
     html: string;
   } {
-    const subject = `[PORTAIL CNAN NORD] Code de vérification OTP`;
+    const subject = `[VMCERTIFS] Code de vérification OTP`;
     const text = `Votre code de vérification OTP est : ${otp}\nCe code expire dans 15 minutes.`;
     const html = `
       <div style="font-family:Arial,sans-serif;max-width:600px;border:1px solid #e2e8f0;border-radius:8px;padding:24px;color:#1a202c;">
         <h2 style="color:#1a202c;border-bottom:2px solid #cca43b;padding-bottom:8px;">Vérification de votre adresse e-mail</h2>
         <p>Bonjour,</p>
-        <p>Vous avez demandé à ajouter cette adresse e-mail pour recevoir les alertes du Portail Certificats CNAN NORD.</p>
+        <p>Vous avez demandé à ajouter cette adresse e-mail pour recevoir les alertes de VMCertifs (Verital Marine).</p>
         <p>Veuillez utiliser le code ci-dessous pour confirmer votre adresse :</p>
         <div style="background:#f7fafc;border:1px solid #edf2f7;border-radius:6px;padding:16px;text-align:center;font-size:28px;font-weight:bold;letter-spacing:6px;color:#cca43b;margin:24px 0;">${otp}</div>
         <p style="font-size:13px;color:#718096;">Ce code expire dans <strong>15 minutes</strong>.</p>
@@ -97,13 +97,13 @@ export class EmailTemplateService {
     name: string,
     otp: string,
   ): { subject: string; text: string; html: string } {
-    const subject = `[PORTAIL CNAN NORD] Votre invitation à la plateforme`;
+    const subject = `[VMCERTIFS] Votre invitation à la plateforme`;
     const text = `Bonjour ${name},\nVotre compte a été créé.\nMot de passe temporaire : ${otp}\nVous devrez le modifier dès la première connexion.`;
     const html = `
       <div style="font-family:Arial,sans-serif;max-width:600px;border:1px solid #e2e8f0;border-radius:8px;padding:24px;color:#1a202c;">
-        <h2 style="color:#1a202c;border-bottom:2px solid #cca43b;padding-bottom:8px;">Bienvenue sur le Portail Certificats CNAN NORD</h2>
+        <h2 style="color:#1a202c;border-bottom:2px solid #cca43b;padding-bottom:8px;">Bienvenue sur VMCertifs — Portail Certificats Verital Marine</h2>
         <p>Bonjour ${name},</p>
-        <p>Un administrateur vous a créé un compte sur le Portail Certificats CNAN NORD.</p>
+        <p>Un administrateur vous a créé un compte sur la plateforme VMCertifs (Verital Marine).</p>
         <p>Votre mot de passe temporaire pour la première connexion :</p>
         <div style="background:#f7fafc;border:1px solid #edf2f7;border-radius:6px;padding:16px;text-align:center;font-size:22px;font-weight:bold;color:#1a202c;margin:24px 0;">${otp}</div>
         <p>Après connexion, vous serez invité à définir votre propre mot de passe pour sécuriser votre compte.</p>

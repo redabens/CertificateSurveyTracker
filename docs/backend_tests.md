@@ -1,6 +1,6 @@
 # Documentation des Tests Backend
 
-Ce document détaille la stratégie de test du backend de l'application **Portail Certificats CNAN NORD**, la liste des suites de tests, et ce qu'elles vérifient individuellement.
+Ce document détaille la stratégie de test du backend de l'application **VMCertifs (Verital Marine)**, la liste des suites de tests, et ce qu'elles vérifient individuellement.
 
 ---
 

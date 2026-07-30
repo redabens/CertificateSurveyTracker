@@ -1,4 +1,4 @@
-# ─── Dockerfile — Backend CNAN NORD ─────────────────────────────────────────
+# ─── Dockerfile — Backend VMCertifs (Verital Marine) ─────────────────────────
 # Image multi-stage: Node.js 22 + Python 3 + openpyxl dans le même conteneur.
 # Python est requis pour le script excel_handler.py (import/export Excel).
 

@@ -4,7 +4,7 @@ import { LanguageProvider } from '../context/LanguageContext';
 import { AuthProvider } from '../context/AuthContext';
 
 export const metadata: Metadata = {
-  title: 'Portail Certificats CNAN NORD',
+  title: 'VMCertifs - Portail Certificats Verital Marine',
   description: 'Suivi de conformité et alertes automatiques pour flotte de navires',
 };
 

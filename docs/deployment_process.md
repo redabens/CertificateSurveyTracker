@@ -1,6 +1,6 @@
 # Guide et Processus de Déploiement
 
-Ce document détaille étape par étape les instructions et les commandes nécessaires pour déployer le **Portail Certificats CNAN NORD** en production.
+Ce document détaille étape par étape les instructions et les commandes nécessaires pour déployer **VMCertifs (Verital Marine)** en production.
 
 ---
 

@@ -1,6 +1,6 @@
 # Design System du Frontend
 
-Ce document spécifie le design system premium utilisé par l'interface du **Portail Certificats CNAN NORD**. L'intégralité du design est codée en **CSS pur (Vanilla CSS)** sans framework externe (comme Tailwind), offrant d'excellentes performances de chargement et un rendu visuel premium.
+Ce document spécifie le design system premium utilisé par l'interface de **VMCertifs (Verital Marine)**. L'intégralité du design est codée en **CSS pur (Vanilla CSS)** sans framework externe (comme Tailwind), offrant d'excellentes performances de chargement et un rendu visuel premium.
 
 ---
 

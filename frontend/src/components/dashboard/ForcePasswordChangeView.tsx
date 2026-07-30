@@ -32,7 +32,7 @@ export const ForcePasswordChangeView: React.FC<ForcePasswordChangeViewProps> = (
       <div className="login-card glass" style={{ width: '100%', maxWidth: '440px', padding: '40px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '32px', justifyContent: 'center' }}>
           <LogoIcon size={52} />
-          <span className="logo-text" style={{ fontSize: '28px', fontWeight: 800 }}>CNAN<span>Certifs</span></span>
+          <span className="logo-text" style={{ fontSize: '28px', fontWeight: 800 }}>VM<span>Certifs</span></span>
         </div>
         <h2 style={{ fontSize: '20px', marginBottom: '8px', color: 'var(--text-primary)', fontWeight: 700 }}>
           {t('title_change_password')}

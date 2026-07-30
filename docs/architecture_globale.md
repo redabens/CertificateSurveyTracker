@@ -1,6 +1,6 @@
 # Architecture Globale du Système
 
-Ce document présente l'architecture globale du **Portail Certificats CNAN NORD**, l'interaction entre ses composants, et les flux de données principaux.
+Ce document présente l'architecture globale de **VMCertifs (Verital Marine)**, l'interaction entre ses composants, et les flux de données principaux.
 
 ---
 

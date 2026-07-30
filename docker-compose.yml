@@ -1,7 +1,7 @@
 version: '3.9'
 
 # ─────────────────────────────────────────────────────────────────────────────
-# docker-compose.yml — Portail Certificats CNAN NORD
+# docker-compose.yml — VMCertifs (Verital Marine)
 # Déploiement: Linux Server
 #
 # Services:
@@ -43,7 +43,7 @@ services:
       SMTP_PASS: ${SMTP_PASS:-}
       SMTP_HOST: ${SMTP_HOST:-smtp-relay.brevo.com}
       SMTP_PORT: ${SMTP_PORT:-587}
-      SMTP_FROM: ${SMTP_FROM:-"Portail CNAN NORD" <alerts@cnan-nord.com>}
+      SMTP_FROM: ${SMTP_FROM:-"VMCertifs - Verital Marine" <alerts@verital.ae>}
       # Stockage fichiers
       STORAGE_PROVIDER: ${STORAGE_PROVIDER:-local}
       MINIO_ENDPOINT: minio

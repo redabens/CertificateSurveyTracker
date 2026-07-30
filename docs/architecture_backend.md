@@ -1,6 +1,6 @@
 # Architecture du Backend (API NestJS)
 
-Ce document décrit l'architecture technique, le choix des technologies, et la structure de l'API REST de production développée pour le **Portail Certificats CNAN NORD**.
+Ce document décrit l'architecture technique, le choix des technologies, et la structure de l'API REST de production développée pour **VMCertifs (Verital Marine)**.
 
 ---
 

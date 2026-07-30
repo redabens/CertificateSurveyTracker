@@ -1,6 +1,6 @@
-# Portail Certificats CNAN NORD - Plateforme de Suivi des Certificats Maritimes
+# VMCertifs - Portail Certificats Verital Marine
 
-**Portail Certificats CNAN NORD** est une plateforme web moderne et performante de gestion de conformité réglementaire pour une flotte de navires de commerce. Le projet est structuré en architecture découplée de production :
+**VMCertifs** (par **Verital Marine**) est une plateforme web moderne et performante de gestion de conformité réglementaire pour une flotte de navires de commerce. Le projet est structuré en architecture découplée de production :
 
 *   **Frontend** : Client Single Page (SPA) réactif développé avec **Next.js** (React, TypeScript, Vanilla CSS premium).
 *   **Backend** : API REST robuste développée avec **NestJS** (TypeScript, Prisma ORM, PostgreSQL).

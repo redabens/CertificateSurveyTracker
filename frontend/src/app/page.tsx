@@ -191,7 +191,7 @@ export default function Dashboard() {
                 <span className="logo-icon icon-svg">
                   <LogoIcon size={42} />
                 </span>
-                <span className="logo-text">CNAN<span>Certifs</span></span>
+                <span className="logo-text">VM<span>Certifs</span></span>
               </div>
               <nav className="nav-menu">
                 <a href="#dashboard" className={`nav-item ${activeView === 'dashboard' ? 'active' : ''}`} onClick={() => { setActiveView('dashboard'); setIsMobileSidebarOpen(false); }}>

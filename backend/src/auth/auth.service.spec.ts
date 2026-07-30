@@ -67,8 +67,8 @@ describe('AuthService', () => {
   });
 
   it('should throw UnauthorizedException for invalid password', async () => {
-    await expect(service.login('admin@verital.ae', 'wrongpass')).rejects.toThrow(
-      UnauthorizedException,
-    );
+    await expect(
+      service.login('admin@verital.ae', 'wrongpass'),
+    ).rejects.toThrow(UnauthorizedException);
   });
 });

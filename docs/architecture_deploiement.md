@@ -1,6 +1,6 @@
 # Architecture de Déploiement
 
-Ce document détaille l'infrastructure réseau, le modèle de conteneurisation et l'architecture réseau globale utilisée pour exécuter le **Portail Certificats CNAN NORD** en production.
+Ce document détaille l'infrastructure réseau, le modèle de conteneurisation et l'architecture réseau globale utilisée pour exécuter **VMCertifs (Verital Marine)** en production.
 
 ---
 
