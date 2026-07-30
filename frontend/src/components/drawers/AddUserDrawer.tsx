@@ -87,34 +87,23 @@ export function AddUserDrawer({
                 <input type="email" required maxLength={100} className="input-field" placeholder="amine@babor.com" value={userForm.email} onChange={(e) => set({ email: e.target.value })} />
               </div>
 
-              <div className="form-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
-                <div className="form-group">
-                  <label>{t('label_role')} *</label>
-                  <select
-                    className="select-field" required value={userForm.role}
-                    onChange={(e) => {
-                      const nextRole = e.target.value;
-                      let nextCompanyId = 1;
-                      if (nextRole === 'Manager') nextCompanyId = 2;
-                      else if (nextRole === 'Auditor') nextCompanyId = 3;
-                      set({ role: nextRole, companyId: nextCompanyId, vesselId: '' });
-                    }}
-                  >
-                    <option value="Admin">{t('form_user_role_admin')}</option>
-                    <option value="Crew">{t('form_user_role_crew')}</option>
-                    <option value="Manager">{t('form_user_role_partner')}</option>
-                    <option value="Auditor">{t('form_user_role_auditor')}</option>
-                  </select>
-                </div>
-
-                <div className="form-group">
-                  <label>{t('label_company')} *</label>
-                  <select className="select-field" required disabled value={userForm.companyId}>
-                    <option value={1}>CNAN NORD</option>
-                    <option value={2}>Verital Marine</option>
-                    <option value={3}>Lloyds Register</option>
-                  </select>
-                </div>
+              <div className="form-group" style={{ marginBottom: '16px' }}>
+                <label>{t('label_role')} *</label>
+                <select
+                  className="select-field" required value={userForm.role}
+                  onChange={(e) => {
+                    const nextRole = e.target.value;
+                    let nextCompanyId = 1;
+                    if (nextRole === 'Manager') nextCompanyId = 2;
+                    else if (nextRole === 'Auditor') nextCompanyId = 3;
+                    set({ role: nextRole, companyId: nextCompanyId, vesselId: '' });
+                  }}
+                >
+                  <option value="Admin">{t('form_user_role_admin')}</option>
+                  <option value="Crew">{t('form_user_role_crew')}</option>
+                  <option value="Manager">{t('form_user_role_partner')}</option>
+                  <option value="Auditor">{t('form_user_role_auditor')}</option>
+                </select>
               </div>
 
               {userForm.role === 'Crew' && (
