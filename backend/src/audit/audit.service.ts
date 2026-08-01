@@ -7,6 +7,7 @@ import { PrismaService } from '../database/prisma.service';
 export type AuditAction =
   | 'IMPORT_VESSEL'
   | 'CREATE_VESSEL'
+  | 'UPDATE_VESSEL'
   | 'DELETE_VESSEL'
   | 'CREATE_CERTIFICATE'
   | 'UPDATE_CERTIFICATE'
