@@ -108,6 +108,7 @@ export function useDashboard(chartRef: RefObject<HTMLCanvasElement | null>) {
   // Modals visibility
   const [showImportModal, setShowImportModal] = useState(false);
   const [showAddVesselModal, setShowAddVesselModal] = useState(false);
+  const [editingVesselId, setEditingVesselId] = useState<number | null>(null);
   const [showEditCertModal, setShowEditCertModal] = useState(false);
   const [showAddActionableModal, setShowAddActionableModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
@@ -659,25 +660,65 @@ export function useDashboard(chartRef: RefObject<HTMLCanvasElement | null>) {
     }
   };
 
+  const handleCreateVesselOpen = () => {
+    setEditingVesselId(null);
+    setVesselForm({
+      name: '', imo_number: '', flag: '', asset_type: '', owner: '', manager: '',
+      port_of_registry: '', call_sign: '', gross_tonnage: '', deadweight_tonnage: '',
+      year_built: '', class_society: ''
+    });
+    setShowAddVesselModal(true);
+  };
+
+  const handleEditVesselOpen = () => {
+    const vessel = vessels.find((v) => v.id === selectedVesselId);
+    if (!vessel) return;
+    setEditingVesselId(vessel.id);
+    setVesselForm({
+      name: vessel.name || '',
+      imo_number: vessel.imo_number || '',
+      flag: vessel.flag || '',
+      asset_type: vessel.asset_type || '',
+      owner: vessel.owner || '',
+      manager: vessel.manager || '',
+      port_of_registry: vessel.port_of_registry || '',
+      call_sign: vessel.call_sign || '',
+      gross_tonnage: vessel.gross_tonnage ? String(vessel.gross_tonnage) : '',
+      deadweight_tonnage: vessel.deadweight_tonnage ? String(vessel.deadweight_tonnage) : '',
+      year_built: vessel.year_built ? String(vessel.year_built) : '',
+      class_society: vessel.class_society || '',
+    });
+    setShowAddVesselModal(true);
+  };
+
   const handleCreateVessel = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isSubmitting) return;
     setIsSubmitting(true);
     try {
-      const res = await apiFetch('/vessels/manual', { method: 'POST', body: JSON.stringify(vesselForm) });
+      const isEdit = !!editingVesselId;
+      const url = isEdit ? `/vessels/${editingVesselId}` : '/vessels/manual';
+      const method = isEdit ? 'PUT' : 'POST';
+
+      const res = await apiFetch(url, { method, body: JSON.stringify(vesselForm) });
       const data = await res.json();
       if (res.ok) {
-        showToast(t('toast_vessel_created'), 'success');
+        showToast(isEdit ? 'Navire mis à jour avec succès' : t('toast_vessel_created'), 'success');
         setShowAddVesselModal(false);
+        setEditingVesselId(null);
         setVesselForm({
           name: '', imo_number: '', flag: '', asset_type: '', owner: '', manager: '',
           port_of_registry: '', call_sign: '', gross_tonnage: '', deadweight_tonnage: '',
           year_built: '', class_society: ''
         });
         await loadVessels();
-        setSelectedVesselId(data.id);
+        if (isEdit) {
+          await loadVesselDetails(editingVesselId);
+        } else {
+          setSelectedVesselId(data.id);
+        }
       } else {
-        showToast(data.error, 'error');
+        showToast(data.error || 'Erreur lors de la sauvegarde du navire', 'error');
       }
     } catch (err) {
       if (err instanceof Error && err.message === 'Unauthorized') return;
@@ -1192,6 +1233,7 @@ export function useDashboard(chartRef: RefObject<HTMLCanvasElement | null>) {
     // Modals
     showImportModal, setShowImportModal,
     showAddVesselModal, setShowAddVesselModal,
+    editingVesselId,
     showEditCertModal, setShowEditCertModal,
     showAddActionableModal, setShowAddActionableModal,
     showSettingsModal, setShowSettingsModal,
@@ -1234,6 +1276,8 @@ export function useDashboard(chartRef: RefObject<HTMLCanvasElement | null>) {
     // Handlers
     handleImportExcel,
     handleCreateVessel,
+    handleCreateVesselOpen,
+    handleEditVesselOpen,
     handleDeleteVessel,
     handleEditCertOpen,
     handleCreateCertOpen,

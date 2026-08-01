@@ -20,6 +20,7 @@ export interface VesselFormState {
 
 export interface AddVesselDrawerProps {
   open: boolean;
+  isEdit?: boolean;
   vesselForm: VesselFormState;
   isSubmitting: boolean;
   t: (key: string) => string;
@@ -30,6 +31,7 @@ export interface AddVesselDrawerProps {
 
 export function AddVesselDrawer({
   open,
+  isEdit = false,
   vesselForm,
   isSubmitting,
   t,
@@ -46,7 +48,7 @@ export function AddVesselDrawer({
       <div className="drawer-backdrop" onClick={onClose} />
       <div className="drawer">
         <div className="drawer-header">
-          <h2>{t('btn_manual_vessel')}</h2>
+          <h2>{isEdit ? t('btn_edit_vessel') : t('btn_manual_vessel')}</h2>
           <span className="close-btn icon-svg" onClick={onClose}>
             <CloseIcon size={18} />
           </span>
@@ -148,7 +150,7 @@ export function AddVesselDrawer({
               <div className="form-group">
                 <label>{t('form_vessel_class')}</label>
                 <input
-                  type="text" maxLength={100} className="input-field" placeholder="Ex. Lloyd's Register (LR)"
+                  type="text" maxLength={100} className="input-field" placeholder="Ex. RINA, DNV, BV, LR"
                   value={vesselForm.class_society}
                   onChange={(e) => set({ class_society: e.target.value })}
                 />
@@ -161,7 +163,9 @@ export function AddVesselDrawer({
             </button>
             <button type="submit" className="btn btn-primary" disabled={isSubmitting}>
               {isSubmitting
-                ? t('btn_creating')
+                ? t('btn_saving')
+                : isEdit
+                ? t('btn_save')
                 : t('btn_create_vessel')}
             </button>
           </div>

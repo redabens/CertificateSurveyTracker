@@ -136,6 +136,30 @@ export class VesselsService {
     return vessel.id;
   }
 
+  async update(id: number, v: any): Promise<any> {
+    const existing = await this.prisma.vessel.findUnique({ where: { id } });
+    if (!existing) throw new NotFoundException('Navire non trouvé');
+
+    const updated = await this.prisma.vessel.update({
+      where: { id },
+      data: {
+        name: v.name !== undefined ? v.name : existing.name,
+        imoNumber: v.imo_number !== undefined ? (v.imo_number || null) : existing.imoNumber,
+        flag: v.flag !== undefined ? (v.flag || null) : existing.flag,
+        assetType: v.asset_type !== undefined ? (v.asset_type || null) : existing.assetType,
+        owner: v.owner !== undefined ? (v.owner || null) : existing.owner,
+        manager: v.manager !== undefined ? (v.manager || null) : existing.manager,
+        grossTonnage: v.gross_tonnage !== undefined ? (v.gross_tonnage ? parseInt(v.gross_tonnage, 10) : 0) : existing.grossTonnage,
+        deadweightTonnage: v.deadweight_tonnage !== undefined ? (v.deadweight_tonnage ? parseInt(v.deadweight_tonnage, 10) : 0) : existing.deadweightTonnage,
+        portOfRegistry: v.port_of_registry !== undefined ? (v.port_of_registry || null) : existing.portOfRegistry,
+        callSign: v.call_sign !== undefined ? (v.call_sign || null) : existing.callSign,
+        yearBuilt: v.year_built !== undefined ? (v.year_built ? parseInt(v.year_built, 10) : null) : existing.yearBuilt,
+        classSociety: v.class_society !== undefined ? (v.class_society || null) : existing.classSociety,
+      },
+    });
+    return this.mapVesselToResponse(updated);
+  }
+
   async updateStatus(id: number, status: string): Promise<void> {
     await this.prisma.vessel.update({
       where: { id },

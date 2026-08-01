@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Put,
   Delete,
   Param,
   Body,
@@ -136,6 +137,27 @@ export class VesselsController {
     });
 
     return { id, name: body.name };
+  }
+
+  @Put(':id')
+  @Roles('Admin', 'Manager')
+  async updateVessel(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Body() body: any,
+  ) {
+    const updated = await this.vesselsService.update(parseInt(id), body);
+
+    await this.auditService.log({
+      user_id: req.user.id,
+      user_email: req.user.email,
+      action: 'UPDATE_VESSEL',
+      target_type: 'vessel',
+      target_id: parseInt(id),
+      target_name: updated.name,
+    });
+
+    return updated;
   }
 
   @Delete(':id')

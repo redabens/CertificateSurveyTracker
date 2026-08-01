@@ -60,6 +60,7 @@ export default function Dashboard() {
     // Modals
     showImportModal, setShowImportModal,
     showAddVesselModal, setShowAddVesselModal,
+    editingVesselId,
     showEditCertModal, setShowEditCertModal,
     showAddActionableModal, setShowAddActionableModal,
     showSettingsModal, setShowSettingsModal,
@@ -102,6 +103,8 @@ export default function Dashboard() {
     // Handlers
     handleImportExcel,
     handleCreateVessel,
+    handleCreateVesselOpen,
+    handleEditVesselOpen,
     handleDeleteVessel,
     handleEditCertOpen,
     handleCreateCertOpen,
@@ -300,7 +303,7 @@ export default function Dashboard() {
                     selectedVesselId={selectedVesselId}
                     onSelect={setSelectedVesselId}
                     isAdmin={user.role === 'Admin' || user.role === 'Manager'}
-                    onAddVessel={() => setShowAddVesselModal(true)}
+                    onAddVessel={handleCreateVesselOpen}
                     t={t}
                   />
 
@@ -323,6 +326,11 @@ export default function Dashboard() {
                             </p>
                           </div>
                           <div className="vessel-actions">
+                            {(user.role === 'Admin' || user.role === 'Manager') && (
+                              <button className="btn btn-outline" onClick={handleEditVesselOpen}>
+                                {t('btn_edit_vessel')}
+                              </button>
+                            )}
                             {user.role === 'Admin' && (
                               <button className="btn btn-outline" onClick={handleEmailSettingsOpen}>
                                 {t('btn_email_settings')}
@@ -792,6 +800,7 @@ export default function Dashboard() {
 
       <AddVesselDrawer
         open={showAddVesselModal}
+        isEdit={!!editingVesselId}
         vesselForm={vesselForm}
         isSubmitting={isSubmitting}
         t={t}
