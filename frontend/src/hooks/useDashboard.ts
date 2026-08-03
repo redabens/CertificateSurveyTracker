@@ -110,6 +110,8 @@ export function useDashboard(chartRef: RefObject<HTMLCanvasElement | null>) {
   const [showAddVesselModal, setShowAddVesselModal] = useState(false);
   const [editingVesselId, setEditingVesselId] = useState<number | null>(null);
   const [showEditCertModal, setShowEditCertModal] = useState(false);
+  const [showCertDetailsModal, setShowCertDetailsModal] = useState(false);
+  const [selectedDetailCert, setSelectedDetailCert] = useState<any | null>(null);
   const [showAddActionableModal, setShowAddActionableModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showPdfModal, setShowPdfModal] = useState(false);
@@ -212,7 +214,6 @@ export function useDashboard(chartRef: RefObject<HTMLCanvasElement | null>) {
   ) => {
     if (!dueStr) return '-';
     let targetDateStr = dueStr;
-    let countVisitsSuffix = '';
 
     if (dueStr.trim().startsWith('[') || dueStr.trim().startsWith('{')) {
       try {
@@ -227,6 +228,7 @@ export function useDashboard(chartRef: RefObject<HTMLCanvasElement | null>) {
 
         const today = new Date();
         today.setHours(0, 0, 0, 0);
+        const currentYear = today.getFullYear();
 
         const parsedDates = rawDates
           .filter(Boolean)
@@ -234,18 +236,24 @@ export function useDashboard(chartRef: RefObject<HTMLCanvasElement | null>) {
           .filter((d) => !isNaN(d.getTime()));
 
         if (parsedDates.length > 0) {
-          parsedDates.sort((a, b) => a.getTime() - b.getTime());
-          const nextUpcoming = parsedDates.find(
-            (d) => d.getTime() >= today.getTime(),
-          );
-          if (nextUpcoming) {
-            targetDateStr = nextUpcoming.toISOString().substring(0, 10);
+          // 1. Look for a date in current calendar year
+          const currentYearDate = parsedDates.find((d) => d.getFullYear() === currentYear);
+          if (currentYearDate) {
+            targetDateStr = currentYearDate.toISOString().substring(0, 10);
           } else {
-            targetDateStr = parsedDates[parsedDates.length - 1]
-              .toISOString()
-              .substring(0, 10);
+            parsedDates.sort((a, b) => a.getTime() - b.getTime());
+            const nextUpcoming = parsedDates.find(
+              (d) => d.getTime() >= today.getTime(),
+            );
+            if (nextUpcoming) {
+              targetDateStr = nextUpcoming.toISOString().substring(0, 10);
+            } else {
+              // Expired: pick the last survey date closest to expiration
+              targetDateStr = parsedDates[parsedDates.length - 1]
+                .toISOString()
+                .substring(0, 10);
+            }
           }
-          countVisitsSuffix = t('visits_suffix').replace('{count}', String(parsedDates.length));
         }
       } catch (e) {
         console.error('[useDashboard] Failed to parse due_date JSON:', e);
@@ -300,7 +308,7 @@ export function useDashboard(chartRef: RefObject<HTMLCanvasElement | null>) {
       }
     }
 
-    return `${formattedDate}${countVisitsSuffix}${windowSuffix}`;
+    return formattedDate;
   }, [t]);
 
   const getAlarmBadgeClass = useCallback((status: string) => {
@@ -757,6 +765,11 @@ export function useDashboard(chartRef: RefObject<HTMLCanvasElement | null>) {
       showToast(t('toast_error_deleting_vessel').replace('{error}', errMsg), 'error');
     }
   };
+
+  const handleViewDetails = useCallback((cert: any) => {
+    setSelectedDetailCert(cert);
+    setShowCertDetailsModal(true);
+  }, []);
 
   const handleEditCertOpen = (c: any) => {
     setCertForm({
@@ -1244,6 +1257,8 @@ export function useDashboard(chartRef: RefObject<HTMLCanvasElement | null>) {
     showAddVesselModal, setShowAddVesselModal,
     editingVesselId,
     showEditCertModal, setShowEditCertModal,
+    showCertDetailsModal, setShowCertDetailsModal,
+    selectedDetailCert,
     showAddActionableModal, setShowAddActionableModal,
     showSettingsModal, setShowSettingsModal,
     showPdfModal, setShowPdfModal,
@@ -1288,6 +1303,7 @@ export function useDashboard(chartRef: RefObject<HTMLCanvasElement | null>) {
     handleCreateVesselOpen,
     handleEditVesselOpen,
     handleDeleteVessel,
+    handleViewDetails,
     handleEditCertOpen,
     handleCreateCertOpen,
     handleEditCertSubmit,

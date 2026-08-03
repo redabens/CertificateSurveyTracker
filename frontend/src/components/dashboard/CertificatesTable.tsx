@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { AttachmentIcon, TrashIcon } from '../Icons';
+import { AttachmentIcon, TrashIcon, EyeIcon } from '../Icons';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -27,6 +27,7 @@ export interface CertificatesTableProps {
   formatDueDateWithWindow: (dueStr: string | null | undefined, windowStr: string | null | undefined) => string;
   getAlarmBadgeClass: (status: string) => string;
   getAlarmLabel: (status: string) => string;
+  handleViewDetails: (cert: Certificate) => void;
   handleEditCertOpen: (cert: Certificate) => void;
   handleDeleteCert: (id: number) => void;
   openPdfViewer: (url: string, name: string) => void;
@@ -42,6 +43,7 @@ export function CertificatesTable({
   formatDueDateWithWindow,
   getAlarmBadgeClass,
   getAlarmLabel,
+  handleViewDetails,
   handleEditCertOpen,
   handleDeleteCert,
   openPdfViewer,
@@ -119,52 +121,54 @@ export function CertificatesTable({
 
                 {/* Actions – role-gated */}
                 <td>
-                  {isReadOnly ? (
-                    <span className="text-muted">
-                      {t('readonly_label')}
-                    </span>
-                  ) : isCrew ? (
-                    c.category === 'Servicing' ? (
+                  <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                    <button
+                      className="btn btn-sm btn-outline"
+                      onClick={() => handleViewDetails(c)}
+                      title={t('btn_details')}
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                    >
+                      <EyeIcon size={13} />
+                      <span>{t('btn_details')}</span>
+                    </button>
+                    {!isReadOnly && !isCrew && (
+                      <>
+                        <button
+                          className="btn btn-sm btn-outline"
+                          onClick={() => handleEditCertOpen(c)}
+                        >
+                          {t('btn_edit')}
+                        </button>
+                        <button
+                          className="btn btn-danger icon-svg"
+                          onClick={() => handleDeleteCert(c.id)}
+                          style={{
+                            width: '32px',
+                            height: '32px',
+                            padding: 0,
+                            borderRadius: '50%',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            boxShadow: 'var(--shadow-sm)',
+                            border: 'none',
+                            cursor: 'pointer'
+                          }}
+                          title={t('btn_delete')}
+                        >
+                          <TrashIcon size={14} />
+                        </button>
+                      </>
+                    )}
+                    {isCrew && c.category === 'Servicing' && (
                       <button
                         className="btn btn-sm btn-outline"
                         onClick={() => handleEditCertOpen(c)}
                       >
                         {t('btn_update')}
                       </button>
-                    ) : (
-                      <span className="text-muted">
-                        {t('restricted_label')}
-                      </span>
-                    )
-                  ) : (
-                    <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                      <button
-                        className="btn btn-sm btn-outline"
-                        onClick={() => handleEditCertOpen(c)}
-                      >
-                        {t('btn_edit')}
-                      </button>
-                      <button
-                        className="btn btn-danger icon-svg"
-                        onClick={() => handleDeleteCert(c.id)}
-                        style={{
-                          width: '32px',
-                          height: '32px',
-                          padding: 0,
-                          borderRadius: '50%',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          boxShadow: 'var(--shadow-sm)',
-                          border: 'none',
-                          cursor: 'pointer'
-                        }}
-                        title={t('btn_delete')}
-                      >
-                        <TrashIcon size={14} />
-                      </button>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </td>
               </tr>
             ))

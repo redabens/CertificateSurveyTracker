@@ -12,6 +12,7 @@ import { ResetPasswordDrawer } from '../components/drawers/ResetPasswordDrawer';
 import { ImportExcelDrawer } from '../components/drawers/ImportExcelDrawer';
 import { AddVesselDrawer } from '../components/drawers/AddVesselDrawer';
 import { EditCertificateDrawer } from '../components/drawers/EditCertificateDrawer';
+import { CertificateDetailsModal } from '../components/dashboard/CertificateDetailsModal';
 import { AddActionableDrawer } from '../components/drawers/AddActionableDrawer';
 import { EmailSettingsDrawer } from '../components/drawers/EmailSettingsDrawer';
 import { AddUserDrawer } from '../components/drawers/AddUserDrawer';
@@ -62,6 +63,8 @@ export default function Dashboard() {
     showAddVesselModal, setShowAddVesselModal,
     editingVesselId,
     showEditCertModal, setShowEditCertModal,
+    showCertDetailsModal, setShowCertDetailsModal,
+    selectedDetailCert,
     showAddActionableModal, setShowAddActionableModal,
     showSettingsModal, setShowSettingsModal,
     showPdfModal, setShowPdfModal,
@@ -106,6 +109,7 @@ export default function Dashboard() {
     handleCreateVesselOpen,
     handleEditVesselOpen,
     handleDeleteVessel,
+    handleViewDetails,
     handleEditCertOpen,
     handleCreateCertOpen,
     handleEditCertSubmit,
@@ -436,6 +440,7 @@ export default function Dashboard() {
                                 formatDueDateWithWindow={formatDueDateWithWindow}
                                 getAlarmBadgeClass={getAlarmBadgeClass}
                                 getAlarmLabel={getAlarmLabel}
+                                handleViewDetails={handleViewDetails}
                                 handleEditCertOpen={handleEditCertOpen}
                                 handleDeleteCert={handleDeleteCert}
                                 openPdfViewer={openPdfViewer}
@@ -822,6 +827,17 @@ export default function Dashboard() {
         onSubmit={handleEditCertSubmit}
         onViewCurrentPdf={() => openPdfViewer(certPdfCurrent, certForm.name)}
         onFileSizeError={() => showToast(t('toast_file_too_large'), 'error')}
+      />
+
+      <CertificateDetailsModal
+        open={showCertDetailsModal}
+        cert={selectedDetailCert}
+        onClose={() => setShowCertDetailsModal(false)}
+        openPdfViewer={openPdfViewer}
+        t={t}
+        formatDateString={formatDateString}
+        getAlarmBadgeClass={getAlarmBadgeClass}
+        getAlarmLabel={getAlarmLabel}
       />
 
       <AddActionableDrawer

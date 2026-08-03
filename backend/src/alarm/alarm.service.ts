@@ -41,7 +41,10 @@ export class AlarmService {
     let isUsingDueDate = !!dueDateStr;
 
     // Parse JSON array of dates if multiple surveys are scheduled
-    if (dueDateStr && (dueDateStr.trim().startsWith('[') || dueDateStr.trim().startsWith('{'))) {
+    if (
+      dueDateStr &&
+      (dueDateStr.trim().startsWith('[') || dueDateStr.trim().startsWith('{'))
+    ) {
       try {
         let rawDates: string[] = [];
         if (dueDateStr.trim().startsWith('{')) {
@@ -76,10 +79,7 @@ export class AlarmService {
           }
         }
       } catch (e) {
-        console.warn(
-          '[AlarmService] Failed to parse JSON for due_date:',
-          e,
-        );
+        console.warn('[AlarmService] Failed to parse JSON for due_date:', e);
       }
     }
 

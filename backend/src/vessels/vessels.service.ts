@@ -302,13 +302,20 @@ export class VesselsService {
 
           if (parsedDates.length > 0) {
             parsedDates.sort((a, b) => a.getTime() - b.getTime());
-            const nextUpcoming = parsedDates.find((d) => d.getTime() >= today.getTime());
+            const nextUpcoming = parsedDates.find(
+              (d) => d.getTime() >= today.getTime(),
+            );
             dueDateText = nextUpcoming
               ? nextUpcoming.toISOString().substring(0, 10)
-              : parsedDates[parsedDates.length - 1].toISOString().substring(0, 10);
+              : parsedDates[parsedDates.length - 1]
+                  .toISOString()
+                  .substring(0, 10);
           }
         } catch (e) {
-          console.warn('[VesselsService] Failed to parse due_date in Excel export:', e);
+          console.warn(
+            '[VesselsService] Failed to parse due_date in Excel export:',
+            e,
+          );
         }
       }
 
