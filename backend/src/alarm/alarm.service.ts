@@ -41,13 +41,21 @@ export class AlarmService {
     let isUsingDueDate = !!dueDateStr;
 
     // Parse JSON array of dates if multiple surveys are scheduled
-    if (dueDateStr && dueDateStr.trim().startsWith('[')) {
+    if (dueDateStr && (dueDateStr.trim().startsWith('[') || dueDateStr.trim().startsWith('{'))) {
       try {
-        const dates = JSON.parse(dueDateStr) as string[];
+        let rawDates: string[] = [];
+        if (dueDateStr.trim().startsWith('{')) {
+          const parsed = JSON.parse(dueDateStr);
+          if (Array.isArray(parsed.annuals)) rawDates.push(...parsed.annuals);
+          if (parsed.intermediate) rawDates.push(parsed.intermediate);
+        } else {
+          rawDates = JSON.parse(dueDateStr) as string[];
+        }
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
-        const parsedDates = dates
+        const parsedDates = rawDates
+          .filter(Boolean)
           .map((d) => new Date(d))
           .filter((d) => !isNaN(d.getTime()));
 
@@ -69,7 +77,7 @@ export class AlarmService {
         }
       } catch (e) {
         console.warn(
-          '[AlarmService] Failed to parse JSON array for due_date:',
+          '[AlarmService] Failed to parse JSON for due_date:',
           e,
         );
       }

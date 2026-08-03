@@ -214,13 +214,22 @@ export function useDashboard(chartRef: RefObject<HTMLCanvasElement | null>) {
     let targetDateStr = dueStr;
     let countVisitsSuffix = '';
 
-    if (dueStr.trim().startsWith('[')) {
+    if (dueStr.trim().startsWith('[') || dueStr.trim().startsWith('{')) {
       try {
-        const dates = JSON.parse(dueStr) as string[];
+        let rawDates: string[] = [];
+        if (dueStr.trim().startsWith('{')) {
+          const parsed = JSON.parse(dueStr);
+          if (Array.isArray(parsed.annuals)) rawDates.push(...parsed.annuals);
+          if (parsed.intermediate) rawDates.push(parsed.intermediate);
+        } else {
+          rawDates = JSON.parse(dueStr) as string[];
+        }
+
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
-        const parsedDates = dates
+        const parsedDates = rawDates
+          .filter(Boolean)
           .map((d) => new Date(d))
           .filter((d) => !isNaN(d.getTime()));
 
@@ -236,7 +245,7 @@ export function useDashboard(chartRef: RefObject<HTMLCanvasElement | null>) {
               .toISOString()
               .substring(0, 10);
           }
-          countVisitsSuffix = t('visits_suffix').replace('{count}', String(dates.length));
+          countVisitsSuffix = t('visits_suffix').replace('{count}', String(parsedDates.length));
         }
       } catch (e) {
         console.error('[useDashboard] Failed to parse due_date JSON:', e);

@@ -281,6 +281,37 @@ export class VesselsService {
     const emailsList = emailRows.map((r) => r.email);
 
     const formattedCertificates = certificates.map((cert) => {
+      let dueDateText = cert.due_date;
+      if (dueDateText && (dueDateText.trim().startsWith('[') || dueDateText.trim().startsWith('{'))) {
+        try {
+          let rawDates: string[] = [];
+          if (dueDateText.trim().startsWith('{')) {
+            const parsed = JSON.parse(dueDateText);
+            if (Array.isArray(parsed.annuals)) rawDates.push(...parsed.annuals);
+            if (parsed.intermediate) rawDates.push(parsed.intermediate);
+          } else {
+            rawDates = JSON.parse(dueDateText) as string[];
+          }
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+
+          const parsedDates = rawDates
+            .filter(Boolean)
+            .map((d) => new Date(d))
+            .filter((d) => !isNaN(d.getTime()));
+
+          if (parsedDates.length > 0) {
+            parsedDates.sort((a, b) => a.getTime() - b.getTime());
+            const nextUpcoming = parsedDates.find((d) => d.getTime() >= today.getTime());
+            dueDateText = nextUpcoming
+              ? nextUpcoming.toISOString().substring(0, 10)
+              : parsedDates[parsedDates.length - 1].toISOString().substring(0, 10);
+          }
+        } catch (e) {
+          console.warn('[VesselsService] Failed to parse due_date in Excel export:', e);
+        }
+      }
+
       let windowText = cert.window;
       if (windowText && windowText.trim().startsWith('[')) {
         try {
@@ -304,7 +335,7 @@ export class VesselsService {
           );
         }
       }
-      return { ...cert, window: windowText };
+      return { ...cert, due_date: dueDateText, window: windowText };
     });
 
     const exportData = {

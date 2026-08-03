@@ -53,29 +53,42 @@ export function EditCertificateDrawer({
   onViewCurrentPdf,
   onFileSizeError,
 }: EditCertificateDrawerProps) {
-  const [schedulingMode, setSchedulingMode] = React.useState<'single' | 'multiple'>('single');
   const [dates, setDates] = React.useState<string[]>(['', '', '', '', '']);
+  const [intermediateDate, setIntermediateDate] = React.useState<string>('');
   const [windows, setWindows] = React.useState<WindowItem[]>([]);
 
   // Sync prop to local state when drawer opens or certForm changes
   React.useEffect(() => {
     if (open) {
       const val = certForm.due_date || '';
-      if (val.trim().startsWith('[')) {
+      if (val.trim().startsWith('{')) {
+        try {
+          const parsed = JSON.parse(val);
+          const annuals = Array.isArray(parsed.annuals) ? parsed.annuals : [];
+          const padded = [...annuals];
+          while (padded.length < 5) padded.push('');
+          setDates(padded.slice(0, 5));
+          setIntermediateDate(parsed.intermediate || '');
+        } catch (e) {
+          console.warn('[EditCertificateDrawer] Failed to parse JSON due_date object:', e);
+          setDates([val, '', '', '', '']);
+          setIntermediateDate('');
+        }
+      } else if (val.trim().startsWith('[')) {
         try {
           const parsed = JSON.parse(val) as string[];
           const padded = [...parsed];
           while (padded.length < 5) padded.push('');
           setDates(padded.slice(0, 5));
-          setSchedulingMode('multiple');
+          setIntermediateDate('');
         } catch (e) {
           console.warn('[EditCertificateDrawer] Failed to parse JSON due_date:', e);
           setDates([val, '', '', '', '']);
-          setSchedulingMode('single');
+          setIntermediateDate('');
         }
       } else {
         setDates([val, '', '', '', '']);
-        setSchedulingMode('single');
+        setIntermediateDate('');
       }
 
       // Sync windows list from certForm.window
@@ -105,7 +118,30 @@ export function EditCertificateDrawer({
 
   const set = (patch: Partial<CertFormState>) => onFormChange({ ...certForm, ...patch });
 
+  const saveDueDateState = (newDates: string[], newInter: string) => {
+    setDates(newDates);
+    setIntermediateDate(newInter);
+    onFormChange({
+      ...certForm,
+      due_date: JSON.stringify({ annuals: newDates, intermediate: newInter })
+    });
+  };
+
   const handleAutoFill = () => {
+    if (dates[0]) {
+      const baseDate = new Date(dates[0]);
+      if (isNaN(baseDate.getTime())) return;
+
+      const newDates = Array.from({ length: 5 }, (_, i) => {
+        const d = new Date(baseDate);
+        d.setFullYear(baseDate.getFullYear() + i);
+        return d.toISOString().substring(0, 10);
+      });
+
+      saveDueDateState(newDates, intermediateDate);
+      return;
+    }
+
     if (!certForm.issuing_date) {
       alert(t('alert_fill_issuing_date'));
       return;
@@ -119,29 +155,17 @@ export function EditCertificateDrawer({
       return d.toISOString().substring(0, 10);
     });
 
-    setDates(newDates);
-    onFormChange({
-      ...certForm,
-      due_date: JSON.stringify(newDates)
-    });
+    saveDueDateState(newDates, intermediateDate);
   };
 
   const handleDateChange = (index: number, value: string) => {
     const updated = [...dates];
     updated[index] = value;
-    setDates(updated);
-    onFormChange({
-      ...certForm,
-      due_date: schedulingMode === 'single' ? updated[0] : JSON.stringify(updated)
-    });
+    saveDueDateState(updated, intermediateDate);
   };
 
-  const handleModeChange = (mode: 'single' | 'multiple') => {
-    setSchedulingMode(mode);
-    onFormChange({
-      ...certForm,
-      due_date: mode === 'single' ? dates[0] : JSON.stringify(dates)
-    });
+  const handleIntermediateChange = (value: string) => {
+    saveDueDateState(dates, value);
   };
 
   const addWindow = () => {
@@ -230,80 +254,61 @@ export function EditCertificateDrawer({
               </div>
             </div>
 
-            {/* Scheduling Mode Switch */}
-            <div className="form-group" style={{ marginBottom: '16px' }}>
-              <label style={{ fontWeight: '600' }}>{t('label_survey_scheduling')}</label>
-              <div style={{ display: 'flex', gap: '24px', marginTop: '8px' }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontWeight: 'normal' }}>
-                  <input
-                    type="radio"
-                    name="schedulingMode"
-                    checked={schedulingMode === 'single'}
-                    onChange={() => handleModeChange('single')}
-                  />
-                  {t('option_next_survey_only')}
-                </label>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontWeight: 'normal' }}>
-                  <input
-                    type="radio"
-                    name="schedulingMode"
-                    checked={schedulingMode === 'multiple'}
-                    onChange={() => handleModeChange('multiple')}
-                  />
-                  {t('option_schedule_five_surveys')}
-                </label>
+            {/* Annual Survey Scheduling Section */}
+            <div style={{ background: 'rgba(255,255,255,0.02)', padding: '16px', borderRadius: '8px', marginBottom: '16px', border: '1px solid var(--border-color)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                <span style={{ fontWeight: '600', fontSize: '14px', color: 'var(--primary-color)' }}>
+                  {t('title_annual_survey_scheduling')}
+                </span>
+                <button
+                  type="button"
+                  className="btn btn-outline"
+                  style={{ padding: '6px 12px', fontSize: '12px', height: 'auto', display: 'flex', alignItems: 'center', gap: '6px' }}
+                  onClick={handleAutoFill}
+                >
+                  <span>{dates[0] ? t('btn_fill_remaining') : t('btn_auto_fill_dates')}</span>
+                </button>
+              </div>
+
+              <div className="form-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+                <div className="form-group">
+                  <label>{t('annual_survey_1')}</label>
+                  <input type="date" className="input-field" value={dates[0]} onChange={(e) => handleDateChange(0, e.target.value)} />
+                </div>
+                <div className="form-group">
+                  <label>{t('annual_survey_2')}</label>
+                  <input type="date" className="input-field" value={dates[1]} onChange={(e) => handleDateChange(1, e.target.value)} />
+                </div>
+              </div>
+
+              <div className="form-grid" style={{ gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px', display: 'grid' }}>
+                <div className="form-group">
+                  <label>{t('annual_survey_3')}</label>
+                  <input type="date" className="input-field" value={dates[2]} onChange={(e) => handleDateChange(2, e.target.value)} />
+                </div>
+                <div className="form-group">
+                  <label>{t('annual_survey_4')}</label>
+                  <input type="date" className="input-field" value={dates[3]} onChange={(e) => handleDateChange(3, e.target.value)} />
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label>{t('renewal_survey_5')}</label>
+                <input type="date" className="input-field" value={dates[4]} onChange={(e) => handleDateChange(4, e.target.value)} />
               </div>
             </div>
 
-            {schedulingMode === 'single' ? (
-              <div className="form-group" style={{ marginBottom: '16px' }}>
-                <label>{t('form_cert_survey_date')}</label>
-                <input type="date" className="input-field" value={dates[0]} onChange={(e) => handleDateChange(0, e.target.value)} />
-              </div>
-            ) : (
-              <div style={{ background: 'rgba(255,255,255,0.02)', padding: '16px', borderRadius: '8px', marginBottom: '16px', border: '1px solid var(--border-color)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                  <span style={{ fontWeight: '600', fontSize: '14px', color: 'var(--primary-color)' }}>
-                    {t('title_five_surveys_programming')}
-                  </span>
-                  <button
-                    type="button"
-                    className="btn btn-outline"
-                    style={{ padding: '6px 12px', fontSize: '12px', height: 'auto', display: 'flex', alignItems: 'center', gap: '6px' }}
-                    onClick={handleAutoFill}
-                  >
-                    <span>{t('btn_auto_fill_dates')}</span>
-                  </button>
-                </div>
-
-                <div className="form-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
-                  <div className="form-group">
-                    <label>{t('annual_survey_1')}</label>
-                    <input type="date" className="input-field" value={dates[0]} onChange={(e) => handleDateChange(0, e.target.value)} />
-                  </div>
-                  <div className="form-group">
-                    <label>{t('annual_survey_2')}</label>
-                    <input type="date" className="input-field" value={dates[1]} onChange={(e) => handleDateChange(1, e.target.value)} />
-                  </div>
-                </div>
-
-                <div className="form-grid" style={{ gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px', display: 'grid' }}>
-                  <div className="form-group">
-                    <label>{t('intermediate_survey_3')}</label>
-                    <input type="date" className="input-field" value={dates[2]} onChange={(e) => handleDateChange(2, e.target.value)} />
-                  </div>
-                  <div className="form-group">
-                    <label>{t('annual_survey_4')}</label>
-                    <input type="date" className="input-field" value={dates[3]} onChange={(e) => handleDateChange(3, e.target.value)} />
-                  </div>
-                </div>
-
-                <div className="form-group">
-                  <label>{t('renewal_survey_5')}</label>
-                  <input type="date" className="input-field" value={dates[4]} onChange={(e) => handleDateChange(4, e.target.value)} />
-                </div>
-              </div>
-            )}
+            {/* Standalone Intermediate Survey Scheduling Section */}
+            <div className="form-group" style={{ marginBottom: '16px' }}>
+              <label style={{ fontWeight: '600' }}>{t('intermediate_survey_scheduling')}</label>
+              <input
+                type="date"
+                className="input-field"
+                style={{ marginTop: '6px' }}
+                value={intermediateDate}
+                onChange={(e) => handleIntermediateChange(e.target.value)}
+              />
+            </div>
 
             {/* Structured Multi-Windows Section */}
             <div style={{ marginTop: '20px', borderTop: '1px solid var(--border-color)', paddingTop: '16px', marginBottom: '16px' }}>
