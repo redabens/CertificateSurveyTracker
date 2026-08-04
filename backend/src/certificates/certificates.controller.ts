@@ -53,10 +53,7 @@ export class CertificatesController {
     const certs = await this.certsService.getByVessel(parseInt(vesselId));
     return certs.map((c) => ({
       ...c,
-      alarm_status: this.alarmService.calculate(
-        c.due_date,
-        c.expiration_date,
-      ),
+      alarm_status: this.alarmService.calculate(c.due_date, c.expiration_date),
     }));
   }
 
