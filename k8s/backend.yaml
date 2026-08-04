@@ -63,7 +63,7 @@ spec:
                   name: app-secrets
                   key: JWT_SECRET
             - name: EMAIL_PROVIDER
-              value: "brevo"
+              value: "smtp"
             - name: SMTP_HOST
               valueFrom:
                 secretKeyRef:
