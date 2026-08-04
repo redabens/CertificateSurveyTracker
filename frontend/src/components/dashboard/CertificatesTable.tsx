@@ -68,16 +68,16 @@ export function CertificatesTable({
       <table className="data-table">
         <thead>
           <tr>
-            <th>{t('table_col_name')}</th>
+            <th className="col-name">{t('table_col_name')}</th>
             <th>{t('table_col_cat')}</th>
-            <th>{t('table_col_org')}</th>
+            <th className="col-org">{t('table_col_org')}</th>
             <th>{t('table_col_issue')}</th>
             <th>{t('table_col_expiry')}</th>
             <th>{t('table_col_due')}</th>
             <th>{t('table_col_intermediate_due')}</th>
             <th className="col-status">{t('table_col_status')}</th>
-            <th>{t('table_col_remarks')}</th>
-            <th>{t('table_col_actions')}</th>
+            <th className="col-remarks">{t('table_col_remarks')}</th>
+            <th className="col-actions">{t('table_col_actions')}</th>
           </tr>
         </thead>
         <tbody>
@@ -91,7 +91,7 @@ export function CertificatesTable({
             filteredCerts.map((c) => (
               <tr key={c.id}>
                 {/* Name + PDF attachment */}
-                <td>
+                <td className="col-name">
                   <strong>{c.name}</strong>
                   {c.pdf_url && (
                     <span
@@ -115,7 +115,7 @@ export function CertificatesTable({
                 </td>
 
                 {/* Org / Dates */}
-                <td>{c.organization || '-'}</td>
+                <td className="col-org">{c.organization || '-'}</td>
                 <td>{formatDateString(c.issuing_date ?? '')}</td>
                 <td>{formatDateString(c.expiration_date ?? '')}</td>
                 <td>{formatDueDateWithWindow(c.due_date, c.window)}</td>
@@ -129,12 +129,12 @@ export function CertificatesTable({
                 </td>
 
                 {/* Remarks */}
-                <td>
+                <td className="col-remarks">
                   <small className="text-secondary">{c.remarks || ''}</small>
                 </td>
 
                 {/* Actions – role-gated */}
-                <td>
+                <td className="col-actions">
                   <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                     <button
                       className="btn btn-sm btn-outline"

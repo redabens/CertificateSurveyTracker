@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { useDashboard } from '../hooks/useDashboard';
 import { ForcePasswordChangeView } from '../components/dashboard/ForcePasswordChangeView';
 import { TvModeView } from '../components/dashboard/TvModeView';
@@ -134,6 +134,11 @@ export default function Dashboard() {
   } = useDashboard(chartRef);
 
   const [globalAlertFilter, setGlobalAlertFilter] = useState('ALL');
+
+  useEffect(() => {
+    const el = document.querySelector('.fleet-detail-area');
+    if (el) el.scrollTop = 0;
+  }, [selectedVesselId]);
 
   if (!token || !user) return null;
 
