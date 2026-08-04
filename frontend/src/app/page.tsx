@@ -168,6 +168,8 @@ export default function Dashboard() {
           exitTvMode={exitTvMode}
           t={t}
           getAlarmLabel={getAlarmLabel}
+          formatDateString={formatDateString}
+          formatDueDateWithWindow={formatDueDateWithWindow}
         />
       )}
 

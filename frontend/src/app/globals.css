@@ -179,19 +179,19 @@ h1, h2, h3, h4, .logo-text, .tv-logo-text {
 .nav-menu {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
   flex-grow: 1;
 }
 
 .nav-item {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
+  gap: 12px;
+  padding: 12px 16px;
   color: var(--text-secondary);
   text-decoration: none;
   border-radius: var(--border-radius-md);
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 500;
   transition: all var(--transition-fast);
 }
@@ -501,20 +501,12 @@ h1, h2, h3, h4, .logo-text, .tv-logo-text {
 }
 
 .badge {
-  display: inline-block;
-  white-space: nowrap;
-  padding: 5px 10px;
+  padding: 4px 8px;
   border-radius: var(--border-radius-sm);
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.02em;
-  text-align: center;
-}
-
-.col-status {
-  min-width: 165px;
-  white-space: nowrap;
 }
 
 .badge-red { background: var(--status-red-bg); color: var(--status-red-text); }

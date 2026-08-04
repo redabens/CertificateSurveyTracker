@@ -10,6 +10,20 @@ interface TvModeViewProps {
   exitTvMode: () => void;
   t: (key: string) => string;
   getAlarmLabel: (status: string) => string;
+  formatDateString: (dateStr: string) => string;
+  formatDueDateWithWindow: (dueStr: string | null | undefined, windowStr: string | null | undefined) => string;
+}
+
+function getIntermediateSurveyDate(dueStr: string | null | undefined): string {
+  if (!dueStr) return '';
+  const val = dueStr.trim();
+  if (val.startsWith('{')) {
+    try {
+      const parsed = JSON.parse(val);
+      return parsed.intermediate || '';
+    } catch (e) {}
+  }
+  return '';
 }
 
 export const TvModeView: React.FC<TvModeViewProps> = ({
@@ -20,6 +34,8 @@ export const TvModeView: React.FC<TvModeViewProps> = ({
   exitTvMode,
   t,
   getAlarmLabel,
+  formatDateString,
+  formatDueDateWithWindow,
 }) => {
   return (
     <div id="view-tv-mode" className="tv-dashboard">
@@ -83,18 +99,29 @@ export const TvModeView: React.FC<TvModeViewProps> = ({
                   {t('tv_no_alerts')}
                 </p>
               ) : (
-                tvCerts.map((item, idx) => (
-                  <div className={`tv-alert-item tv-alert-${item.level}`} key={idx}>
-                    <div className="tv-alert-item-left">
-                      <span className="tv-alert-vessel">{item.vessel_name}</span>
-                      <span className="tv-alert-name">{item.cert_name}</span>
-                      <span className="tv-alert-due">{t('label_due')}: {item.due_date}</span>
+                tvCerts.map((item, idx) => {
+                  const formattedDue = formatDueDateWithWindow(item.due_date, item.window);
+                  const intermediateDate = getIntermediateSurveyDate(item.due_date);
+                  const formattedIntermediate = intermediateDate ? formatDateString(intermediateDate) : '';
+
+                  return (
+                    <div className={`tv-alert-item tv-alert-${item.level}`} key={idx}>
+                      <div className="tv-alert-item-left">
+                        <span className="tv-alert-vessel">{item.vessel_name}</span>
+                        <span className="tv-alert-name">{item.cert_name}</span>
+                        <div className="tv-alert-dates-row" style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginTop: 4, fontSize: 13, opacity: 0.85 }}>
+                          <span>📅 <strong>{t('table_col_due')}:</strong> {formattedDue}</span>
+                          {formattedIntermediate && (
+                            <span>🔄 <strong>{t('table_col_intermediate_due')}:</strong> {formattedIntermediate}</span>
+                          )}
+                        </div>
+                      </div>
+                      <span className={`tv-alert-status ${item.level === 'red' ? 'text-red' : item.level === 'orange' ? 'text-orange' : item.level === 'yellow' ? 'text-yellow' : 'text-green'}`}>
+                        {getAlarmLabel(item.alarm_status)}
+                      </span>
                     </div>
-                    <span className={`tv-alert-status ${item.level === 'red' ? 'text-red' : item.level === 'orange' ? 'text-orange' : item.level === 'yellow' ? 'text-yellow' : 'text-green'}`}>
-                      {getAlarmLabel(item.alarm_status)}
-                    </span>
-                  </div>
-                ))
+                  );
+                })
               )}
             </TvScrollContainer>
           </div>

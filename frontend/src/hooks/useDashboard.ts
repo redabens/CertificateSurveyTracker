@@ -439,7 +439,9 @@ export function useDashboard(chartRef: RefObject<HTMLCanvasElement | null>) {
                 list.push({
                   vessel_name: v.name,
                   cert_name: c.name,
-                  due_date: c.due_date || c.expiration_date || 'N/A',
+                  due_date: c.due_date,
+                  expiration_date: c.expiration_date,
+                  window: c.window,
                   alarm_status: c.alarm_status,
                   level: isOverdue ? 'red' : isRed ? 'orange' : isYellow ? 'yellow' : 'green'
                 });
