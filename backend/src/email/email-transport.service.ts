@@ -57,7 +57,6 @@ export class EmailTransportService {
   constructor(private readonly prisma: PrismaService) {
     this.fromAddress =
       process.env.SMTP_FROM ||
-      // eslint-disable-next-line quotes
       '"VMCertifs - Verital Marine" <alerts@verital.ae>';
     this.initTransporter();
   }

@@ -67,7 +67,6 @@ export class VesselsController {
         const computed = this.alarmService.calculate(
           c.dueDate,
           c.expirationDate,
-          c.window,
         );
         if (this.alarmService.hasChanged(c.alarmStatus, computed)) {
           await this.prisma.certificate.update({
@@ -261,7 +260,6 @@ export class VesselsController {
         const alarm = this.alarmService.calculate(
           c.due_date,
           c.expiration_date,
-          parsedWindow,
         );
         await this.prisma.certificate.create({
           data: {

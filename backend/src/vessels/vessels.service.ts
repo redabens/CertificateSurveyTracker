@@ -282,7 +282,11 @@ export class VesselsService {
 
     const formattedCertificates = certificates.map((cert) => {
       let dueDateText = cert.due_date;
-      if (dueDateText && (dueDateText.trim().startsWith('[') || dueDateText.trim().startsWith('{'))) {
+      if (
+        dueDateText &&
+        (dueDateText.trim().startsWith('[') ||
+          dueDateText.trim().startsWith('{'))
+      ) {
         try {
           let rawDates: string[] = [];
           if (dueDateText.trim().startsWith('{')) {

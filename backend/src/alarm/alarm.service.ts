@@ -33,12 +33,9 @@ export class AlarmService {
   calculate(
     dueDateStr: string | null | undefined,
     expirationDateStr: string | null | undefined,
-    windowVal?: string | number | null,
   ): AlarmLevel {
     let target = dueDateStr || expirationDateStr;
     if (!target) return ALARM_LEVELS.NA;
-
-    let isUsingDueDate = !!dueDateStr;
 
     // Parse JSON array of dates if multiple surveys are scheduled
     if (
@@ -70,12 +67,10 @@ export class AlarmService {
 
           if (nextUpcoming) {
             target = nextUpcoming.toISOString().substring(0, 10);
-            isUsingDueDate = true;
           } else {
             target = parsedDates[parsedDates.length - 1]
               .toISOString()
               .substring(0, 10);
-            isUsingDueDate = true;
           }
         }
       } catch (e) {

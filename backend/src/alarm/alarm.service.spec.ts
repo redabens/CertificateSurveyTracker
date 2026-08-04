@@ -98,7 +98,7 @@ describe('AlarmService', () => {
       const dueDateStr = dueDate.toISOString().substring(0, 10);
 
       // With 15 days remaining, calculation is RED
-      const status = service.calculate(dueDateStr, '', 3);
+      const status = service.calculate(dueDateStr, '');
       expect(status).toBe('RED - <1 MONTH');
     });
   });

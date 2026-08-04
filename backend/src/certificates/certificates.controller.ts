@@ -56,7 +56,6 @@ export class CertificatesController {
       alarm_status: this.alarmService.calculate(
         c.due_date,
         c.expiration_date,
-        c.window,
       ),
     }));
   }
@@ -83,7 +82,6 @@ export class CertificatesController {
     const alarm = this.alarmService.calculate(
       body.due_date,
       body.expiration_date,
-      body.window,
     );
     const certId = await this.certsService.insert({
       vessel_id: parseInt(vesselId),
@@ -128,7 +126,6 @@ export class CertificatesController {
     const alarm = this.alarmService.calculate(
       body.due_date,
       body.expiration_date,
-      body.window,
     );
 
     // Construction du diff pour audit trail
