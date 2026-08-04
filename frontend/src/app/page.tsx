@@ -135,11 +135,6 @@ export default function Dashboard() {
 
   const [globalAlertFilter, setGlobalAlertFilter] = useState('ALL');
 
-  useEffect(() => {
-    const el = document.querySelector('.fleet-detail-area');
-    if (el) el.scrollTop = 0;
-  }, [selectedVesselId]);
-
   if (!token || !user) return null;
 
   if (user.mustChangePassword) {
