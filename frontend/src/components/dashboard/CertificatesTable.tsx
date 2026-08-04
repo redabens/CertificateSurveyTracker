@@ -35,6 +35,18 @@ export interface CertificatesTableProps {
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
+function getIntermediateSurveyDate(dueStr: string | null | undefined): string {
+  if (!dueStr) return '';
+  const val = dueStr.trim();
+  if (val.startsWith('{')) {
+    try {
+      const parsed = JSON.parse(val);
+      return parsed.intermediate || '';
+    } catch (e) {}
+  }
+  return '';
+}
+
 export function CertificatesTable({
   filteredCerts,
   userRole,
@@ -62,7 +74,8 @@ export function CertificatesTable({
             <th>{t('table_col_issue')}</th>
             <th>{t('table_col_expiry')}</th>
             <th>{t('table_col_due')}</th>
-            <th>{t('table_col_status')}</th>
+            <th>{t('table_col_intermediate_due')}</th>
+            <th className="col-status">{t('table_col_status')}</th>
             <th>{t('table_col_remarks')}</th>
             <th>{t('table_col_actions')}</th>
           </tr>
@@ -70,7 +83,7 @@ export function CertificatesTable({
         <tbody>
           {filteredCerts.length === 0 ? (
             <tr>
-              <td colSpan={9} className="placeholder-text">
+              <td colSpan={10} className="placeholder-text">
                 {t('no_certs_found')}
               </td>
             </tr>
@@ -106,9 +119,10 @@ export function CertificatesTable({
                 <td>{formatDateString(c.issuing_date ?? '')}</td>
                 <td>{formatDateString(c.expiration_date ?? '')}</td>
                 <td>{formatDueDateWithWindow(c.due_date, c.window)}</td>
+                <td>{formatDateString(getIntermediateSurveyDate(c.due_date))}</td>
 
                 {/* Status badge */}
-                <td>
+                <td className="col-status">
                   <span className={`badge ${getAlarmBadgeClass(c.alarm_status)}`}>
                     {getAlarmLabel(c.alarm_status)}
                   </span>

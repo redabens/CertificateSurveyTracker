@@ -50,6 +50,7 @@
   "table_col_issue": "Émission",
   "table_col_expiry": "Expiration",
   "table_col_due": "Date Visite",
+  "table_col_intermediate_due": "Visite Intermédiaire",
   "table_col_status": "Statut Alerte",
   "table_col_remarks": "Remarques",
   "table_col_actions": "Actions",

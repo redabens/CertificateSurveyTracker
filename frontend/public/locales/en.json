@@ -50,6 +50,7 @@
   "table_col_issue": "Issue Date",
   "table_col_expiry": "Expiry Date",
   "table_col_due": "Survey Due Date",
+  "table_col_intermediate_due": "Intermediate Survey",
   "table_col_status": "Alert Status",
   "table_col_remarks": "Remarks",
   "table_col_actions": "Actions",
