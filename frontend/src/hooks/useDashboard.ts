@@ -308,7 +308,7 @@ export function useDashboard(chartRef: RefObject<HTMLCanvasElement | null>) {
       }
     }
 
-    return formattedDate + windowSuffix;
+    return formattedDate;
   }, [t]);
 
   const getAlarmBadgeClass = useCallback((status: string) => {
