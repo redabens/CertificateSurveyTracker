@@ -82,7 +82,7 @@ export const TvModeView: React.FC<TvModeViewProps> = ({
               <span className="widget-value">{vessels.reduce((acc, curr) => acc + curr.counts.yellow, 0)}</span>
             </div>
             <div className="tv-widget tv-widget-green">
-              <span className="widget-label">{t('logs_col_status')}</span>
+              <span className="widget-label">{t('tv_fleet_compliance')}</span>
               <span className="widget-value">
                 {vessels.reduce((acc, curr) => acc + curr.counts.total, 0) > 0
                   ? Math.round((vessels.reduce((acc, curr) => acc + curr.counts.normal + curr.counts.green, 0) / vessels.reduce((acc, curr) => acc + curr.counts.total, 0)) * 100)
