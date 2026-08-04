@@ -84,6 +84,9 @@ export class EmailTransportService {
         port,
         secure: port === 465,
         auth: { user, pass },
+        tls: {
+          rejectUnauthorized: false,
+        },
       } as nodemailer.TransportOptions;
     }
 
@@ -93,7 +96,7 @@ export class EmailTransportService {
     if (hasCredentials) {
       this.transporter = nodemailer.createTransport(transportConfig);
       this.logger.log(
-        `Email transport initialisé: ${provider.toUpperCase()} (utilisateur: ${user})`,
+        `Email transport initialisé: ${provider.toUpperCase()} (host: ${(transportConfig as any).host}:${(transportConfig as any).port}, utilisateur: ${user})`,
       );
       (this as any).isMock = false;
     } else {
@@ -101,9 +104,6 @@ export class EmailTransportService {
       (this as any).isMock = true;
       this.logger.warn(
         'Aucune configuration email trouvée. Mode MOCK activé (emails loggés en console).',
-      );
-      this.logger.warn(
-        'Pour activer Brevo: définir EMAIL_PROVIDER=brevo, SMTP_USER et SMTP_PASS dans .env',
       );
     }
   }
@@ -147,7 +147,7 @@ export class EmailTransportService {
             certificateName: logMeta.certificate_name,
             alarmLevel: logMeta.alarm_level,
             sentTo: sentToDisplay,
-            sentAt: new Date().toISOString().substring(0, 10),
+            sentAt: new Date().toISOString(),
           },
         });
       } catch (dbErr) {
