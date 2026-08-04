@@ -29,6 +29,7 @@ export function useTvAutoScroll(
   const lastTimestampRef = useRef<number | null>(null);
   const pauseAtBottomRef = useRef<number | null>(null);
   const subPixelRef = useRef<number>(0);
+  const scrollTickRef = useRef<(timestamp: number) => void>(() => {});
 
   useEffect(() => {
     isPausedRef.current = isPaused;
@@ -72,20 +73,24 @@ export function useTvAutoScroll(
         }
       }
 
-      animFrameRef.current = requestAnimationFrame(scrollTick);
+      animFrameRef.current = requestAnimationFrame((time) => scrollTickRef.current(time));
     },
     [scrollSpeed],
   );
 
   useEffect(() => {
-    animFrameRef.current = requestAnimationFrame(scrollTick);
+    scrollTickRef.current = scrollTick;
+  }, [scrollTick]);
+
+  useEffect(() => {
+    animFrameRef.current = requestAnimationFrame((time) => scrollTickRef.current(time));
     return () => {
       if (animFrameRef.current !== null) {
         cancelAnimationFrame(animFrameRef.current);
         animFrameRef.current = null;
       }
     };
-  }, [scrollTick]);
+  }, []);
 
   const onMouseEnter = useCallback(() => {
     if (pauseOnHover) setIsPaused(true);
