@@ -82,21 +82,9 @@ export function EmailSettingsDrawer({
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
                       <code style={{ fontSize: '13px', color: 'var(--text-primary)' }}>{ve.email}</code>
                       <div>
-                        <span className={`badge ${ve.is_verified ? 'badge-green' : 'badge-yellow'}`} style={{ fontSize: '10px', padding: '2px 6px' }}>
-                          {ve.is_verified
-                            ? t('email_verified_badge')
-                            : t('email_pending_otp_badge')}
+                        <span className="badge badge-green" style={{ fontSize: '10px', padding: '2px 6px' }}>
+                          {t('email_verified_badge')}
                         </span>
-                        {!ve.is_verified && (
-                          <button
-                            type="button"
-                            className="btn btn-link"
-                            style={{ fontSize: '11px', color: 'var(--primary-color)', marginLeft: '8px', padding: 0 }}
-                            onClick={() => onStartVerify(ve.email, ve.otp_code ?? null)}
-                          >
-                            {t('enter_code_action')}
-                          </button>
-                        )}
                       </div>
                     </div>
                     <button
@@ -124,63 +112,24 @@ export function EmailSettingsDrawer({
             </div>
           </div>
 
-          {/* OTP verification prompt */}
-          {emailToVerify && (
-            <div style={{ borderLeft: '3px solid var(--primary-color)', background: 'rgba(204,164,59,0.03)', padding: '16px', borderRadius: '0 var(--border-radius-md) var(--border-radius-md) 0', marginBottom: 24 }}>
-              <h4 style={{ margin: 0, fontSize: '14px', color: 'var(--primary-color)', fontWeight: 600 }}>
-                {t('verification_required_title')}
-              </h4>
-              <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '4px 0 12px 0' }}>
-                {t('enter_otp_sent_to').replace('{email}', emailToVerify)}
-              </p>
-              <form onSubmit={onVerifyEmailSubmit} style={{ display: 'flex', gap: '8px' }}>
+          {/* Add new email */}
+          <form onSubmit={onAddEmailSubmit} style={{ borderTop: '1px solid var(--border-color)', paddingTop: '20px' }}>
+            <div className="form-group">
+              <label>{t('add_notification_email_label')}</label>
+              <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
                 <input
-                  type="text" maxLength={10} className="input-field" required placeholder="Ex. 123456"
-                  value={verificationCode}
-                  onChange={(e) => onVerificationCodeChange(e.target.value)}
+                  type="email" maxLength={100} className="input-field" required
+                  placeholder="manager@babor.com"
+                  value={newVesselEmail}
+                  onChange={(e) => onNewEmailChange(e.target.value)}
                   style={{ flexGrow: 1 }}
                 />
-                <button type="submit" className="btn btn-primary" style={{ padding: '0 16px', fontSize: '12px' }} disabled={isSubmitting}>
-                  {isSubmitting ? t('btn_verifying') : t('btn_confirm')}
+                <button type="submit" className="btn btn-primary" style={{ padding: '0 20px' }} disabled={isSubmitting}>
+                  {isSubmitting ? t('btn_adding') : t('btn_add')}
                 </button>
-                <button type="button" className="btn btn-outline" style={{ padding: '0 12px', fontSize: '12px' }} onClick={onCancelVerify}>
-                  {t('btn_cancel')}
-                </button>
-              </form>
-              {devOtpNotice && (
-                <div style={{ marginTop: '12px', padding: '10px 14px', background: 'rgba(212,163,89,0.08)', border: '1px solid rgba(212,163,89,0.3)', borderRadius: 'var(--border-radius-md)', color: 'var(--primary-color)', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '8px', lineHeight: 1.4 }}>
-                  <span style={{ fontSize: '16px' }}>💡</span>
-                  <span>
-                    {t('dev_otp_notice_prefix')}
-                    <strong style={{ fontFamily: 'Roboto Mono', fontSize: '14px', letterSpacing: '1px', textShadow: '0 0 8px rgba(212,163,89,0.3)' }}>
-                      {devOtpNotice}
-                    </strong>
-                  </span>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Add new email */}
-          {!emailToVerify && (
-            <form onSubmit={onAddEmailSubmit} style={{ borderTop: '1px solid var(--border-color)', paddingTop: '20px' }}>
-              <div className="form-group">
-                <label>{t('add_notification_email_label')}</label>
-                <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
-                  <input
-                    type="email" maxLength={100} className="input-field" required
-                    placeholder="manager@babor.com"
-                    value={newVesselEmail}
-                    onChange={(e) => onNewEmailChange(e.target.value)}
-                    style={{ flexGrow: 1 }}
-                  />
-                  <button type="submit" className="btn btn-primary" style={{ padding: '0 20px' }} disabled={isSubmitting}>
-                    {isSubmitting ? t('btn_adding') : t('btn_add')}
-                  </button>
-                </div>
               </div>
-            </form>
-          )}
+            </div>
+          </form>
         </div>
 
         <div className="drawer-footer" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>

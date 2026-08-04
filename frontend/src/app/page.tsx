@@ -586,7 +586,8 @@ export default function Dashboard() {
                           <tr><td colSpan={6} className="placeholder-text">{t('no_email_logs')}</td></tr>
                         ) : (
                           emailLogs.map(l => {
-                            const isFailure = l.sent_to.includes('Echec') || l.sent_to.includes('Error');
+                            const sentToUpper = (l.sent_to || '').toUpperCase();
+                            const isFailure = sentToUpper.includes('ECHEC') || sentToUpper.includes('ERROR') || sentToUpper.includes('FAILED') || sentToUpper.includes('535');
                             const badgeClass = l.alarm_level.includes('RED') ? 'badge-red' : l.alarm_level.includes('YELLOW') ? 'badge-yellow' : 'badge-green';
 
                             return (
@@ -594,11 +595,11 @@ export default function Dashboard() {
                                 <td><strong>{l.vessel_name}</strong></td>
                                 <td>{l.certificate_name}</td>
                                 <td><span className={`badge ${badgeClass}`}>{getAlarmLabel(l.alarm_level)}</span></td>
-                                <td><code style={{ fontSize: 11 }}>{l.sent_to}</code></td>
+                                <td><code style={{ fontSize: 11, color: isFailure ? 'var(--danger-color)' : 'inherit' }}>{l.sent_to}</code></td>
                                 <td>{formatDateTimeString(l.sent_at)}</td>
                                 <td>
                                   <span className={`badge ${isFailure ? 'badge-red' : 'badge-green'}`}>
-                                    {isFailure ? t('delivery_failed') : t('delivery_sent')}
+                                    {isFailure ? (t('delivery_failed') !== 'delivery_failed' ? t('delivery_failed') : 'ÉCHEC ✗') : (t('delivery_sent') !== 'delivery_sent' ? t('delivery_sent') : 'ENVOYÉ ✓')}
                                   </span>
                                 </td>
                               </tr>

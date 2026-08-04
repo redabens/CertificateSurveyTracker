@@ -964,10 +964,7 @@ export function useDashboard(chartRef: RefObject<HTMLCanvasElement | null>) {
       });
       const data = await res.json();
       if (res.ok) {
-        showToast(t('toast_otp_sent'), 'success');
-        setEmailToVerify(newVesselEmail);
-        setVerificationCode('');
-        setDevOtpNotice(data.devOtp || null);
+        showToast(t('toast_email_added') || 'E-mail ajouté avec succès', 'success');
         setNewVesselEmail('');
         await loadVesselEmails(selectedVesselId);
       } else {

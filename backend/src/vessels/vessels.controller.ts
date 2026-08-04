@@ -361,8 +361,6 @@ export class VesselsController {
     }
 
     const email = body.email.toLowerCase().trim();
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    const expires = new Date(Date.now() + 15 * 60 * 1000).toISOString();
 
     await this.prisma.vesselEmail.upsert({
       where: {
@@ -372,20 +370,18 @@ export class VesselsController {
         },
       },
       update: {
-        isVerified: 0,
-        otpCode: otp,
-        otpExpires: expires,
+        isVerified: 1,
+        otpCode: null,
+        otpExpires: null,
       },
       create: {
         vesselId: parseInt(vesselId),
         email,
-        isVerified: 0,
-        otpCode: otp,
-        otpExpires: expires,
+        isVerified: 1,
+        otpCode: null,
+        otpExpires: null,
       },
     });
-
-    await this.emailService.sendOtpEmail(email, otp);
 
     await this.auditService.log({
       user_id: req.user.id,
@@ -396,12 +392,9 @@ export class VesselsController {
       target_name: email,
     });
 
-    const smtpConfigured = !!(process.env.SMTP_USER && process.env.SMTP_PASS);
-    const isProd = process.env.NODE_ENV === 'production';
     return {
       success: true,
       email,
-      devOtp: smtpConfigured || isProd ? undefined : otp,
     };
   }
 
