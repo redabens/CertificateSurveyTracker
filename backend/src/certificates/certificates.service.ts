@@ -48,12 +48,21 @@ export class CertificatesService {
     return cert ? this.mapCertificateToResponse(cert) : null;
   }
 
+  normalizeCategory(category: string): string {
+    if (!category) return 'Class';
+    const trimmed = category.trim();
+    if (trimmed === 'Statutory' || trimmed === 'Class/Statutory') {
+      return 'Class';
+    }
+    return trimmed;
+  }
+
   async insert(c: any): Promise<number> {
     const cert = await this.prisma.certificate.create({
       data: {
         vesselId: c.vessel_id,
         name: c.name,
-        category: c.category,
+        category: this.normalizeCategory(c.category),
         organization: c.organization ?? null,
         issuingDate: c.issuing_date ?? null,
         expirationDate: c.expiration_date ?? null,
@@ -67,17 +76,21 @@ export class CertificatesService {
   }
 
   async update(id: number, c: any): Promise<void> {
+    const data: any = {
+      organization: c.organization ?? null,
+      issuingDate: c.issuing_date ?? null,
+      expirationDate: c.expiration_date ?? null,
+      dueDate: c.due_date ?? null,
+      window: c.window ?? null,
+      alarmStatus: c.alarm_status ?? 'N/A',
+      remarks: c.remarks ?? null,
+    };
+    if (c.name) data.name = c.name;
+    if (c.category) data.category = this.normalizeCategory(c.category);
+
     await this.prisma.certificate.update({
       where: { id },
-      data: {
-        organization: c.organization ?? null,
-        issuingDate: c.issuing_date ?? null,
-        expirationDate: c.expiration_date ?? null,
-        dueDate: c.due_date ?? null,
-        window: c.window ?? null,
-        alarmStatus: c.alarm_status ?? 'N/A',
-        remarks: c.remarks ?? null,
-      },
+      data,
     });
   }
 
