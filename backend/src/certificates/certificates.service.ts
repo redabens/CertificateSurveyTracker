@@ -48,21 +48,12 @@ export class CertificatesService {
     return cert ? this.mapCertificateToResponse(cert) : null;
   }
 
-  normalizeCategory(category: string): string {
-    if (!category) return 'Class';
-    const trimmed = category.trim();
-    if (trimmed === 'Statutory' || trimmed === 'Class/Statutory') {
-      return 'Class';
-    }
-    return trimmed;
-  }
-
   async insert(c: any): Promise<number> {
     const cert = await this.prisma.certificate.create({
       data: {
         vesselId: c.vessel_id,
         name: c.name,
-        category: this.normalizeCategory(c.category),
+        category: c.category || 'Class',
         organization: c.organization ?? null,
         issuingDate: c.issuing_date ?? null,
         expirationDate: c.expiration_date ?? null,
@@ -86,7 +77,7 @@ export class CertificatesService {
       remarks: c.remarks ?? null,
     };
     if (c.name) data.name = c.name;
-    if (c.category) data.category = this.normalizeCategory(c.category);
+    if (c.category) data.category = c.category;
 
     await this.prisma.certificate.update({
       where: { id },
