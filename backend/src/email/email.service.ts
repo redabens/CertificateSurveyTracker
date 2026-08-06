@@ -141,7 +141,6 @@ export class EmailService {
         const newAlarm = this.alarmService.calculate(
           cert.due_date,
           cert.expiration_date,
-          cert.window,
         );
         totalChecked++;
 
@@ -217,7 +216,6 @@ export class EmailService {
         const alarm = this.alarmService.calculate(
           cert.due_date,
           cert.expiration_date,
-          cert.window,
         );
         totalChecked++;
 
@@ -283,7 +281,6 @@ export class EmailService {
       const alarm = this.alarmService.calculate(
         cert.due_date,
         cert.expiration_date,
-        cert.window,
       );
 
       const matchesFilter = this.matchesAlarmFilter(alarm, statusFilter);

@@ -89,7 +89,7 @@ export class VesselsController {
       results.push({
         ...v,
         status: overall,
-        counts: { overdue, red, yellow, green, normal, total: certs.length },
+        counts: { overdue, red, urgent: overdue + red, yellow, green, normal, total: certs.length },
       });
     }
     return results;

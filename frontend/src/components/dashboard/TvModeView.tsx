@@ -57,17 +57,26 @@ export const TvModeView: React.FC<TvModeViewProps> = ({
         <div className="tv-panel tv-panel-left">
           <h2>{t('tv_overall_fleet')}</h2>
           <div className="tv-vessel-list">
-            {vessels.map(v => (
-              <div className="tv-vessel-row" key={v.id}>
-                <div className="tv-vessel-row-left">
-                  <span className="tv-vessel-name">{v.name}</span>
-                  <span className="tv-vessel-meta">IMO {v.imo_number || 'N/A'} | Flag {v.flag || 'N/A'}</span>
+            {vessels.map(v => {
+              const vTotal = v.counts?.total || 0;
+              const vCompliant = (v.counts?.green || 0) + (v.counts?.normal || 0);
+              const vRate = vTotal > 0 ? Math.round((vCompliant / vTotal) * 100) : 100;
+              return (
+                <div className="tv-vessel-row" key={v.id}>
+                  <div className="tv-vessel-row-left">
+                    <span className="tv-vessel-name">{v.name}</span>
+                    <span className="tv-vessel-meta">IMO {v.imo_number || 'N/A'} | Flag {v.flag || 'N/A'}</span>
+                    <div style={{ marginTop: 6, width: '100%', height: 4, background: 'rgba(255,255,255,0.1)', borderRadius: 2, overflow: 'hidden' }}>
+                      <div style={{ width: `${vRate}%`, height: '100%', background: vRate >= 80 ? 'var(--status-green)' : vRate >= 50 ? 'var(--status-yellow)' : 'var(--status-red)', transition: 'width 0.4s ease' }} />
+                    </div>
+                  </div>
+                  <div className="tv-vessel-status-indicator" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+                    <span className={`tv-indicator-circle ${v.status === 'Imminent' ? 'red' : v.status === 'Attention' ? 'yellow' : v.status === 'Suivi' ? 'green' : 'normal'}`}></span>
+                    <span style={{ fontSize: 11, fontWeight: 700, opacity: 0.8 }}>{vRate}%</span>
+                  </div>
                 </div>
-                <div className="tv-vessel-status-indicator">
-                  <span className={`tv-indicator-circle ${v.status === 'Imminent' ? 'red' : v.status === 'Attention' ? 'yellow' : v.status === 'Suivi' ? 'green' : 'normal'}`}></span>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
 
@@ -75,19 +84,43 @@ export const TvModeView: React.FC<TvModeViewProps> = ({
           <div className="tv-summary-widgets">
             <div className="tv-widget tv-widget-red">
               <span className="widget-label">{t('widget_urgent')}</span>
-              <span className="widget-value">{vessels.reduce((acc, curr) => acc + curr.counts.red, 0)}</span>
+              <span className="widget-value">
+                {vessels.reduce((acc, curr) => acc + (curr.counts?.urgent ?? ((curr.counts?.overdue || 0) + (curr.counts?.red || 0))), 0)}
+              </span>
             </div>
             <div className="tv-widget tv-widget-yellow">
               <span className="widget-label">{t('widget_attention')}</span>
-              <span className="widget-value">{vessels.reduce((acc, curr) => acc + curr.counts.yellow, 0)}</span>
+              <span className="widget-value">{vessels.reduce((acc, curr) => acc + (curr.counts?.yellow || 0), 0)}</span>
             </div>
             <div className="tv-widget tv-widget-green">
               <span className="widget-label">{t('tv_fleet_compliance')}</span>
               <span className="widget-value">
-                {vessels.reduce((acc, curr) => acc + curr.counts.total, 0) > 0
-                  ? Math.round((vessels.reduce((acc, curr) => acc + curr.counts.normal + curr.counts.green, 0) / vessels.reduce((acc, curr) => acc + curr.counts.total, 0)) * 100)
+                {vessels.reduce((acc, curr) => acc + (curr.counts?.total || 0), 0) > 0
+                  ? Math.round(
+                      (vessels.reduce((acc, curr) => acc + (curr.counts?.normal || 0) + (curr.counts?.green || 0), 0) /
+                        vessels.reduce((acc, curr) => acc + (curr.counts?.total || 0), 0)) *
+                        100
+                    )
                   : 100}%
               </span>
+              <div style={{ marginTop: 6, width: '100%', height: 4, background: 'rgba(255,255,255,0.15)', borderRadius: 2, overflow: 'hidden' }}>
+                <div
+                  style={{
+                    width: `${
+                      vessels.reduce((acc, curr) => acc + (curr.counts?.total || 0), 0) > 0
+                        ? Math.round(
+                            (vessels.reduce((acc, curr) => acc + (curr.counts?.normal || 0) + (curr.counts?.green || 0), 0) /
+                              vessels.reduce((acc, curr) => acc + (curr.counts?.total || 0), 0)) *
+                              100
+                          )
+                        : 100
+                    }%`,
+                    height: '100%',
+                    background: 'var(--status-green)',
+                    transition: 'width 0.5s ease',
+                  }}
+                />
+              </div>
             </div>
           </div>
 

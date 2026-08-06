@@ -27,10 +27,14 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
     setActiveView('fleet');
   };
 
+  const handleStatCardClick = () => {
+    setActiveView('fleet');
+  };
+
   return (
     <section className="app-view active">
       <div className="stats-grid">
-        <div className="stat-card stat-total">
+        <div className="stat-card stat-total" style={{ cursor: 'pointer' }} onClick={handleStatCardClick}>
           <div className="stat-icon icon-svg" style={{ color: 'var(--primary-color)' }}>
             <ShipIcon size={24} />
           </div>
@@ -39,7 +43,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
             <div className="stat-number">{vessels.length}</div>
           </div>
         </div>
-        <div className="stat-card stat-red">
+        <div className="stat-card stat-red" style={{ cursor: 'pointer' }} onClick={handleStatCardClick}>
           <div className="stat-icon icon-svg" style={{ color: 'var(--status-red)' }}>
             <AlertIcon size={24} />
           </div>
@@ -48,7 +52,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
             <div className="stat-number">{urgentCount}</div>
           </div>
         </div>
-        <div className="stat-card stat-yellow">
+        <div className="stat-card stat-yellow" style={{ cursor: 'pointer' }} onClick={handleStatCardClick}>
           <div className="stat-icon icon-svg" style={{ color: 'var(--status-yellow)' }}>
             <WarningIcon size={24} />
           </div>
@@ -57,13 +61,38 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
             <div className="stat-number">{warningCount}</div>
           </div>
         </div>
-        <div className="stat-card stat-green">
+        <div className="stat-card stat-green" style={{ cursor: 'pointer' }} onClick={handleStatCardClick}>
           <div className="stat-icon icon-svg" style={{ color: 'var(--status-green)' }}>
             <CheckIcon size={24} />
           </div>
           <div className="stat-details">
             <h3>{t('widget_monitored')}</h3>
             <div className="stat-number">{greenCount}</div>
+          </div>
+        </div>
+      </div>
+
+      {/* ─── OPTION 2: CATEGORY BREAKDOWN ─────────────────────────────────── */}
+      <div className="card glass" style={{ marginBottom: 24, padding: '16px 20px' }}>
+        <h2 style={{ fontSize: 15, marginBottom: 12 }}>{t('category_breakdown_title')}</h2>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16 }}>
+          <div style={{ background: 'rgba(255,255,255,0.02)', padding: '12px 16px', borderRadius: 8, border: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontWeight: 600, fontSize: 13, color: 'var(--text-secondary)' }}>⚓ {t('cat_class_alerts')}</span>
+            <span className="badge badge-red" style={{ fontSize: 13, padding: '4px 10px' }}>
+              {vessels.reduce((acc, curr) => acc + (curr.counts?.urgent || curr.counts?.red || 0), 0)} {t('lbl_urgents')}
+            </span>
+          </div>
+          <div style={{ background: 'rgba(255,255,255,0.02)', padding: '12px 16px', borderRadius: 8, border: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontWeight: 600, fontSize: 13, color: 'var(--text-secondary)' }}>🚩 {t('cat_flag_alerts')}</span>
+            <span className="badge badge-yellow" style={{ fontSize: 13, padding: '4px 10px' }}>
+              {vessels.reduce((acc, curr) => acc + (curr.counts?.yellow || 0), 0)} {t('lbl_warnings')}
+            </span>
+          </div>
+          <div style={{ background: 'rgba(255,255,255,0.02)', padding: '12px 16px', borderRadius: 8, border: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontWeight: 600, fontSize: 13, color: 'var(--text-secondary)' }}>🛠️ {t('cat_servicing_alerts')}</span>
+            <span className="badge badge-green" style={{ fontSize: 13, padding: '4px 10px' }}>
+              {vessels.reduce((acc, curr) => acc + (curr.counts?.green || 0), 0)} {t('label_monitored')}
+            </span>
           </div>
         </div>
       </div>
@@ -95,11 +124,49 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
                     </span>
                   </div>
                   <span className={`badge ${v.status === 'Imminent' ? 'badge-red' : 'badge-yellow'}`}>
-                    {v.counts?.red || 0} {t('lbl_urgents')} | {v.counts?.yellow || 0} {t('lbl_warnings')}
+                    {(v.counts?.urgent ?? ((v.counts?.overdue || 0) + (v.counts?.red || 0)))} {t('lbl_urgents')} | {v.counts?.yellow || 0} {t('lbl_warnings')}
                   </span>
                 </div>
               ))
             )}
+          </div>
+        </div>
+      </div>
+
+      {/* ─── OPTION 3: 90-DAY SURVEY FORECAST WIDGET ───────────────────────── */}
+      <div className="card glass" style={{ marginTop: 24, padding: '18px 22px' }}>
+        <h2 style={{ fontSize: 16, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
+          📅 {t('forecast_title')}
+        </h2>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
+          <div style={{ background: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239, 68, 68, 0.25)', borderRadius: 10, padding: '14px 18px' }}>
+            <span style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', color: 'var(--status-red)', letterSpacing: '0.5px' }}>
+              {t('month_current')}
+            </span>
+            <div style={{ fontSize: 24, fontWeight: 800, color: '#fff', margin: '6px 0 2px' }}>
+              {urgentCount}
+            </div>
+            <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{t('surveys_count')}</span>
+          </div>
+
+          <div style={{ background: 'rgba(245, 158, 11, 0.08)', border: '1px solid rgba(245, 158, 11, 0.25)', borderRadius: 10, padding: '14px 18px' }}>
+            <span style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', color: 'var(--status-yellow)', letterSpacing: '0.5px' }}>
+              {t('month_next')}
+            </span>
+            <div style={{ fontSize: 24, fontWeight: 800, color: '#fff', margin: '6px 0 2px' }}>
+              {warningCount}
+            </div>
+            <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{t('surveys_count')}</span>
+          </div>
+
+          <div style={{ background: 'rgba(16, 185, 129, 0.08)', border: '1px solid rgba(16, 185, 129, 0.25)', borderRadius: 10, padding: '14px 18px' }}>
+            <span style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', color: 'var(--status-green)', letterSpacing: '0.5px' }}>
+              {t('month_plus2')}
+            </span>
+            <div style={{ fontSize: 24, fontWeight: 800, color: '#fff', margin: '6px 0 2px' }}>
+              {greenCount}
+            </div>
+            <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{t('surveys_count')}</span>
           </div>
         </div>
       </div>
