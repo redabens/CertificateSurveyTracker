@@ -53,7 +53,7 @@ export class CertificatesService {
       data: {
         vesselId: c.vessel_id,
         name: c.name,
-        category: c.category || 'Class',
+        category: c.category,
         organization: c.organization ?? null,
         issuingDate: c.issuing_date ?? null,
         expirationDate: c.expiration_date ?? null,
@@ -67,21 +67,19 @@ export class CertificatesService {
   }
 
   async update(id: number, c: any): Promise<void> {
-    const data: any = {
-      organization: c.organization ?? null,
-      issuingDate: c.issuing_date ?? null,
-      expirationDate: c.expiration_date ?? null,
-      dueDate: c.due_date ?? null,
-      window: c.window ?? null,
-      alarmStatus: c.alarm_status ?? 'N/A',
-      remarks: c.remarks ?? null,
-    };
-    if (c.name) data.name = c.name;
-    if (c.category) data.category = c.category;
-
     await this.prisma.certificate.update({
       where: { id },
-      data,
+      data: {
+        ...(c.name && { name: c.name }),
+        ...(c.category && { category: c.category }),
+        organization: c.organization ?? null,
+        issuingDate: c.issuing_date ?? null,
+        expirationDate: c.expiration_date ?? null,
+        dueDate: c.due_date ?? null,
+        window: c.window ?? null,
+        alarmStatus: c.alarm_status ?? 'N/A',
+        remarks: c.remarks ?? null,
+      },
     });
   }
 
