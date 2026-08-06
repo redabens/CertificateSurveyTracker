@@ -121,7 +121,6 @@
   "chart_lbl_warning": "Warning (30d-90d)",
   "chart_lbl_monitored": "Monitored (90d-180d)",
   "chart_lbl_compliant": "Compliant (>180d)",
-  "need_compliance_action": "Requires urgent compliance action",
   "forecast_title": "90-Day Survey Forecast (Next 3 Months)",
   "month_current": "Current Month",
   "month_next": "Next Month",
