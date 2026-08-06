@@ -1215,7 +1215,10 @@ export function useDashboard(chartRef: RefObject<HTMLCanvasElement | null>) {
 
   const filteredCerts = certificates.filter(c => {
     if (certSearch && !c.name.toLowerCase().includes(certSearch.toLowerCase())) return false;
-    if (certCategory !== 'ALL' && c.category !== certCategory) return false;
+    if (certCategory !== 'ALL') {
+      if (certCategory === 'Class' && c.category !== 'Class' && c.category !== 'Statutory') return false;
+      if (certCategory !== 'Class' && c.category !== certCategory) return false;
+    }
     if (certStatus !== 'ALL') {
       const isRed = c.alarm_status.includes('RED') || c.alarm_status.includes('OVERDUE');
       const isYellow = c.alarm_status.includes('YELLOW');
