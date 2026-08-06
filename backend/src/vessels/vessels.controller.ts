@@ -86,12 +86,10 @@ export class VesselsController {
       const green = alarmLevels.filter((a) => a.includes('GREEN')).length;
       const normal = alarmLevels.filter((a) => a.includes('MONITOR')).length;
 
-      const classCerts = certs.filter(
-        (c) => c.category === 'Class' || c.category === 'Statutory',
-      ).length;
+      const classCerts = certs.filter((c) => c.category === 'Class').length;
       const flagCerts = certs.filter((c) => c.category === 'Flag').length;
       const servicingCerts = certs.filter(
-        (c) => c.category === 'Servicing',
+        (c) => c.category === 'Servicing' || c.category === 'Statutory',
       ).length;
 
       results.push({
