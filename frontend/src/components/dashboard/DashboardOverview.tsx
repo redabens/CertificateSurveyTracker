@@ -72,26 +72,26 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
         </div>
       </div>
 
-      {/* ─── OPTION 2: CATEGORY BREAKDOWN ─────────────────────────────────── */}
+      {/* ─── CATEGORY BREAKDOWN ─────────────────────────────────── */}
       <div className="card glass" style={{ marginBottom: 24, padding: '16px 20px' }}>
         <h2 style={{ fontSize: 15, marginBottom: 12 }}>{t('category_breakdown_title')}</h2>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16 }}>
           <div style={{ background: 'rgba(255,255,255,0.02)', padding: '12px 16px', borderRadius: 8, border: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ fontWeight: 600, fontSize: 13, color: 'var(--text-secondary)' }}>⚓ {t('cat_class_alerts')}</span>
-            <span className="badge badge-red" style={{ fontSize: 13, padding: '4px 10px' }}>
-              {vessels.reduce((acc, curr) => acc + (curr.counts?.urgent || curr.counts?.red || 0), 0)} {t('lbl_urgents')}
+            <span className="badge badge-normal" style={{ fontSize: 13, padding: '4px 10px' }}>
+              {vessels.reduce((acc, curr) => acc + (curr.counts?.classCerts || 0), 0)} {t('tab_certs')}
             </span>
           </div>
           <div style={{ background: 'rgba(255,255,255,0.02)', padding: '12px 16px', borderRadius: 8, border: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ fontWeight: 600, fontSize: 13, color: 'var(--text-secondary)' }}>🚩 {t('cat_flag_alerts')}</span>
-            <span className="badge badge-yellow" style={{ fontSize: 13, padding: '4px 10px' }}>
-              {vessels.reduce((acc, curr) => acc + (curr.counts?.yellow || 0), 0)} {t('lbl_warnings')}
+            <span className="badge badge-normal" style={{ fontSize: 13, padding: '4px 10px' }}>
+              {vessels.reduce((acc, curr) => acc + (curr.counts?.flagCerts || 0), 0)} {t('tab_certs')}
             </span>
           </div>
           <div style={{ background: 'rgba(255,255,255,0.02)', padding: '12px 16px', borderRadius: 8, border: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ fontWeight: 600, fontSize: 13, color: 'var(--text-secondary)' }}>🛠️ {t('cat_servicing_alerts')}</span>
-            <span className="badge badge-green" style={{ fontSize: 13, padding: '4px 10px' }}>
-              {vessels.reduce((acc, curr) => acc + (curr.counts?.green || 0), 0)} {t('label_monitored')}
+            <span className="badge badge-normal" style={{ fontSize: 13, padding: '4px 10px' }}>
+              {vessels.reduce((acc, curr) => acc + (curr.counts?.servicingCerts || 0), 0)} {t('tab_certs')}
             </span>
           </div>
         </div>
