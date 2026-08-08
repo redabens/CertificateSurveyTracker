@@ -238,18 +238,24 @@ export default function Dashboard() {
                 )}
               </nav>
               <div className="sidebar-footer">
-                <div className="user-profile">
-                  <div className="avatar icon-svg" style={{ background: 'rgba(156, 163, 175, 0.1)', borderRadius: 'var(--border-radius-md)', width: 36, height: 36, color: 'var(--text-secondary)' }}>
-                    <UserIcon size={18} />
-                  </div>
-                  <div className="profile-info">
-                    <div className="profile-name">{user.full_name}</div>
-                    <div className="profile-role" id="currentUserRoleBadge">
-                      {user.role === 'Admin' ? t('role_admin') : user.role === 'Crew' ? t('role_crew') : user.role === 'Manager' ? t('role_partner') : t('role_auditor')}
+                {(() => {
+                  const roleText = user.role === 'Admin' ? t('role_admin') : user.role === 'Crew' ? t('role_crew') : user.role === 'Manager' ? t('role_partner') : t('role_auditor');
+                  const fullTooltip = `${user.full_name} (${roleText})`;
+                  return (
+                    <div className="user-profile" title={fullTooltip}>
+                      <div className="avatar icon-svg" style={{ background: 'rgba(156, 163, 175, 0.1)', borderRadius: 'var(--border-radius-md)', width: 36, height: 36, color: 'var(--text-secondary)' }} title={fullTooltip}>
+                        <UserIcon size={18} />
+                      </div>
+                      <div className="profile-info" title={fullTooltip}>
+                        <div className="profile-name" title={user.full_name}>{user.full_name}</div>
+                        <div className="profile-role" id="currentUserRoleBadge" title={roleText}>
+                          {roleText}
+                        </div>
+                      </div>
+                      <button className="btn-logout icon-svg" onClick={logout} title={t('btn_logout')}><LogoutIcon size={18} /></button>
                     </div>
-                  </div>
-                  <button className="btn-logout icon-svg" onClick={logout} title={t('btn_logout')}><LogoutIcon size={18} /></button>
-                </div>
+                  );
+                })()}
               </div>
             </aside>
 
