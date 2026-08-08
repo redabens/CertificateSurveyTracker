@@ -362,10 +362,7 @@ export class VesselsController {
         parseInt(id),
         lang,
       );
-      const safeFileName = generated.fileName.replace(
-        /[^a-zA-Z0-9_\-\.]/g,
-        '_',
-      );
+      const safeFileName = generated.fileName.replace(/[^a-zA-Z0-9_\-.]/g, '_');
 
       res.download(generated.excelPath, safeFileName, (err: any) => {
         if (generated) {
