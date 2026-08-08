@@ -18,6 +18,7 @@ import { VesselsService } from './vessels.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
+import { CrewVesselGuard } from '../auth/crew-vessel.guard';
 import { AlarmService } from '../alarm/alarm.service';
 import { AuditService } from '../audit/audit.service';
 import { EmailService } from '../email/email.service';
@@ -331,6 +332,7 @@ export class VesselsController {
   }
 
   @Get(':id/export')
+  @UseGuards(CrewVesselGuard)
   async exportExcel(
     @Res() res: any,
     @Param('id') id: string,
@@ -339,14 +341,52 @@ export class VesselsController {
   ) {
     const queryLang = langFromQuery || req.query.lang;
     const lang = queryLang || 'en';
-    const { excelPath, jsonPath, fileName } =
-      await this.vesselsService.generateExcelExport(parseInt(id), lang);
 
-    res.download(excelPath, fileName, (err: any) => {
-      if (fs.existsSync(jsonPath)) fs.unlinkSync(jsonPath);
-      if (fs.existsSync(excelPath)) fs.unlinkSync(excelPath);
-      if (err) console.error('[Export Error]', err);
-    });
+    // Enforce strict security & anti-caching headers
+    res.setHeader(
+      'Cache-Control',
+      'no-store, no-cache, must-revalidate, private',
+    );
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+
+    let generated: {
+      excelPath: string;
+      jsonPath: string;
+      fileName: string;
+    } | null = null;
+
+    try {
+      generated = await this.vesselsService.generateExcelExport(
+        parseInt(id),
+        lang,
+      );
+      const safeFileName = generated.fileName.replace(
+        /[^a-zA-Z0-9_\-\.]/g,
+        '_',
+      );
+
+      res.download(generated.excelPath, safeFileName, (err: any) => {
+        if (generated) {
+          if (fs.existsSync(generated.jsonPath))
+            fs.unlinkSync(generated.jsonPath);
+          if (fs.existsSync(generated.excelPath))
+            fs.unlinkSync(generated.excelPath);
+        }
+        if (err) console.error('[Export Error]', err);
+      });
+    } catch (err) {
+      if (generated) {
+        if (fs.existsSync(generated.jsonPath))
+          fs.unlinkSync(generated.jsonPath);
+        if (fs.existsSync(generated.excelPath))
+          fs.unlinkSync(generated.excelPath);
+      }
+      throw new BadRequestException(
+        "Erreur lors de la génération de l'export: " + (err as Error).message,
+      );
+    }
   }
 
   @Get(':id/emails')
