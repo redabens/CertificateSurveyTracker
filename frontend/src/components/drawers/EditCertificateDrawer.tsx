@@ -128,34 +128,82 @@ export function EditCertificateDrawer({
   };
 
   const handleAutoFill = () => {
+    let startYearDate: Date | null = null;
     if (dates[0]) {
-      const baseDate = new Date(dates[0]);
-      if (isNaN(baseDate.getTime())) return;
-
-      const newDates = Array.from({ length: 5 }, (_, i) => {
-        const d = new Date(baseDate);
-        d.setFullYear(baseDate.getFullYear() + i);
-        return d.toISOString().substring(0, 10);
-      });
-
-      saveDueDateState(newDates, intermediateDate);
-      return;
+      startYearDate = new Date(dates[0]);
+    } else if (certForm.issuing_date) {
+      const issue = new Date(certForm.issuing_date);
+      if (!isNaN(issue.getTime())) {
+        startYearDate = new Date(issue);
+        startYearDate.setFullYear(issue.getFullYear() + 1);
+      }
     }
 
-    if (!certForm.issuing_date) {
+    if (!startYearDate || isNaN(startYearDate.getTime())) {
       alert(t('alert_fill_issuing_date'));
       return;
     }
-    const baseDate = new Date(certForm.issuing_date);
-    if (isNaN(baseDate.getTime())) return;
+
+    const expTime = certForm.expiration_date ? new Date(certForm.expiration_date).getTime() : null;
 
     const newDates = Array.from({ length: 5 }, (_, i) => {
-      const d = new Date(baseDate);
-      d.setFullYear(baseDate.getFullYear() + i + 1);
-      return d.toISOString().substring(0, 10);
+      const d = new Date(startYearDate!);
+      d.setFullYear(startYearDate!.getFullYear() + i);
+      const isoStr = d.toISOString().substring(0, 10);
+      if (expTime && d.getTime() >= expTime) {
+        return '';
+      }
+      return isoStr;
     });
 
     saveDueDateState(newDates, intermediateDate);
+  };
+
+  const handleFormSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+
+    // 1. Issue Date vs Expiry Date validation
+    if (certForm.issuing_date && certForm.expiration_date) {
+      const issue = new Date(certForm.issuing_date);
+      const exp = new Date(certForm.expiration_date);
+
+      if (exp.getTime() <= issue.getTime()) {
+        alert("La date d'expiration doit être supérieure à la date d'émission.");
+        return;
+      }
+
+      const yearDiff = exp.getFullYear() - issue.getFullYear();
+      const daysDiff = (exp.getTime() - issue.getTime()) / (1000 * 3600 * 24);
+
+      if (daysDiff > 6 * 366 || yearDiff > 6) {
+        alert("L'écart entre la date d'émission et la date d'expiration ne doit pas dépasser 6 ans.");
+        return;
+      }
+    }
+
+    // 2. Annual Survey dates validation
+    if (certForm.issuing_date || certForm.expiration_date) {
+      const issueTime = certForm.issuing_date ? new Date(certForm.issuing_date).getTime() : null;
+      const expTime = certForm.expiration_date ? new Date(certForm.expiration_date).getTime() : null;
+
+      for (let i = 0; i < dates.length; i++) {
+        const dStr = dates[i];
+        if (!dStr) continue;
+        const tVal = new Date(dStr).getTime();
+        if (isNaN(tVal)) continue;
+
+        if (issueTime && tVal <= issueTime) {
+          alert(`La date de la visite annuelle ${i + 1} (${dStr}) doit être supérieure à la date d'émission.`);
+          return;
+        }
+        if (expTime && tVal >= expTime) {
+          alert(`La date de la visite annuelle ${i + 1} (${dStr}) doit être inférieure à la date d'expiration.`);
+          return;
+        }
+      }
+    }
+
+    onSubmit(e);
   };
 
   const handleDateChange = (index: number, value: string) => {
@@ -213,7 +261,7 @@ export function EditCertificateDrawer({
             <CloseIcon size={18} />
           </span>
         </div>
-        <form onSubmit={onSubmit} className="flex-column" style={{ flexGrow: 1, minHeight: 0, overflow: 'hidden' }}>
+        <form onSubmit={handleFormSubmit} className="flex-column" style={{ flexGrow: 1, minHeight: 0, overflow: 'hidden' }}>
           <div className="drawer-body">
             {/* Name */}
             <div className="form-group" style={{ marginBottom: '16px' }}>

@@ -184,29 +184,33 @@ export function useDashboard(chartRef: RefObject<HTMLCanvasElement | null>) {
     try {
       const date = new Date(dateStr);
       if (isNaN(date.getTime())) return dateStr;
-      return new Intl.DateTimeFormat(t('locale'), {
-        year: 'numeric', month: 'short', day: 'numeric'
-      }).format(date);
+      const day = String(date.getDate()).padStart(2, '0');
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const year = date.getFullYear();
+      return `${day}/${month}/${year}`;
     } catch (err) {
       console.error('[useDashboard] formatDateString error:', err);
       return dateStr;
     }
-  }, [t]);
+  }, []);
 
   const formatDateTimeString = useCallback((dateTimeStr: string) => {
     if (!dateTimeStr) return '-';
     try {
       const date = new Date(dateTimeStr.replace(' ', 'T'));
       if (isNaN(date.getTime())) return dateTimeStr;
-      return new Intl.DateTimeFormat(t('locale'), {
-        year: 'numeric', month: 'short', day: 'numeric',
-        hour: '2-digit', minute: '2-digit', second: '2-digit'
-      }).format(date);
+      const day = String(date.getDate()).padStart(2, '0');
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const year = date.getFullYear();
+      const hours = String(date.getHours()).padStart(2, '0');
+      const mins = String(date.getMinutes()).padStart(2, '0');
+      const secs = String(date.getSeconds()).padStart(2, '0');
+      return `${day}/${month}/${year} ${hours}:${mins}:${secs}`;
     } catch (err) {
       console.error('[useDashboard] formatDateTimeString error:', err);
       return dateTimeStr;
     }
-  }, [t]);
+  }, []);
 
   const formatDueDateWithWindow = useCallback((
     dueStr: string | null | undefined,
@@ -264,9 +268,10 @@ export function useDashboard(chartRef: RefObject<HTMLCanvasElement | null>) {
     try {
       const date = new Date(targetDateStr);
       if (!isNaN(date.getTime())) {
-        formattedDate = new Intl.DateTimeFormat(t('locale'), {
-          year: 'numeric', month: 'short', day: 'numeric'
-        }).format(date);
+        const day = String(date.getDate()).padStart(2, '0');
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const year = date.getFullYear();
+        formattedDate = `${day}/${month}/${year}`;
       }
     } catch (err) {
       console.error('[useDashboard] Date formatting error:', err);
