@@ -325,7 +325,7 @@ export default function Dashboard() {
                     ) : (
                       <div>
                         <div className="vessel-detail-header">
-                          <div>
+                          <div style={{ minWidth: 0, flex: 1 }}>
                             <h2>{selectedVessel.name}</h2>
                             <p className="vessel-meta-sub">
                               IMO: {selectedVessel.imo_number || 'N/A'} | Flag: {selectedVessel.flag || 'N/A'} | Type: {selectedVessel.asset_type || 'N/A'}

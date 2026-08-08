@@ -1,5 +1,4 @@
 {
-  "locale": "en-GB",
   "logo_tracker": "Tracker",
   "nav_dashboard": "Dashboard",
   "nav_fleet": "My Fleet",
@@ -81,7 +80,7 @@
   "login_email": "Email Address",
   "login_password": "Password",
   "pdf_viewer_title": "PDF Certificate Preview",
-  "locale": "en-US",
+  "locale": "en-GB",
   "visits_suffix": " (📅 {count} surv.)",
   "no_data": "No Data",
   "toast_vessel_imported": "Vessel imported successfully!",
