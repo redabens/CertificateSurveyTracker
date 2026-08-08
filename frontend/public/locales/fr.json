@@ -1,4 +1,5 @@
 {
+  "locale": "fr-FR",
   "logo_tracker": "Tracker",
   "nav_dashboard": "Tableau de bord",
   "nav_fleet": "Ma Flotte",
@@ -80,7 +81,6 @@
   "login_email": "Adresse E-mail",
   "login_password": "Mot de passe",
   "pdf_viewer_title": "Prévisualisation du Certificat PDF",
-  "locale": "fr-FR",
   "visits_suffix": " (📅 {count} vis.)",
   "no_data": "Aucune donnée",
   "toast_vessel_imported": "Navire importé avec succès !",
