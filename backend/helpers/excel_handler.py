@@ -335,12 +335,24 @@ def cmd_format(template_path, output_path, data_json_path):
         lbl_green = "GREEN - 3 TO 6 MONTHS"
         lbl_monitor = "MONITOR >6 MONTHS"
 
-    # Update certificates in Excel sheet
-    for cert in certificates:
-        row = cert.get('excel_row')
-        if not row:
-            continue
-        
+    # Write Title
+    if vessel.get('name'):
+        sheet['A1'] = f"VESSEL CERTIFICATE & PERIODICAL SURVEY TRACKER - {vessel.get('name').upper()}"
+
+    # Clear existing template certificate rows starting from row 9 to row 120
+    for r in range(9, 120):
+        for c in range(1, 9):
+            cell = sheet.cell(row=r, column=c)
+            cell.value = None
+            cell.fill = PatternFill(fill_type=None)
+
+    # Write certificates in Excel sheet starting dynamically at row 9
+    for idx, cert in enumerate(certificates):
+        row = 9 + idx
+
+        sheet[f'A{row}'] = cert.get('name', '')
+        sheet[f'B{row}'] = cert.get('organization', '') or ''
+
         # Write Dates (convert back to datetime objects for openpyxl)
         def write_date_cell(col_name, date_str):
             cell = sheet[f'{col_name}{row}']
@@ -363,7 +375,6 @@ def cmd_format(template_path, output_path, data_json_path):
             sheet[f'H{row}'] = cert.get('remarks')
 
         # Overwrite formula in Column G
-        # G row formula
         formula = (
             f'=IF($E{row}="","{lbl_na}",'
             f'IF($E{row}<TODAY(),"{lbl_overdue}",'
@@ -374,7 +385,7 @@ def cmd_format(template_path, output_path, data_json_path):
         sheet[f'G{row}'] = formula
 
         # Apply cell-level fill colors directly for static visual compliance
-        alarm_status = cert.get('alarm_status', '').upper()
+        alarm_status = (cert.get('alarm_status') or '').upper()
         cell_g = sheet[f'G{row}']
         if 'RED' in alarm_status or 'OVERDUE' in alarm_status or 'IMMEDIATE' in alarm_status:
             cell_g.fill = red_fill
@@ -389,7 +400,6 @@ def cmd_format(template_path, output_path, data_json_path):
             cell_g.fill = gray_fill
             cell_g.font = gray_font
         else:
-            # Clear formatting/use gray
             cell_g.fill = gray_fill
             cell_g.font = gray_font
 
