@@ -343,19 +343,27 @@ def cmd_format(template_path, output_path, data_json_path):
     for r in range(9, 120):
         for c in range(1, 9):
             cell = sheet.cell(row=r, column=c)
-            cell.value = None
-            cell.fill = PatternFill(fill_type=None)
+            if type(cell).__name__ != 'MergedCell':
+                cell.value = None
+                cell.fill = PatternFill(fill_type=None)
 
     # Write certificates in Excel sheet starting dynamically at row 9
     for idx, cert in enumerate(certificates):
         row = 9 + idx
 
-        sheet[f'A{row}'] = cert.get('name', '')
-        sheet[f'B{row}'] = cert.get('organization', '') or ''
+        cell_a = sheet[f'A{row}']
+        if type(cell_a).__name__ != 'MergedCell':
+            cell_a.value = cert.get('name', '')
+
+        cell_b = sheet[f'B{row}']
+        if type(cell_b).__name__ != 'MergedCell':
+            cell_b.value = cert.get('organization', '') or ''
 
         # Write Dates (convert back to datetime objects for openpyxl)
         def write_date_cell(col_name, date_str):
             cell = sheet[f'{col_name}{row}']
+            if type(cell).__name__ == 'MergedCell':
+                return
             if date_str:
                 try:
                     cell.value = datetime.datetime.strptime(date_str, '%Y-%m-%d')
@@ -369,39 +377,42 @@ def cmd_format(template_path, output_path, data_json_path):
         write_date_cell('D', cert.get('expiration_date'))
         write_date_cell('E', cert.get('due_date'))
 
-        if cert.get('window') is not None:
-            sheet[f'F{row}'] = cert.get('window')
-        if cert.get('remarks') is not None:
-            sheet[f'H{row}'] = cert.get('remarks')
+        cell_f = sheet[f'F{row}']
+        if type(cell_f).__name__ != 'MergedCell' and cert.get('window') is not None:
+            cell_f.value = cert.get('window')
 
-        # Overwrite formula in Column G
-        formula = (
-            f'=IF($E{row}="","{lbl_na}",'
-            f'IF($E{row}<TODAY(),"{lbl_overdue}",'
-            f'IF($E{row}<=TODAY()+30,"{lbl_red}",'
-            f'IF($E{row}<=TODAY()+90,"{lbl_yellow}",'
-            f'IF($E{row}<=TODAY()+180,"{lbl_green}","{lbl_monitor}")))))'
-        )
-        sheet[f'G{row}'] = formula
+        cell_h = sheet[f'H{row}']
+        if type(cell_h).__name__ != 'MergedCell' and cert.get('remarks') is not None:
+            cell_h.value = cert.get('remarks')
 
-        # Apply cell-level fill colors directly for static visual compliance
-        alarm_status = (cert.get('alarm_status') or '').upper()
         cell_g = sheet[f'G{row}']
-        if 'RED' in alarm_status or 'OVERDUE' in alarm_status or 'IMMEDIATE' in alarm_status:
-            cell_g.fill = red_fill
-            cell_g.font = red_font
-        elif 'YELLOW' in alarm_status:
-            cell_g.fill = yellow_fill
-            cell_g.font = yellow_font
-        elif 'GREEN' in alarm_status:
-            cell_g.fill = green_fill
-            cell_g.font = green_font
-        elif 'N/A' in alarm_status:
-            cell_g.fill = gray_fill
-            cell_g.font = gray_font
-        else:
-            cell_g.fill = gray_fill
-            cell_g.font = gray_font
+        if type(cell_g).__name__ != 'MergedCell':
+            formula = (
+                f'=IF($E{row}="","{lbl_na}",'
+                f'IF($E{row}<TODAY(),"{lbl_overdue}",'
+                f'IF($E{row}<=TODAY()+30,"{lbl_red}",'
+                f'IF($E{row}<=TODAY()+90,"{lbl_yellow}",'
+                f'IF($E{row}<=TODAY()+180,"{lbl_green}","{lbl_monitor}")))))'
+            )
+            cell_g.value = formula
+
+            # Apply cell-level fill colors directly for static visual compliance
+            alarm_status = (cert.get('alarm_status') or '').upper()
+            if 'RED' in alarm_status or 'OVERDUE' in alarm_status or 'IMMEDIATE' in alarm_status:
+                cell_g.fill = red_fill
+                cell_g.font = red_font
+            elif 'YELLOW' in alarm_status:
+                cell_g.fill = yellow_fill
+                cell_g.font = yellow_font
+            elif 'GREEN' in alarm_status:
+                cell_g.fill = green_fill
+                cell_g.font = green_font
+            elif 'N/A' in alarm_status:
+                cell_g.fill = gray_fill
+                cell_g.font = gray_font
+            else:
+                cell_g.fill = gray_fill
+                cell_g.font = gray_font
 
     # Actionable items sheet
     if 'Actionable Items' in wb.sheetnames and 'actionable_items' in data:
